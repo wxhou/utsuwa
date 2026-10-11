@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { isTauri } from '$lib/services/platform/platform';
 	import { ttsStore } from '$lib/stores/tts.svelte';
 	import { sttStore } from '$lib/stores/stt.svelte';
@@ -139,7 +140,7 @@
 	>
 		<Icon name="alert" size={16} />
 		<span>{sttStore.error}</span>
-		<button type="button" class="dismiss-btn" aria-label="Dismiss">
+		<button type="button" class="dismiss-btn" aria-label={t('chat.dismiss')}>
 			<Icon name="x" size={14} />
 		</button>
 	</div>
@@ -162,7 +163,7 @@
 		class="privacy-notice"
 		out:pop={{ base: 'translateX(-50%)', y: -10, duration: 200 }}
 		role="dialog"
-		aria-label="Photo privacy"
+		aria-label={t('chat.photoPrivacy')}
 	>
 		<Icon name="camera" size={16} />
 		<span>
@@ -197,7 +198,7 @@
 		{#if chatDraftStore.dropActive}
 			<div class="drop-zone" out:fadeFast={{ duration: 120 }}>
 				<Icon name="camera" size={22} />
-				<span>Drop a photo to show her</span>
+				<span>{t('chat.dropPhoto')}</span>
 			</div>
 		{/if}
 		<div class="bar-row">

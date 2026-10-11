@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { photomodeStore } from '$lib/stores/photomode.svelte';
+	import { t } from '$lib/i18n';
 
 	// Draggable sticker overlay. Positions are viewport fractions, so the
 	// capture composite reproduces exactly what the user arranged. The layer
@@ -64,7 +65,7 @@
 			onlostpointercapture={onStickerUp}
 			onwheel={(e) => onStickerWheel(e, sticker.id)}
 			ondblclick={() => photomodeStore.removeSticker(sticker.id)}
-			title="Drag to move, scroll to resize, double-click to remove"
+			title={t('photomode.dragHint')}
 		/>
 	{/each}
 </div>

@@ -8,6 +8,7 @@
 	import { arStore } from '$lib/stores/ar.svelte';
 	import { getColorMode, cycleColorMode, type ColorMode } from '$lib/utils/color-mode';
 	import { onMount } from 'svelte';
+	import { t } from '$lib/i18n';
 	import type { Reminder } from '$lib/types/memory';
 
 	interface Props {
@@ -50,7 +51,7 @@
 		colorMode === 'system' ? 'monitor' : colorMode === 'light' ? 'sun' : 'moon'
 	);
 	const themeLabel = $derived(
-		colorMode === 'system' ? 'Theme: System' : colorMode === 'light' ? 'Theme: Light' : 'Theme: Dark'
+		t(colorMode === 'system' ? 'ui.themeSystem' : colorMode === 'light' ? 'ui.themeLight' : 'ui.themeDark')
 	);
 
 	onMount(() => {
@@ -116,8 +117,8 @@
 				class="icon-btn"
 				class:active={remindersOpen}
 				onclick={() => (remindersOpen = !remindersOpen)}
-				aria-label="Open reminders"
-				title="Open reminders"
+				aria-label={t('ui.openReminders')}
+				title={t('ui.openReminders')}
 			>
 				<Icon name="bell" size={20} />
 				{#if upcomingReminders.length > 0}
@@ -126,9 +127,9 @@
 			</button>
 			{#if remindersOpen}
 				<div class="reminder-dropdown">
-					<div class="reminder-header">Open tasks</div>
+					<div class="reminder-header">{t('ui.openTasks')}</div>
 					{#if upcomingReminders.length === 0}
-						<div class="reminder-empty">No open tasks or timers</div>
+						<div class="reminder-empty">{t('ui.noOpenTasks')}</div>
 					{:else}
 						<ul class="reminder-list">
 							{#each upcomingReminders as reminder (reminder.id)}
@@ -140,8 +141,8 @@
 									<button
 										class="reminder-delete"
 										onclick={() => deleteReminder(reminder.id)}
-										aria-label="Delete reminder"
-										title="Delete reminder"
+										aria-label={t('ui.deleteReminder')}
+										title={t('ui.deleteReminder')}
 									>
 										<Icon name="trash" size={14} />
 									</button>
@@ -151,7 +152,7 @@
 					{/if}
 
 					{#if recentFired.length > 0}
-						<div class="reminder-header reminder-header--fired">Fired or missed</div>
+						<div class="reminder-header reminder-header--fired">{t('ui.firedOrMissed')}</div>
 						<ul class="reminder-list">
 							{#each recentFired as reminder (reminder.id)}
 								<li class="reminder-item reminder-item--fired">
@@ -162,8 +163,8 @@
 									<button
 										class="reminder-delete"
 										onclick={() => dismissRecentFired(reminder.id)}
-										aria-label="Dismiss reminder"
-										title="Dismiss reminder"
+										aria-label={t('ui.dismissReminder')}
+										title={t('ui.dismissReminder')}
 									>
 										<Icon name="check" size={14} />
 									</button>
@@ -175,20 +176,20 @@
 			{/if}
 		</div>
 		{#if showOverlayBtn}
-			<button class="icon-btn overlay-btn" onclick={launchOverlay} aria-label="Launch overlay" title="Launch Overlay Mode">
+			<button class="icon-btn overlay-btn" onclick={launchOverlay} aria-label={t('ui.launchOverlay')} title={t('ui.launchOverlayMode')}>
 				<Icon name="monitor" size={20} />
 			</button>
 		{/if}
-		<button class="icon-btn" onclick={onInfoClick} aria-label="App info">
+		<button class="icon-btn" onclick={onInfoClick} aria-label={t('ui.appInfo')}>
 			<Icon name="info" size={20} />
 		</button>
 		<button
 			class="icon-btn cluster-trigger"
 			class:open={clusterOpen}
 			onclick={toggleCluster}
-			aria-label="Controls"
+			aria-label={t('ui.controls')}
 			aria-expanded={clusterOpen}
-			title="Controls"
+			title={t('ui.controls')}
 		>
 			<Icon name={clusterOpen ? 'x' : 'sliders'} size={20} />
 		</button>
@@ -200,8 +201,8 @@
 				class="icon-btn cluster-item"
 				style="--i: 0"
 				onclick={() => goto(localPath('app', '/settings'))}
-				aria-label="Settings"
-				title="Settings"
+				aria-label={t('ui.settings')}
+				title={t('ui.settings')}
 			>
 				<Icon name="settings" size={20} />
 			</button>
@@ -210,8 +211,8 @@
 				class:active={showCamera}
 				style="--i: 1"
 				onclick={() => (showCamera = !showCamera)}
-				aria-label="Camera settings"
-				title="Camera"
+				aria-label={t('ui.cameraSettings')}
+				title={t('ui.camera')}
 			>
 				<Icon name="video" size={20} />
 			</button>
@@ -229,8 +230,8 @@
 				class:active={arStore.active}
 				style="--i: 3"
 				onclick={handleArClick}
-				aria-label={arStore.active ? 'Exit AR' : 'Enter AR'}
-				title={arStore.active ? 'Exit AR' : 'View in AR'}
+				aria-label={arStore.active ? t('ui.exitAr') : t('ui.enterAr')}
+				title={arStore.active ? t('ui.exitAr') : t('ui.viewInAr')}
 			>
 				<Icon name="cube" size={20} />
 			</button>

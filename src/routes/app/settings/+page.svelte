@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { t } from '$lib/i18n';
 	import { onMount } from 'svelte';
 	import { localPath } from '$lib/config/links';
 
@@ -9,7 +10,7 @@
 </script>
 
 <div class="redirect">
-	<p>Redirecting to settings...</p>
+	<p>{t('common.loading')}</p>
 </div>
 
 <style>

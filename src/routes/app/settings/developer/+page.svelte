@@ -8,6 +8,7 @@
 	import { debugEventsStore, testEvents } from '$lib/stores/debugEvents.svelte';
 	import { goto } from '$app/navigation';
 	import { localPath } from '$lib/config/links';
+	import { t } from '$lib/i18n';
 
 	// Material debug modes from @pixiv/three-vrm-materials-mtoon
 	const materialDebugModes = [
@@ -290,7 +291,7 @@
 <div class="developer-settings">
 	<div class="page-header">
 		<div>
-			<h2>Developer Tools</h2>
+			<h2>{t('settings.developer.pageTitle')}</h2>
 			<p >Test and debug VRM facial expressions and animations.</p>
 		</div>
 	</div>
@@ -302,7 +303,7 @@
 				<VrmScene centered />
 			</div>
 			<div class="viewport-controls">
-				<button class="btn btn-sm btn-secondary" onclick={resetAll} title="Reset expressions">
+				<button class="btn btn-sm btn-secondary" onclick={resetAll} title={t('settings.developer.resetExpressions')}>
 					<Icon name="refresh-cw" size={16} />
 					Reset
 				</button>
@@ -313,7 +314,7 @@
 		<div class="controls-panel">
 			<!-- Temporary VRM Model Upload -->
 			<section class="section">
-				<h3>Temporary VRM Model</h3>
+				<h3>{t('settings.developer.temporaryVrm')}</h3>
 				<p class="hint">
 					Upload a .vrm file to preview it in the viewport. The model is loaded in memory only
 					and is <strong>not saved</strong>. When you leave this page or click "Restore Original",
@@ -348,10 +349,10 @@
 
 			<!-- Animation Selection -->
 		<section class="section">
-			<h3>Animation</h3>
+			<h3>{t('settings.developer.animation')}</h3>
 			<p class="hint">Select an animation to play on the model.</p>
 			<div class="animation-select">
-				<select class="settings-field" aria-label="Animation"
+				<select class="settings-field" aria-label={t('settings.developer.animation')}
 					value={vrmStore.currentAnimation || 'none'}
 					onchange={(e) => vrmStore.setCurrentAnimation(e.currentTarget.value === 'none' ? null : e.currentTarget.value)}
 				>
@@ -365,10 +366,10 @@
 
 		<!-- Material Debug -->
 		<section class="section">
-			<h3>Material Debug</h3>
+			<h3>{t('settings.developer.materialDebug')}</h3>
 			<p class="hint">Visualize different material properties (MToon).</p>
 			<div class="animation-select">
-				<select class="settings-field" aria-label="Material debug"
+				<select class="settings-field" aria-label={t('settings.developer.materialDebug')}
 					value={currentDebugMode}
 					onchange={(e) => setMaterialDebugMode(e.currentTarget.value)}
 				>
@@ -381,20 +382,20 @@
 
 		<!-- Quick Actions -->
 		<section class="section">
-			<h3>Quick Tests</h3>
+			<h3>{t('settings.developer.quickTests')}</h3>
 			<div class="quick-actions">
-				<button class="btn btn-sm btn-secondary" onclick={testBlink}>Test Blink</button>
-				<button class="btn btn-sm btn-secondary" onclick={testSmile}>Test Smile</button>
-				<button class="btn btn-sm btn-secondary" onclick={testSurprised}>Test Surprised</button>
-				<button class="btn btn-sm btn-secondary" onclick={testSad}>Test Sad</button>
-				<button class="btn btn-sm btn-secondary" onclick={testMouthOpen}>Test Mouth Open</button>
-				<button class="btn btn-sm btn-danger" onclick={resetAll}>Reset All</button>
+				<button class="btn btn-sm btn-secondary" onclick={testBlink}>{t('settings.developer.testBlink')}</button>
+				<button class="btn btn-sm btn-secondary" onclick={testSmile}>{t('settings.developer.testSmile')}</button>
+				<button class="btn btn-sm btn-secondary" onclick={testSurprised}>{t('settings.developer.testSurprised')}</button>
+				<button class="btn btn-sm btn-secondary" onclick={testSad}>{t('settings.developer.testSad')}</button>
+				<button class="btn btn-sm btn-secondary" onclick={testMouthOpen}>{t('settings.developer.testMouthOpen')}</button>
+				<button class="btn btn-sm btn-danger" onclick={resetAll}>{t('settings.display.resetToDefaults')}</button>
 			</div>
 		</section>
 
 		<!-- Events Debug -->
 		<section class="section">
-			<h3>Event System</h3>
+			<h3>{t('settings.developer.eventSystem')}</h3>
 			<p class="hint">Trigger test events to preview the event modal styling.</p>
 			<div class="event-buttons">
 				{#each testEvents as event}
@@ -408,7 +409,7 @@
 
 		<!-- Storage -->
 		<section class="section">
-			<h3>Storage</h3>
+			<h3>{t('settings.developer.storage')}</h3>
 			<p class="hint">Clear cached data from browser storage.</p>
 			<div class="quick-actions">
 				<button class="btn btn-sm btn-danger" onclick={clearVrmStorage} disabled={clearingStorage}>
@@ -422,7 +423,7 @@
 
 		<!-- Available Expressions Info -->
 		<section class="section">
-			<h3>Available Expressions ({availableExpressions.length})</h3>
+			<h3>{t('settings.developer.availableExpressions', { n: availableExpressions.length })}</h3>
 			<p class="hint">This model supports the following expressions:</p>
 			<div class="expression-tags">
 				{#each availableExpressions as expr}

@@ -4,6 +4,7 @@
 	import type { McpAuth, McpServerConfig, McpTransport } from '$lib/types/mcp';
 	import { parseEnvLines, parseQuotedArgs } from '$lib/services/mcp/protocol';
 	import { Button, Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import Switch from '$lib/components/ui/Switch.svelte';
 
 	// ── Form state (shared for add + edit) ──────────────────────────────────
@@ -111,7 +112,7 @@
 
 <div class="page">
 	<header class="page-header">
-		<h2>MCP Servers</h2>
+		<h2>{t('settings.nav.mcp')} Servers</h2>
 		<p>
 			Connect to Model Context Protocol servers to give your companion tools like home control,
 			web search, and more.
@@ -138,7 +139,7 @@
 	{#if mcpStore.serverEnabled}
 		<section class="section">
 			<div class="section-header">
-				<h3>Servers</h3>
+				<h3>{t('settings.mcp.servers')}</h3>
 				<Button variant="secondary" onclick={() => (showForm && !isEditing ? resetForm() : openAddForm())}>
 					<Icon name={showForm && !isEditing ? 'xmark' : 'plus'} size={13} />
 					{showForm && !isEditing ? 'Cancel' : 'Add Server'}
@@ -150,12 +151,12 @@
 					<div class="form-title">{isEditing ? 'Edit Server' : 'New Server'}</div>
 
 					<div class="form-row">
-						<label class="form-label" for="mcp-name">Name</label>
-						<input id="mcp-name" class="settings-field" bind:value={formName} placeholder="Home Assistant" />
+						<label class="form-label" for="mcp-name">{t('settings.mcp.name')}</label>
+						<input id="mcp-name" class="settings-field" bind:value={formName} placeholder={t('settings.mcp.namePlaceholder')} />
 					</div>
 
 					<div class="form-row">
-						<span class="form-label">Transport</span>
+						<span class="form-label">{t('settings.mcp.transport')}</span>
 						<div class="transport-toggle">
 							<label class="transport-opt" class:active={formTransport === 'http'}>
 								<input
@@ -199,7 +200,7 @@
 							/>
 						</div>
 						<div class="form-row">
-							<span class="form-label">Auth</span>
+							<span class="form-label">{t('settings.mcp.auth')}</span>
 							<div class="transport-toggle">
 								<label class="transport-opt" class:active={formAuthType === 'none'}>
 									<input
@@ -225,23 +226,23 @@
 						</div>
 						{#if formAuthType === 'bearer'}
 							<div class="form-row">
-								<label class="form-label" for="mcp-token">Token</label>
+								<label class="form-label" for="mcp-token">{t('settings.mcp.token')}</label>
 								<input
 									id="mcp-token"
 									class="settings-field"
 									bind:value={formAuthToken}
-									placeholder="Long-lived access token"
+									placeholder={t('settings.mcp.tokenPlaceholder')}
 									type="password"
 								/>
 							</div>
 						{/if}
 					{:else}
 						<div class="form-row">
-							<label class="form-label" for="mcp-command">Command</label>
+							<label class="form-label" for="mcp-command">{t('settings.mcp.command')}</label>
 							<input id="mcp-command" class="settings-field" bind:value={formCommand} placeholder="npx" />
 						</div>
 						<div class="form-row">
-							<label class="form-label" for="mcp-args">Arguments</label>
+							<label class="form-label" for="mcp-args">{t('settings.mcp.arguments')}</label>
 							<input
 								id="mcp-args"
 								class="settings-field"
@@ -258,7 +259,7 @@
 								id="mcp-env"
 								class="settings-field form-textarea"
 								bind:value={formEnv}
-								placeholder="SEARXNG_URL=http://your-searxng-host:8080"
+								placeholder={t('settings.mcp.envPlaceholder')}
 								rows="3"
 							></textarea>
 						</div>
@@ -270,8 +271,8 @@
 
 					<label class="checkbox-row">
 						<input type="checkbox" bind:checked={formInjectResultsAsUser} />
-						<span>Inject text tool results as user messages</span>
-						<span class="form-hint">Helps with local/SLIM models that ignore strict tool-role messages.</span>
+						<span>{t('settings.mcp.injectText')}</span>
+						<span class="form-hint">{t('settings.mcp.injectHint')}</span>
 					</label>
 
 					<div class="form-actions">
@@ -313,16 +314,16 @@
 							<Button
 								variant="ghost"
 								onclick={() => openEditForm(server)}
-								title="Edit server"
-								aria-label="Edit server"
+								title={t('settings.mcp.editServer')}
+								aria-label={t('settings.mcp.editServer')}
 							>
 								<Icon name="pencil" size={13} />
 							</Button>
 							<Button
 								variant="danger"
 								onclick={() => mcpStore.removeServer(server.id)}
-								title="Remove server"
-								aria-label="Remove server"
+								title={t('settings.mcp.removeServer')}
+								aria-label={t('settings.mcp.removeServer')}
 							>
 								<Icon name="trash" size={13} />
 							</Button>
@@ -334,7 +335,7 @@
 
 		<section class="section">
 			<div class="section-header">
-				<h3>Available Tools</h3>
+				<h3>{t('settings.mcp.availableTools')}</h3>
 				<Button variant="secondary" onclick={() => mcpStore.refreshTools()} disabled={mcpStore.isLoadingTools}>
 					<Icon name="refresh" size={13} />
 					{mcpStore.isLoadingTools ? 'Loading…' : 'Refresh'}

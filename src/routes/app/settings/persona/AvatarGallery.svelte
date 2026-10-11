@@ -2,6 +2,7 @@
 	import { pop, fadeFast } from '$lib/utils/motion';
 	import { vrmStore } from '$lib/stores/vrm.svelte';
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import VrmUploader from '$lib/components/vrm/VrmUploader.svelte';
 	import type { PersonaPageState } from './persona-page.svelte';
 
@@ -11,10 +12,10 @@
 <!-- Model Gallery (inline) -->
 <div class="model-gallery">
 	<div class="gallery-header">
-		<span class="settings-label">Avatar</span>
+		<span class="settings-label">{t('settings.persona.avatar')}</span>
 		<button class="btn btn-secondary btn-sm" onclick={() => page.uploadModalOpen = true}>
 			<Icon name="upload" size={14} />
-			<span>Add Custom</span>
+			<span>{t('settings.persona.addCustom')}</span>
 		</button>
 	</div>
 
@@ -57,8 +58,8 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="upload-content" transition:pop={{ duration: 220, y: 14 }} onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
 			<div class="upload-header">
-				<h3>Upload Custom Model</h3>
-				<button class="btn btn-secondary btn-sm" aria-label="Close model upload" onclick={() => page.uploadModalOpen = false}>
+				<h3>{t('settings.persona.uploadCustom')}</h3>
+				<button class="btn btn-secondary btn-sm" aria-label={t('settings.persona.closeUpload')} onclick={() => page.uploadModalOpen = false}>
 					<Icon name="x" size={20} />
 				</button>
 			</div>

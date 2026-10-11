@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { pop, fadeFast } from '$lib/utils/motion';
 
 	interface Props {
@@ -14,12 +15,12 @@
 	<div
 		class="ar-modal"
 		role="dialog"
-		aria-label="AR mode requirements"
+		aria-label={t('ar.requirements')}
 		tabindex="-1"
 		transition:pop={{ duration: 260, y: 14 }}
 		onclick={(e) => e.stopPropagation()}
 	>
-		<button class="ar-close" onclick={onclose} aria-label="Close">
+		<button class="ar-close" onclick={onclose} aria-label={t('common.close')}>
 			<Icon name="x" size={14} />
 		</button>
 
@@ -30,7 +31,7 @@
 			</div>
 		</div>
 
-		<h2>See her in your space</h2>
+		<h2>{t('ar.title')}</h2>
 		<p>
 			AR mode puts your companion right on your floor: walk around her, move her wherever you
 			like, and resize her with a pinch. It just needs a browser that speaks WebXR.
@@ -38,12 +39,12 @@
 
 		<div class="ar-devices">
 			<div class="ar-device">
-				<span class="ar-device-name">Android phone or tablet</span>
-				<span class="ar-device-via">Chrome</span>
+				<span class="ar-device-name">{t('ar.android')}</span>
+				<span class="ar-device-via">{t('ar.chrome')}</span>
 			</div>
 			<div class="ar-device">
-				<span class="ar-device-name">Meta Quest</span>
-				<span class="ar-device-via">Headset browser</span>
+				<span class="ar-device-name">{t('ar.quest')}</span>
+				<span class="ar-device-via">{t('ar.headsetBrowser')}</span>
 			</div>
 		</div>
 
@@ -52,7 +53,7 @@
 			button lights up automatically.
 		</p>
 
-		<button class="ar-cta" onclick={onclose}>Got it</button>
+		<button class="ar-cta" onclick={onclose}>{t('ar.gotIt')}</button>
 	</div>
 </div>
 

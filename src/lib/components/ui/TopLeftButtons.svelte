@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { photomodeStore } from '$lib/stores/photomode.svelte';
 
 	interface Props {
@@ -11,16 +12,16 @@
 </script>
 
 <div class="top-left-buttons">
-	<button class="icon-btn" onclick={() => photomodeStore.enter()} aria-label="Open photo mode">
+	<button class="icon-btn" onclick={() => photomodeStore.enter()} aria-label={t('ui.openPhotoMode')}>
 		<Icon name="camera" size={20} />
 	</button>
 	{#if onOpenMemoryGraph}
-		<button class="icon-btn" onclick={onOpenMemoryGraph} aria-label="Open memory graph">
+		<button class="icon-btn" onclick={onOpenMemoryGraph} aria-label={t('ui.openMemoryGraph')}>
 			<Icon name="brain" size={20} />
 		</button>
 	{/if}
 	{#if onBoardClick}
-		<button class="icon-btn" onclick={onBoardClick} aria-label="Photoboard" title="Things you've shown her">
+		<button class="icon-btn" onclick={onBoardClick} aria-label={t('ui.photoboard')} title={t('ui.photoboardHint')}>
 			<Icon name="image" size={20} />
 		</button>
 	{/if}

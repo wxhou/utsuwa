@@ -4,6 +4,7 @@
 	import type { LinkObject } from 'force-graph';
 	import type { FactCategory } from '$lib/types/memory';
 	import { Button, Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import MemoryFactSummary from './MemoryFactSummary.svelte';
 	import {
 		getFactsWithEmbeddings,
@@ -36,9 +37,9 @@
 	let dark = $state(false);
 	let reducedMotion = $state(false);
 	const categoryOptions: { value: FactCategory; label: string }[] = [
-		{ value: 'user', label: 'About you' },
-		{ value: 'relationship', label: 'Relationship' },
-		{ value: 'shared_experience', label: 'Shared' }
+		{ value: 'user', label: t('memory.catUser') },
+		{ value: 'relationship', label: t('stats.relationship') },
+		{ value: 'shared_experience', label: t('memory.catShared') }
 	];
 	const data = $derived(
 		filterGraph(fullData, { categories: new Set(categories), minSimilarity: 0.5 })
@@ -206,7 +207,7 @@
 
 <div class="memory-graph" class:expanded>
 	<div class="controls">
-		<div class="category-toggles" role="group" aria-label="Graph categories">
+		<div class="category-toggles" role="group" aria-label={t('memory.graphCategories')}>
 			{#each categoryOptions as category}<Button
 					variant={categories.includes(category.value) ? 'secondary' : 'ghost'}
 					size="sm"
@@ -235,7 +236,7 @@
 				(selectedId = event.currentTarget.value ? Number(event.currentTarget.value) : null)}
 			disabled={!data.nodes.length}
 		>
-			<option value="">Select a memory</option>
+			<option value="">{t('memory.selectMemory')}</option>
 			{#each data.nodes as node}<option value={node.id}
 					>{node.content.length > 90 ? `${node.content.slice(0, 90)}…` : node.content}</option
 				>{/each}
@@ -250,7 +251,7 @@
 				</div>
 			{:else if !fullData.nodes.length}<div class="graph-message">
 					<Icon name="brain" size={28} />
-					<h3>No connected memories yet</h3>
+					<h3>{t('memory.noConnected')}</h3>
 					<p>
 						The graph shows memories once their connections are ready. You can still read and manage
 						all saved memories in Facts.
@@ -258,7 +259,7 @@
 					<Button variant="secondary" onclick={onOpenFacts}>View facts</Button>
 				</div>
 			{:else if !data.nodes.length}<div class="graph-message">
-					<p>No memories match these categories.</p>
+					<p>{t('memory.noMatch')}</p>
 					<Button
 						variant="secondary"
 						onclick={() => (categories = ['user', 'relationship', 'shared_experience'])}
@@ -266,13 +267,13 @@
 					>
 				</div>{/if}
 		</div>
-		{#if selected}<aside class="selected-detail" aria-label="Memory details">
+		{#if selected}<aside class="selected-detail" aria-label={t('memory.detailsAria')}>
 				<div class="detail-heading">
-					<h3>Memory details</h3>
+					<h3>{t('memory.memoryDetails')}</h3>
 					<Button
 						variant="ghost"
 						size="sm"
-						aria-label="Close memory details"
+						aria-label={t('memory.closeDetails')}
 						onclick={() => (selectedId = null)}><Icon name="x" size={14} /></Button
 					>
 				</div>

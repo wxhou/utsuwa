@@ -30,6 +30,10 @@ vite.config.ts.timestamp-*
 
 # Claude
 .claude/
+.mcp.json
+.codegraph/
+CLAUDE.md
+AGENTS.md
 .refs
 # Temporary marketing-capture harness (do NOT commit)
 src/routes/(shots)/
@@ -40,3 +44,23 @@ docs/superpowers/
 # Browser test artifacts
 playwright-report/
 test-results/
+
+# OpenSpec workflow (local)
+openspec/
+
+# Local Playwright authoring scratch (credentials, seeds, plans)
+tests/playwright/
+# openspec-pw: begin managed block
+.codebuddy/
+.playwright-mcp/
+CODEBUDDY.md
+tmp/
+playwright/.auth/
+.cursor/
+.opencode/
+.cline/
+.pi/
+.omp/
+app-exploration.md
+opencode.json
+# openspec-pw: end managed block

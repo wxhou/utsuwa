@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 
 	interface Model {
 		id: string;
@@ -22,7 +23,7 @@
 		models,
 		value,
 		onSelect,
-		placeholder = 'Select model...',
+		placeholder = t('onboarding.selectModel'),
 		isLoading = false,
 		onRefresh,
 		disabled = false,
@@ -87,7 +88,7 @@
 					<input
 						type="text"
 						class="search-input"
-						placeholder="Search models..."
+						placeholder={t('models.search')}
 						bind:value={searchQuery}
 						onclick={(e) => e.stopPropagation()}
 						onkeydown={(e) => e.stopPropagation()}
@@ -121,7 +122,7 @@
 	</DropdownMenu.Root>
 
 	{#if onRefresh && !isLoading}
-		<button class="refresh-btn" onclick={onRefresh} title="Refresh models">
+		<button class="refresh-btn" onclick={onRefresh} title={t('models.refresh')}>
 			<Icon name="refresh-cw" size={14} />
 		</button>
 	{/if}

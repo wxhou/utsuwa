@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Button, Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import Tabs from '$lib/components/ui/Tabs.svelte';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import MemoryInspector from '$lib/components/memory/MemoryInspector.svelte';
@@ -12,10 +13,10 @@
 	import '../settings-page.css';
 
 	const tabs = [
-		{ value: 'graph', label: 'Graph' },
-		{ value: 'facts', label: 'Facts' },
-		{ value: 'sessions', label: 'Sessions' },
-		{ value: 'settings', label: 'Settings' }
+		{ value: 'graph', label: t('settings.memory.tabGraph') },
+		{ value: 'facts', label: t('settings.memory.tabFacts') },
+		{ value: 'sessions', label: t('settings.memory.tabSessions') },
+		{ value: 'settings', label: t('settings.memory.tabSettings') }
 	];
 	const tab = $derived(
 		tabs.find((item) => item.value === page.url.searchParams.get('view'))?.value ?? 'graph'
@@ -51,21 +52,21 @@
 
 <div class="page memory-page">
 	<header class="page-header">
-		<h2>Memory</h2>
-		<p>Explore what your companion remembers and keep it accurate.</p>
+		<h2>{t('settings.nav.memory')}</h2>
+		<p>{t('settings.memory.pageSubtitle')}</p>
 	</header>
 	<Tabs bind:value={() => tab, navigate} items={tabs} label="Memory views">
 		{#snippet children(view)}
 			{#if view === 'graph'}
 				<div class="graph-heading">
-					<p>Connections show similarities between memories. Select a memory to see its details.</p>
+					<p>{t('settings.memory.graphHint')}</p>
 					<Button
 						variant="secondary"
 						size="sm"
 						onclick={(event: MouseEvent) => {
 							if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
 							expanded = true;
-						}}><Icon name="external-link" size={16} />Expand graph</Button
+						}}><Icon name="external-link" size={16} />{t('settings.memory.expandGraph')}</Button
 					>
 				</div>
 				{#if !expanded}<MemoryGraph
@@ -98,10 +99,10 @@
 				<Tabs
 					bind:value={sessionView}
 					items={[
-						{ value: 'session', label: 'Current' },
-						{ value: 'sessions', label: 'Saved' }
+						{ value: 'session', label: t('memory.current') },
+						{ value: 'sessions', label: t('memory.saved') }
 					]}
-					label="Session views"
+					label={t('memory.sessionViews')}
 				>
 					{#snippet children(session)}<MemoryInspector
 							view={session === 'session' ? 'session' : 'sessions'}
@@ -109,28 +110,26 @@
 				</Tabs>
 			{:else}
 				<SettingsSection
-					title="Memory storage"
-					description="Memories are saved on this device and used in future conversations."
+					title={t('settings.memory.storageTitle')}
+					description={t('settings.memory.storageDesc')}
 				>
 					<p class="storage-copy">
-						Use Facts to add or remove a memory. Back up or restore your saved data from Data
-						settings.
+						{t('settings.memory.storageCopy')}
 					</p>
 					<Button variant="secondary" href={localPath('app', '/settings/data')}
-						>Data settings<Icon name="arrow-right" size={16} /></Button
+						>{t('settings.memory.dataSettings')}<Icon name="arrow-right" size={16} /></Button
 					>
 				</SettingsSection>
 				<details class="advanced">
-					<summary>Advanced</summary>
+					<summary>{t('settings.memory.advanced')}</summary>
 					<p>
-						Inspect character state or test how a response is parsed. These tools do not change your
-						saved state.
+						{t('settings.memory.advancedDesc')}
 					</p>
 					<Tabs
 						bind:value={advancedView}
 						items={[
-							{ value: 'state', label: 'State' },
-							{ value: 'test', label: 'Parser test' }
+							{ value: 'state', label: t('settings.memory.state') },
+							{ value: 'test', label: t('settings.memory.parserTest') }
 						]}
 						label="Advanced memory tools"
 					>

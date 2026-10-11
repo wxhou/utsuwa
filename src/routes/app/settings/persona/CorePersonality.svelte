@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { slideOpen } from '$lib/utils/motion';
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import type { PersonaPageState } from './persona-page.svelte';
 
 	let { page }: { page: PersonaPageState } = $props();
@@ -10,15 +11,15 @@
 <div class="personality-section">
 	<button class="personality-toggle" aria-expanded={page.personalityExpanded} onclick={() => page.personalityExpanded = !page.personalityExpanded}>
 		<Icon name="sparkles" size={16} />
-		<span>Core Personality</span>
+		<span>{t('onboarding.corePersonality')}</span>
 		<Icon name={page.personalityExpanded ? 'chevron-up' : 'chevron-down'} size={16} />
 	</button>
 	{#if page.personalityExpanded}
 		<div class="personality-content" transition:slideOpen>
 			<textarea
-				class="settings-field" aria-label="Core personality"
+				class="settings-field" aria-label={t('onboarding.corePersonality')}
 				bind:value={page.formSystemPrompt}
-				placeholder="Personality traits, speaking style, background..."
+				placeholder={t('settings.persona.personalityPlaceholder')}
 				rows="8"
 				onblur={page.saveSystemPrompt}
 			></textarea>

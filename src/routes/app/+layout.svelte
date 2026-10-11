@@ -4,6 +4,17 @@
 	import { onNavigate } from '$app/navigation';
 	import UpdateBanner from '$lib/components/updater/UpdateBanner.svelte';
 
+	// Dev-only UI annotation tool: zero cost in production builds. Skipped under
+	// automated browsers (Playwright sets navigator.webdriver): its overlay
+	// intercepts pointer events and breaks click-based tests.
+	const devAnnotations =
+		import.meta.env.DEV && (typeof navigator === 'undefined' || !navigator.webdriver);
+	let AnnotationTool: typeof import('agent-ui-annotation/svelte').AgentUIAnnotation | null = $state(null);
+	$effect(() => {
+		if (!devAnnotations) return;
+		import('agent-ui-annotation/svelte').then((m) => (AnnotationTool = m.AgentUIAnnotation));
+	});
+
 	let { children } = $props();
 	let viewportHeight = $state<number>();
 	onMount(() => {
@@ -35,6 +46,9 @@
 	<ScreenWakeLock />
 	{@render children()}
 	<UpdateBanner />
+	{#if AnnotationTool}
+		<AnnotationTool theme="auto" outputLevel="standard" />
+	{/if}
 </div>
 
 <style>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
+	import { t } from '$lib/i18n';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import {
 		LLM_PROVIDERS,
@@ -35,18 +36,18 @@
 
 	// Group providers by category for LLM
 	const llmCategories = [
-		{ id: 'cloud-commercial', label: 'Cloud Commercial', providers: ['openai', 'anthropic', 'google', 'deepseek', 'mistral', 'xai', 'groq', 'perplexity', 'moonshot', 'together'] },
-		{ id: 'cloud-additional', label: 'Cloud Additional', providers: ['cerebras', 'fireworks', 'novita', '302ai', 'comet'] },
-		{ id: 'aggregators', label: 'Aggregators', providers: ['openrouter', 'openai-compatible'] },
-		{ id: 'local', label: 'Local', providers: ['ollama', 'lmstudio', 'vllm', 'player2'] },
-		{ id: 'enterprise', label: 'Enterprise', providers: ['azure', 'cloudflare'] }
+		{ id: 'cloud-commercial', label: t('providers.cloudCommercial'), providers: ['openai', 'anthropic', 'google', 'deepseek', 'mistral', 'xai', 'groq', 'perplexity', 'moonshot', 'together'] },
+		{ id: 'cloud-additional', label: t('providers.cloudAdditional'), providers: ['cerebras', 'fireworks', 'novita', '302ai', 'comet'] },
+		{ id: 'aggregators', label: t('providers.aggregators'), providers: ['openrouter', 'openai-compatible'] },
+		{ id: 'local', label: t('providers.local'), providers: ['ollama', 'lmstudio', 'vllm', 'player2'] },
+		{ id: 'enterprise', label: t('providers.enterprise'), providers: ['azure', 'cloudflare'] }
 	];
 
 	// Group providers by category for TTS
 	const ttsCategories = [
-		{ id: 'cloud', label: 'Cloud TTS', providers: ['elevenlabs', 'openai-tts', 'azure-speech', 'deepgram', 'alibaba-cosyvoice', 'volcengine', 'comet-tts'] },
-		{ id: 'local', label: 'Local / Free', providers: ['local-tts', 'omnivoice', 'web-speech', 'index-tts', 'browser-local', 'app-local'] },
-		{ id: 'generic', label: 'Generic', providers: ['openai-compatible-tts', 'player2-tts'] }
+		{ id: 'cloud', label: t('providers.cloudTts'), providers: ['elevenlabs', 'openai-tts', 'azure-speech', 'deepgram', 'alibaba-cosyvoice', 'volcengine', 'comet-tts'] },
+		{ id: 'local', label: t('providers.localFree'), providers: ['local-tts', 'omnivoice', 'web-speech', 'index-tts', 'browser-local', 'app-local'] },
+		{ id: 'generic', label: t('providers.generic'), providers: ['openai-compatible-tts', 'player2-tts'] }
 	];
 
 	const categories = $derived(type === 'llm' ? llmCategories : ttsCategories);

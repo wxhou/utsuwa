@@ -41,6 +41,7 @@
 		"@tauri-apps/plugin-fs": "^2.4.5",
 		"@tauri-apps/plugin-global-shortcut": "^2.3.1",
 		"@types/three": "^0.182.0",
+		"agent-ui-annotation": "^0.8.0",
 		"mdsvex": "^0.12.6",
 		"pagefind": "^1.4.0",
 		"rehype-slug": "^6.0.0",

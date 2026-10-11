@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
+
 	interface Props {
 		onNext: () => void;
 	}
@@ -41,10 +43,10 @@
 		</svg>
 	</div>
 
-	<p class="ob-subtitle">A few gentle steps to bring your companion to life.</p>
+	<p class="ob-subtitle">{t('onboarding.welcome')}</p>
 
 	<button class="btn btn-primary btn-lg btn-block" onclick={onNext}>
-		Get started
+		{t('onboarding.getStarted')}
 	</button>
 </div>
 

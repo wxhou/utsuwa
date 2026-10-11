@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Popover } from 'bits-ui';
 	import Icon from './Icon.svelte';
+	import { t } from '$lib/i18n';
 	import { characterStore } from '$lib/stores/character.svelte';
 	import { displayStore } from '$lib/stores/display.svelte';
 	import { photomodeStore } from '$lib/stores/photomode.svelte';
@@ -14,17 +15,17 @@
 	const mood = $derived(characterStore.moodInfo);
 	const companionMode = $derived(characterStore.appMode === 'companion');
 	const relationship = $derived([
-		{ label: 'Affection', value: characterStore.affectionPercent },
-		{ label: 'Trust', value: character.trust },
-		{ label: 'Intimacy', value: character.intimacy },
-		{ label: 'Comfort', value: character.comfort },
-		{ label: 'Respect', value: character.respect }
+		{ label: t('stats.affection'), value: characterStore.affectionPercent },
+		{ label: t('stats.trust'), value: character.trust },
+		{ label: t('stats.intimacy'), value: character.intimacy },
+		{ label: t('stats.comfort'), value: character.comfort },
+		{ label: t('stats.respect'), value: character.respect }
 	]);
 	const activity = $derived([
-		{ label: 'Days together', value: character.daysKnown },
-		{ label: 'Interactions', value: character.totalInteractions },
-		{ label: 'Day streak', value: character.currentStreak },
-		{ label: 'Best streak', value: character.longestStreak }
+		{ label: t('stats.daysTogether'), value: character.daysKnown },
+		{ label: t('stats.interactions'), value: character.totalInteractions },
+		{ label: t('stats.dayStreak'), value: character.currentStreak },
+		{ label: t('stats.bestStreak'), value: character.longestStreak }
 	]);
 
 	// A portal must not outlive the composer when its layout is hidden.
@@ -49,8 +50,8 @@
 	<Popover.Trigger
 		bind:ref={trigger}
 		class="companion-stats-trigger"
-		aria-label="Companion stats"
-		title="Companion stats"
+		aria-label={t('stats.companionStats')}
+		title={t('stats.companionStats')}
 	>
 		<span class="mood-icon" style:color={mood.color}><Icon name={mood.icon} size={15} /></span>
 		<span class="trigger-name">{character.name}</span>
@@ -60,7 +61,7 @@
 		<Popover.Content
 			class="companion-stats-popover"
 			role="dialog"
-			aria-label="Companion stats"
+			aria-label={t('stats.companionStats')}
 			side="top"
 			align="start"
 			sideOffset={10}
@@ -91,25 +92,25 @@
 				>
 			</header>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll this region on short screens.) -->
-			<div class="stats-body" tabindex="0" role="region" aria-label="Stats details">
-				<section aria-label="Character stats">
-					<h4>Character</h4>
+			<div class="stats-body" tabindex="0" role="region" aria-label={t('stats.details')}>
+				<section aria-label={t('stats.characterSection')}>
+					<h4>{t('stats.character')}</h4>
 					<dl>
-						{@render metric('Energy', character.energy)}
-						{@render metric('Mood intensity', character.mood.intensity)}
+						{@render metric(t('stats.energy'), character.energy)}
+						{@render metric(t('stats.moodIntensity'), character.mood.intensity)}
 					</dl>
 					<p class="mood-description">{mood.description}</p>
 				</section>
 				{#if !companionMode}
-					<section aria-label="Relationship stats">
-						<h4>Relationship</h4>
+					<section aria-label={t('stats.relationshipSection')}>
+					<h4>{t('stats.relationship')}</h4>
 						<dl>
 							{#each relationship as stat}{@render metric(stat.label, stat.value)}{/each}
 						</dl>
 					</section>
 				{/if}
-				<section aria-label="Activity stats">
-					<h4>Activity</h4>
+				<section aria-label={t('stats.activitySection')}>
+					<h4>{t('stats.activity')}</h4>
 					<dl class="activity">
 						{#each activity as stat}<div>
 								<dt>{stat.label}</dt>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import {
 		displayStore,
 		CAMERA_DEFAULTS,
@@ -32,10 +33,10 @@
 	);
 </script>
 
-<div class="camera-panel" role="dialog" aria-label="Camera settings">
+<div class="camera-panel" role="dialog" aria-label={t('ui.cameraSettings')}>
 	<div class="panel-header">
 		<span class="panel-title">Camera</span>
-		<button class="panel-close" onclick={onclose} aria-label="Close camera settings">
+		<button class="panel-close" onclick={onclose} aria-label={t('ui.closeCamera')}>
 			<Icon name="x" size={14} />
 		</button>
 	</div>

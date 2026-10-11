@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { parseResponse, extractPotentialFacts } from '$lib/ai/response-parser';
 	import { characterStore } from '$lib/stores/character.svelte';
 
@@ -9,9 +10,9 @@
 	let response = $state(firstSample);
 	let result = $state('');
 	const samples = [
-		{ label: 'Memory and mood', text: firstSample },
-		{ label: 'Plain dialogue', text: 'Tell me more about your day.' },
-		{ label: 'Malformed state', text: 'Hello!\n```json\n{"mood_change":\n```' }
+		{ label: t('memory.sampleMood'), text: firstSample },
+		{ label: t('memory.sampleDialogue'), text: 'Tell me more about your day.' },
+		{ label: t('memory.sampleMalformed'), text: 'Hello!\n```json\n{"mood_change":\n```' }
 	];
 	function parse() {
 		try {
@@ -53,7 +54,7 @@
 		rows={7}></textarea></label
 >
 <Button onclick={parse}>Parse sample</Button>
-{#if result}<pre aria-label="Parser result">{result}</pre>{/if}
+{#if result}<pre aria-label={t('memory.parserResult')}>{result}</pre>{/if}
 
 <style>
 	.hint {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { sttStore } from '$lib/stores/stt.svelte';
 	import { chatDraftStore } from '$lib/stores/chat-draft.svelte';
 	import { queueFiles, showVisionHint } from './attach-files';
@@ -101,7 +102,7 @@
 					<button
 						type="button"
 						class="remove-chip"
-						aria-label="Remove image"
+						aria-label={t('chat.removeImage')}
 						onclick={() => chatDraftStore.removePending(p.image.id)}
 					>
 						<Icon name="x" size={12} />
@@ -123,8 +124,8 @@
 		{/if}
 		<div class="input-wrapper" class:recording={isListening} class:transcribing={isTranscribing}>
 			{#if isTranscribing}
-				<div class="transcribing-label">Transcribing...</div>
-				<button type="button" class="mic-btn recording" disabled aria-label="Transcribing">
+				<div class="transcribing-label">{t('chat.transcribing')}</div>
+				<button type="button" class="mic-btn recording" disabled aria-label={t('chat.transcribing')}>
 					<Icon name="loader" size={20} />
 				</button>
 			{:else if isListening}
@@ -133,8 +134,8 @@
 					type="button"
 					class="mic-btn recording"
 					onclick={() => sttStore.stopListening()}
-					aria-label="Stop recording"
-					title="Stop recording"
+					aria-label={t('chat.stopRecording')}
+					title={t('chat.stopRecording')}
 				>
 					<Icon name="stop" size={16} />
 				</button>
@@ -144,9 +145,9 @@
 					bind:this={textareaRef}
 					bind:value={chatDraftStore.draft}
 					onkeydown={handleKeydown}
-					aria-label="Message"
+					aria-label={t('chat.message')}
 					aria-busy={disabled}
-					placeholder="Type a message..."
+					placeholder={t('chat.placeholder')}
 					rows={overlay ? 1 : 2}
 					wrap={overlay ? 'off' : 'soft'}
 					readonly={disabled}></textarea>
@@ -158,8 +159,8 @@
 						class:vision-off={!visionCapable}
 						onclick={openPicker}
 						{disabled}
-						aria-label="Attach an image"
-						title={visionCapable ? 'Attach an image' : 'This model cannot see images'}
+						aria-label={t('chat.attachImage')}
+						title={visionCapable ? t('chat.attachImage') : t('chat.noVision')}
 					>
 						<Icon name="paperclip" size={20} />
 					</button>
@@ -170,8 +171,8 @@
 					class="mic-btn voice-btn"
 					onclick={handleMicClick}
 					{disabled}
-					aria-label="Voice input"
-					title="Voice input"
+					aria-label={t('chat.voiceInput')}
+					title={t('chat.voiceInput')}
 				>
 					<Icon name="mic" size={20} />
 				</button>
@@ -179,8 +180,8 @@
 					type="submit"
 					class="mic-btn send-btn"
 					disabled={disabled || !hasContent}
-					aria-label="Send message"
-					title="Send message"
+					aria-label={t('chat.sendMessage')}
+					title={t('chat.sendMessage')}
 				>
 					<Icon name="send" size={20} />
 				</button>

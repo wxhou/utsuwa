@@ -3,6 +3,7 @@
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { createLlmSettingsState } from '$lib/stores/ai-services-settings.svelte';
 	import { createFetchSignature } from '$lib/stores/ai-services-settings-logic';
+	import { t } from '$lib/i18n';
 	import LlmSettings from '$lib/components/settings/LlmSettings.svelte';
 	import '../settings-page.css';
 
@@ -29,8 +30,8 @@
 
 <div class="page">
 	<header class="page-header">
-		<h2>LLM Model</h2>
-		<p>Configure the chat model and provider settings.</p>
+		<h2>{t('settings.nav.llm')}</h2>
+		<p>{t('settings.llm.pageSubtitle')}</p>
 	</header>
 
 	<section class="section">

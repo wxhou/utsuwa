@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { sttStore } from '$lib/stores/stt.svelte';
 
 	interface Props {
@@ -28,13 +29,13 @@
 	<div class="recording-container">
 		<div class="listening-pill">
 			<span class="listening-dot"></span>
-			<span class="listening-text">Listening</span>
+			<span class="listening-text">{t('chat.listening')}</span>
 		</div>
 		<button
 			class="floating-mic-btn recording"
 			onclick={handleClick}
-			aria-label="Stop recording"
-			title="Stop recording"
+			aria-label={t('chat.stopRecording')}
+			title={t('chat.stopRecording')}
 		>
 			<span class="icon-inner">
 				<Icon name="stop" size={18} />
@@ -50,7 +51,7 @@
 		<button
 			class="floating-mic-btn transcribing"
 			disabled
-			aria-label="Transcribing"
+			aria-label={t('chat.transcribing')}
 		>
 			<span class="icon-inner">
 				<Icon name="loader" size={20} />
@@ -61,8 +62,8 @@
 	<button
 		class="floating-mic-btn"
 		onclick={handleClick}
-		aria-label="Quick voice input"
-		title="Quick voice input"
+		aria-label={t('chat.voiceInput')}
+		title={t('chat.voiceInput')}
 	>
 		<span class="icon-inner">
 			<Icon name="mic" size={20} />

@@ -1,12 +1,13 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import SttSettings from '$lib/components/settings/SttSettings.svelte';
 	import '../settings-page.css';
 </script>
 
 <div class="page">
 	<header class="page-header">
-		<h2>Voice Input</h2>
-		<p>Configure speech-to-text providers and microphone sensitivity.</p>
+		<h2>{t('settings.nav.stt')}</h2>
+		<p>{t('settings.stt.pageSubtitle')}</p>
 	</header>
 
 	<section class="section">

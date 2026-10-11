@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Tooltip, Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import SettingsSection from './SettingsSection.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import type { TtsSettingsState } from '$lib/stores/ai-services-settings.svelte';
@@ -318,7 +319,7 @@
 
 			await playPreviewAudio(body);
 		} catch (err) {
-			previewError = err instanceof Error ? err.message : 'Preview failed';
+			previewError = err instanceof Error ? err.message : t('settings.omnivoice.previewFailed');
 		} finally {
 			previewLoading = false;
 		}
@@ -419,7 +420,7 @@
 
 			await playPreviewAudio(body);
 		} catch (err) {
-			previewError = err instanceof Error ? err.message : 'Preview failed';
+			previewError = err instanceof Error ? err.message : t('settings.omnivoice.previewFailed');
 		} finally {
 			previewLoading = false;
 		}
@@ -483,7 +484,7 @@
 			cloneFileName = '';
 			await fetchClonedVoices();
 		} catch (err) {
-			cloneError = err instanceof Error ? err.message : 'Clone failed';
+			cloneError = err instanceof Error ? err.message : t('settings.omnivoice.cloneFailed');
 		} finally {
 			cloneLoading = false;
 		}
@@ -543,7 +544,7 @@
 	onDeleteClone: (cloneId: string) => void;
 })}
 	<div class="omnivoice-field">
-		<label class="omnivoice-label" for={opts.selectId}>Voice</label>
+		<label class="omnivoice-label" for={opts.selectId}>{t('settings.omnivoice.voice')}</label>
 		{#if opts.isClone}
 			<div class="omnivoice-voice-row" style="flex-wrap:wrap;">
 				<select
@@ -554,7 +555,7 @@
 					onchange={(e) => opts.onVoiceChange(e.currentTarget.value)}
 				>
 					{#if clonedVoices.length === 0}
-						<option value="" disabled>No cloned voices yet</option>
+						<option value="" disabled>{t('settings.omnivoice.noCloned')}</option>
 					{/if}
 					{#each clonedVoices as v}
 						<option value={v.id}>{v.name}</option>
@@ -563,7 +564,7 @@
 						<option value={opts.voiceId}>cloned {opts.voiceId.replace('clone:', '')} (loading)</option>
 					{/if}
 				</select>
-				<button class="btn btn-sm btn-secondary" onclick={openCloneModal}>Clone New</button>
+				<button class="btn btn-sm btn-secondary" onclick={openCloneModal}>{t('settings.omnivoice.cloneNew')}</button>
 				{#if opts.voiceId}
 					{@const cloneId = opts.voiceId.replace('clone:', '')}
 					<button
@@ -594,7 +595,7 @@
 <div class="omnivoice-card">
 	<div class="omnivoice-field">
 		<label class="omnivoice-label" for="omnivoice-base-url">
-			<span>OmniVoice Proxy</span>
+			<span>{t('settings.omnivoice.proxy')}</span>
 			<span class="omnivoice-proxy-status">
 				{#if proxyStatus === 'connected'}
 					<span class="omnivoice-dot omnivoice-dot-ok"></span> Connected
@@ -627,17 +628,17 @@
 				profileError = '';
 				previewError = '';
 			}}
-			aria-label="Dismiss error">×</button
+			aria-label={t('chat.dismiss')}>×</button
 		>
 	</div>
 {/if}
 
 <!-- Primary voice card -->
-<SettingsSection title="Primary voice" outlined>
+<SettingsSection title={t('settings.omnivoice.primaryVoice')} outlined>
 
 	<div class="omnivoice-design-grid-2">
 		<div class="omnivoice-field">
-			<label class="omnivoice-label" for="omnivoice-language">Language</label>
+			<label class="omnivoice-label" for="omnivoice-language">{t('settings.omnivoice.language')}</label>
 			<select
 				id="omnivoice-language"
 				class="api-key-input"
@@ -663,7 +664,7 @@
 	</div>
 
 	<div class="omnivoice-voice-row">
-		<span class="omnivoice-design-label" style="width:auto;flex-shrink:0;">Mode</span>
+		<span class="omnivoice-design-label" style="width:auto;flex-shrink:0;">{t('settings.omnivoice.mode')}</span>
 		<label class="omnivoice-radio">
 			<input
 				type="radio"
@@ -704,7 +705,7 @@
 
 	<div class="omnivoice-design-grid-2">
 		<div class="omnivoice-design-row">
-			<label class="omnivoice-design-label" for="omnivoice-speed">Speed</label>
+			<label class="omnivoice-design-label" for="omnivoice-speed">{t('settings.omnivoice.speed')}</label>
 			<input id="omnivoice-speed"
 				type="range"
 				min="0.5"
@@ -717,7 +718,7 @@
 			<span class="omnivoice-slider-val">{(settings.speechSettings.speed as number) ?? 1}</span>
 		</div>
 		<div class="omnivoice-design-row">
-			<label class="omnivoice-design-label" for="omnivoice-num-step">Num Step</label>
+			<label class="omnivoice-design-label" for="omnivoice-num-step">{t('settings.omnivoice.numStep')}</label>
 			<input id="omnivoice-num-step"
 				type="range"
 				min="4"
@@ -733,7 +734,7 @@
 
 	<div class="omnivoice-design-grid-2">
 		<div class="omnivoice-advanced-slider">
-			<label class="omnivoice-advanced-label" for="omnivoice-position-temperature">Position Temperature</label>
+			<label class="omnivoice-advanced-label" for="omnivoice-position-temperature">{t('settings.omnivoice.positionTemp')}</label>
 			<div class="omnivoice-advanced-row">
 				<input id="omnivoice-position-temperature"
 					type="range"
@@ -751,7 +752,7 @@
 			</div>
 		</div>
 		<div class="omnivoice-advanced-slider">
-			<label class="omnivoice-advanced-label" for="omnivoice-class-temperature">Class Temperature</label>
+			<label class="omnivoice-advanced-label" for="omnivoice-class-temperature">{t('settings.omnivoice.classTemp')}</label>
 			<div class="omnivoice-advanced-row">
 				<input id="omnivoice-class-temperature"
 					type="range"
@@ -772,7 +773,7 @@
 </SettingsSection>
 
 <!-- Alternative voice card -->
-<SettingsSection title="Alternative voice" outlined>
+<SettingsSection title={t('settings.omnivoice.altVoice')} outlined>
 
 	<div class="omnivoice-voice-row">
 		<label class="omnivoice-radio">
@@ -802,14 +803,14 @@
 	{#if altEnabled}
 		<div class="omnivoice-design-grid-2">
 			<div class="omnivoice-field">
-				<label class="omnivoice-label" for="omnivoice-alt-language">Language</label>
+				<label class="omnivoice-label" for="omnivoice-alt-language">{t('settings.omnivoice.language')}</label>
 				<select
 					id="omnivoice-alt-language"
 					class="api-key-input"
 					value={altLanguage}
 					onchange={(e) => handleAltLanguageChange(e.currentTarget.value)}
 				>
-					<option value="" disabled selected={!altLanguage}>Select a language...</option>
+					<option value="" disabled selected={!altLanguage}>{t('settings.omnivoice.selectLanguage')}</option>
 					{#each languages as lang}
 						{#if lang.code !== activeLanguage}
 							<option value={lang.code}>{lang.name}</option>
@@ -837,13 +838,13 @@
 				checked={toolCallingEnabled}
 				onchange={(e) => settings.handleTTSEnableToolCallingChange(e.currentTarget.checked)}
 			/>
-			<span>Force language per segment</span>
+			<span>{t('settings.omnivoice.forceLanguage')}</span>
 			</label>
 		<Tooltip content="More reliable; needs LLM tool support"><Icon name="info" size={16} /></Tooltip>
 		</div>
 
 		<div class="omnivoice-voice-row">
-			<span class="omnivoice-design-label" style="width:auto;flex-shrink:0;">Mode</span>
+			<span class="omnivoice-design-label" style="width:auto;flex-shrink:0;">{t('settings.omnivoice.mode')}</span>
 			<label class="omnivoice-radio">
 				<input
 					type="radio"
@@ -868,7 +869,7 @@
 
 		<div class="omnivoice-design-grid-2">
 			<div class="omnivoice-design-row">
-				<label class="omnivoice-design-label" for="omnivoice-alt-speed">Alt Speed</label>
+				<label class="omnivoice-design-label" for="omnivoice-alt-speed">{t('settings.omnivoice.altSpeed')}</label>
 				<input id="omnivoice-alt-speed"
 					type="range"
 					min="0.5"
@@ -881,7 +882,7 @@
 				<span class="omnivoice-slider-val">{(settings.speechSettings.altSpeed as number) ?? 1}</span>
 			</div>
 			<div class="omnivoice-design-row">
-				<label class="omnivoice-design-label" for="omnivoice-alt-num-step">Alt Num Step</label>
+				<label class="omnivoice-design-label" for="omnivoice-alt-num-step">{t('settings.omnivoice.altNumStep')}</label>
 				<input id="omnivoice-alt-num-step"
 					type="range"
 					min="4"
@@ -897,7 +898,7 @@
 
 		<div class="omnivoice-design-grid-2">
 			<div class="omnivoice-advanced-slider">
-				<label class="omnivoice-advanced-label" for="omnivoice-alt-position-temperature">Alt Position Temperature</label>
+				<label class="omnivoice-advanced-label" for="omnivoice-alt-position-temperature">{t('settings.omnivoice.altPositionTemp')}</label>
 				<div class="omnivoice-advanced-row">
 					<input id="omnivoice-alt-position-temperature"
 						type="range"
@@ -915,7 +916,7 @@
 				</div>
 			</div>
 			<div class="omnivoice-advanced-slider">
-				<label class="omnivoice-advanced-label" for="omnivoice-alt-class-temperature">Alt Class Temperature</label>
+				<label class="omnivoice-advanced-label" for="omnivoice-alt-class-temperature">{t('settings.omnivoice.altClassTemp')}</label>
 				<div class="omnivoice-advanced-row">
 					<input id="omnivoice-alt-class-temperature"
 						type="range"
@@ -954,10 +955,10 @@
 			tabindex="-1"
 			onclick={(e) => e.stopPropagation()}
 		>
-			<h3 id="clone-modal-title" class="omnivoice-modal-title">Clone New Voice</h3>
+			<h3 id="clone-modal-title" class="omnivoice-modal-title">{t('settings.omnivoice.cloneNewVoice')}</h3>
 
 			<div class="omnivoice-modal-field">
-				<label class="omnivoice-modal-label" for="clone-audio">Reference Audio (3–10s)</label>
+				<label class="omnivoice-modal-label" for="clone-audio">{t('settings.omnivoice.referenceAudio')}</label>
 				<div class="omnivoice-file-row">
 					<label class="btn btn-sm btn-secondary" for="clone-audio">
 						{cloneFileName || 'Choose file...'}
@@ -979,7 +980,7 @@
 			</div>
 
 			<div class="omnivoice-modal-field">
-				<label class="omnivoice-modal-label" for="clone-name">Voice Name</label>
+				<label class="omnivoice-modal-label" for="clone-name">{t('settings.omnivoice.voiceName')}</label>
 				<input
 					type="text"
 					id="clone-name"
@@ -990,11 +991,11 @@
 			</div>
 
 			<div class="omnivoice-modal-field">
-				<label class="omnivoice-modal-label" for="clone-text">Reference Text</label>
+				<label class="omnivoice-modal-label" for="clone-text">{t('settings.omnivoice.referenceText')}</label>
 				<textarea
 					id="clone-text"
 					class="api-key-input omnivoice-clone-textarea"
-					placeholder="Write the sentence you have recorded in the audio file"
+					placeholder={t('settings.omnivoice.clonePromptPlaceholder')}
 					rows="4"
 					bind:value={cloneRefText}
 				></textarea>
@@ -1005,7 +1006,7 @@
 			{/if}
 
 			<div class="omnivoice-modal-actions">
-				<button class="btn btn-sm btn-secondary" onclick={closeCloneModal}>Cancel</button>
+				<button class="btn btn-sm btn-secondary" onclick={closeCloneModal}>{t('common.cancel')}</button>
 				<button
 					class="btn btn-sm btn-primary"
 					onclick={handleCloneVoice}

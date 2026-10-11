@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { pop, fadeFast } from '$lib/utils/motion';
 	import { isTauri } from '$lib/services/platform/platform';
 	import { updaterStore } from '$lib/stores/updater.svelte';
@@ -47,18 +48,18 @@
 			{#key status}
 				<div class="banner-body-inner" in:fadeFast={{ duration: 200 }}>
 					{#if status === 'available'}
-						<span class="banner-title">Update available</span>
+						<span class="banner-title">{t('updater.available')}</span>
 						<span class="banner-sub">Utsuwa {updaterStore.availableVersion} is ready to install</span>
 					{:else if status === 'downloading'}
-						<span class="banner-title">Downloading update…</span>
+						<span class="banner-title">{t('updater.downloading')}</span>
 						<div class="progress-track">
 							<div class="progress-fill" style="width: {updaterStore.progress}%"></div>
 						</div>
 					{:else if status === 'ready'}
-						<span class="banner-title">Update installed</span>
+						<span class="banner-title">{t('updater.installed')}</span>
 						<span class="banner-sub">Restarting…</span>
 					{:else if status === 'error'}
-						<span class="banner-title">Update failed</span>
+						<span class="banner-title">{t('updater.failed')}</span>
 						<span class="banner-sub">{updaterStore.errorMessage ?? 'Please try again later.'}</span>
 					{/if}
 				</div>

@@ -4,6 +4,7 @@
 	import { XR } from '@threlte/xr';
 	import { WebGLRenderer, SRGBColorSpace, NoToneMapping } from 'three';
 	import { onMount } from 'svelte';
+	import { t } from '$lib/i18n';
 	import Scene from './Scene.svelte';
 	import { vrmStore } from '$lib/stores/vrm.svelte';
 	import { arStore } from '$lib/stores/ar.svelte';
@@ -93,7 +94,7 @@
 		</Canvas>
 	{:else if webglError}
 		<div class="vrm-scene-fallback">
-			<p>WebGL is unavailable on this device or browser.</p>
+			<p>{t('vrm.noWebgl')}</p>
 			<button onclick={() => window.location.reload()}>Reload</button>
 		</div>
 	{/if}

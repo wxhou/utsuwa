@@ -2,6 +2,7 @@
 	import { pop, fadeFast } from '$lib/utils/motion';
 	import { personaStore } from '$lib/stores/persona.svelte';
 	import { characterStore } from '$lib/stores/character.svelte';
+	import { t } from '$lib/i18n';
 
 	import { Icon } from '$lib/components/ui';
 	import { getCompletedEvents } from '$lib/services/storage/events';
@@ -39,7 +40,7 @@
 			type="text"
 			class="name-input"
 			bind:value={page.formName}
-			placeholder="Character Name" aria-label="Character name"
+			placeholder={t('settings.persona.namePlaceholder')} aria-label={t('settings.persona.nameLabel')}
 			onblur={page.saveName}
 		/>
 	</header>
@@ -71,16 +72,16 @@
 				<div class="confirm-icon">
 					<Icon name="alert" size={32} />
 				</div>
-				<h3 class="confirm-title">Switch Mode?</h3>
+				<h3 class="confirm-title">{t('settings.persona.confirmTitle')}</h3>
 				<p class="confirm-message">
-					Switching modes frequently can lead to unexpected results and disrupt natural progression. Are you sure you want to continue?
+					{t('settings.persona.confirmMessage')}
 				</p>
 				<div class="confirm-actions">
 					<button class="btn btn-secondary" onclick={page.cancelModeChange}>
-						Cancel
+						{t('common.cancel')}
 					</button>
 					<button class="btn btn-primary" onclick={page.confirmModeChange}>
-						Switch Mode
+						{t('settings.persona.switchMode')}
 					</button>
 				</div>
 			</div>

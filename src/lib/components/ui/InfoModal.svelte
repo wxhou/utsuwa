@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { onMount } from 'svelte';
 	import { pop, fadeFast } from '$lib/utils/motion';
 	import { DOCS_URL } from '$lib/config/site';
@@ -17,17 +18,17 @@
 	const updateStatusText = $derived.by(() => {
 		switch (updaterStore.status) {
 			case 'checking':
-				return 'Checking for updates…';
+				return t('updater.checking');
 			case 'uptodate':
-				return "You're on the latest version";
+				return t('updater.uptodate');
 			case 'available':
-				return `Update available: Utsuwa ${updaterStore.availableVersion}`;
+				return t('updater.availableVersion', { version: updaterStore.availableVersion ?? '' });
 			case 'downloading':
-				return `Downloading… ${updaterStore.progress}%`;
+				return t('updater.downloadingProgress', { progress: updaterStore.progress });
 			case 'ready':
-				return 'Update installed — restarting…';
+				return t('updater.installedRestarting');
 			case 'error':
-				return updaterStore.errorMessage ?? 'Update check failed';
+				return updaterStore.errorMessage ?? t('updater.failed');
 			default:
 				return '';
 		}
@@ -37,24 +38,25 @@
 		updaterStore.status === 'checking' || updaterStore.status === 'downloading'
 	);
 
-	// System info
-	let sttSupport = $state('Checking...');
-	let webglSupport = $state('Checking...');
-	let storageStatus = $state('Checking...');
+	// System info — booleans only; labels are resolved through the dictionary so
+	// they follow locale switches.
+	let sttOk = $state<boolean | null>(null);
+	let webglOk = $state<boolean | null>(null);
+	let storageOk = $state<boolean | null>(null);
 
 	onMount(() => {
 		const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-		sttSupport = SpeechRecognition ? 'Supported' : 'Unsupported';
+		sttOk = Boolean(SpeechRecognition);
 
 		try {
 			const canvas = document.createElement('canvas');
 			const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-			webglSupport = gl ? 'Supported' : 'Unsupported';
+			webglOk = Boolean(gl);
 		} catch {
-			webglSupport = 'Unsupported';
+			webglOk = false;
 		}
 
-		storageStatus = 'indexedDB' in window ? 'Available' : 'Unavailable';
+		storageOk = 'indexedDB' in window;
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -79,14 +81,14 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div class="modal-overlay" transition:fadeFast={{ duration: 180 }} onclick={handleOverlayClick} onkeydown={handleKeydown} role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
 	<div class="modal-container" transition:pop={{ duration: 220, y: 14 }}>
-		<button class="close-btn" onclick={onClose} aria-label="Close">
+		<button class="close-btn" onclick={onClose} aria-label={t('common.close')}>
 			<Icon name="x" size={16} />
 		</button>
 
 		<!-- Hero -->
 		<div class="hero">
 			<span class="app-logo" role="img" aria-label="Utsuwa"></span>
-			<p id="modal-title" class="tagline">Open-source AI companion</p>
+			<p id="modal-title" class="tagline">{t('info.tagline')}</p>
 			<div class="hero-meta">
 				<span class="version-chip">{version}</span>
 				{#if isTauri()}
@@ -97,7 +99,7 @@
 						disabled={updateBusy}
 					>
 						<Icon name={updaterStore.status === 'available' ? 'download' : 'refresh-cw'} size={12} />
-						<span>{updaterStore.status === 'available' ? 'Install & restart' : 'Check for updates'}</span>
+						<span>{updaterStore.status === 'available' ? t('info.installRestart') : t('info.checkUpdates')}</span>
 					</button>
 				{/if}
 			</div>
@@ -119,7 +121,7 @@
 						<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
 					</svg>
 				</span>
-				<span class="row-label">GitHub</span>
+				<span class="row-label">{t('info.github')}</span>
 				<span class="row-ext"><Icon name="external-link" size={14} /></span>
 			</a>
 			<a
@@ -130,30 +132,30 @@
 				class="link-row"
 			>
 				<span class="row-icon"><Icon name="file-text" size={18} /></span>
-				<span class="row-label">Documentation</span>
+				<span class="row-label">{t('info.documentation')}</span>
 				<span class="row-ext"><Icon name="external-link" size={14} /></span>
 			</a>
 		</nav>
 
 		<!-- System -->
-		<p class="sys-label">System</p>
+		<p class="sys-label">{t('info.system')}</p>
 		<div class="sys-list">
 			<div class="sys-row">
-				<span class="sys-name">Speech recognition</span>
-				<span class="sys-val" class:ok={sttSupport === 'Supported'} class:bad={sttSupport === 'Unsupported'}>
-					<span class="dot"></span>{sttSupport}
+				<span class="sys-name">{t('info.speechRecognition')}</span>
+				<span class="sys-val" class:ok={sttOk === true} class:bad={sttOk === false}>
+					<span class="dot"></span>{sttOk === null ? t('info.checking') : sttOk ? t('info.supported') : t('info.unsupported')}
 				</span>
 			</div>
 			<div class="sys-row">
-				<span class="sys-name">3D graphics</span>
-				<span class="sys-val" class:ok={webglSupport === 'Supported'} class:bad={webglSupport === 'Unsupported'}>
-					<span class="dot"></span>{webglSupport}
+				<span class="sys-name">{t('info.graphics3d')}</span>
+				<span class="sys-val" class:ok={webglOk === true} class:bad={webglOk === false}>
+					<span class="dot"></span>{webglOk === null ? t('info.checking') : webglOk ? t('info.supported') : t('info.unsupported')}
 				</span>
 			</div>
 			<div class="sys-row">
-				<span class="sys-name">Local storage</span>
-				<span class="sys-val" class:ok={storageStatus === 'Available'} class:bad={storageStatus === 'Unavailable'}>
-					<span class="dot"></span>{storageStatus}
+				<span class="sys-name">{t('info.localStorage')}</span>
+				<span class="sys-val" class:ok={storageOk === true} class:bad={storageOk === false}>
+					<span class="dot"></span>{storageOk === null ? t('info.checking') : storageOk ? t('info.available') : t('info.unavailable')}
 				</span>
 			</div>
 		</div>

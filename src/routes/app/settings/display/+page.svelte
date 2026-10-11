@@ -3,7 +3,9 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import { Button } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { wakeLockStore } from '$lib/stores/wake-lock.svelte';
+	import { LOCALES, currentLocale, setLocale, type Locale } from '$lib/i18n';
 	import {
 		displayStore,
 		type ChatDisplayMode,
@@ -12,31 +14,38 @@
 		type TextRevealSpeed
 	} from '$lib/stores/display.svelte';
 
-	// Stored values keep their original names; only the labels changed
-	const modes: { value: ChatDisplayMode; label: string }[] = [
-		{ value: 'bubble', label: 'Immersive' },
-		{ value: 'sidebar', label: 'Chat window' }
-	];
+	// Stored values keep their original names; only the labels changed.
+	// $derived so the labels follow locale switches.
+	const modes = $derived([
+		{ value: 'bubble' as ChatDisplayMode, label: t('settings.display.immersive') },
+		{ value: 'sidebar' as ChatDisplayMode, label: t('settings.display.chatWindow') }
+	]);
 
-	const positions: { value: SidebarPosition; label: string }[] = [
-		{ value: 'left', label: 'Left' },
-		{ value: 'right', label: 'Right' }
-	];
+	const positions = $derived([
+		{ value: 'left' as SidebarPosition, label: t('common.left') },
+		{ value: 'right' as SidebarPosition, label: t('common.right') }
+	]);
 
-	const alignments: { value: ChatBarAlignment; label: string }[] = [
-		{ value: 'left', label: 'Left' },
-		{ value: 'center', label: 'Center' },
-		{ value: 'right', label: 'Right' }
-	];
+	const alignments = $derived([
+		{ value: 'left' as ChatBarAlignment, label: t('common.left') },
+		{ value: 'center' as ChatBarAlignment, label: t('common.center') },
+		{ value: 'right' as ChatBarAlignment, label: t('common.right') }
+	]);
 
-	const revealSpeeds: { value: TextRevealSpeed; label: string }[] = [
-		{ value: 'off', label: 'Off' },
-		{ value: 'slow', label: 'Slow' },
-		{ value: 'normal', label: 'Normal' },
-		{ value: 'fast', label: 'Fast' }
-	];
+	const revealSpeeds = $derived([
+		{ value: 'off' as TextRevealSpeed, label: t('common.off') },
+		{ value: 'slow' as TextRevealSpeed, label: t('common.slow') },
+		{ value: 'normal' as TextRevealSpeed, label: t('common.normal') },
+		{ value: 'fast' as TextRevealSpeed, label: t('common.fast') }
+	]);
 
 	const sidebarActive = $derived(displayStore.chatDisplayMode === 'sidebar');
+
+	const localeOptions = LOCALES.map((loc) => ({
+		value: loc,
+		label: loc === 'en' ? 'English' : '简体中文'
+	}));
+
 
 	function stepDelay(delta: number) {
 		const current = displayStore.typingIndicatorDelayMs / 1000;
@@ -47,30 +56,36 @@
 
 <div class="display-page">
 	<header class="page-header">
-		<h2>Display</h2>
-		<p>Configure how chat messages appear on screen.</p>
+		<h2>{t('settings.display.pageTitle')}</h2>
+		<p>{t('settings.display.pageSubtitle')}</p>
 	</header>
 
+	<SettingsSection title={t('settings.display.language')} description={t('settings.display.languageHint')}>
+		<SegmentedControl
+			label={t('settings.display.languageHint')}
+			options={localeOptions}
+			value={currentLocale()}
+			onchange={(next: string) => setLocale(next as Locale)}
+		/>
+	</SettingsSection>
+
 	<SettingsSection
-		title="Keep screen awake"
-		description="Keep the display on while Utsuwa is visible. This can use more battery."
+		title={t('settings.display.keepScreenAwake')}
+		description={t('settings.display.keepScreenAwakeDesc')}
 	>
 		<div class="setting-row">
 			<div class="setting-info">
-				<span class="setting-label">Keep screen awake</span>
+				<span class="setting-label">{t('settings.display.keepScreenAwake')}</span>
 				<span class="setting-desc" role="status">
-					{#if wakeLockStore.status === 'unsupported'}Not supported in this browser or desktop
-						webview.
-					{:else if wakeLockStore.status === 'active'}Active. The display is staying awake.
-					{:else if wakeLockStore.status === 'requesting'}Requesting permission to keep the display
-						awake...
-					{:else if displayStore.keepScreenAwake}Inactive. Your browser or device released or
-						declined the request.
-					{:else}Off. Your normal display timeout applies.{/if}
+					{#if wakeLockStore.status === 'unsupported'}{t('settings.display.wakeLockUnsupported')}
+					{:else if wakeLockStore.status === 'active'}{t('settings.display.wakeLockActive')}
+					{:else if wakeLockStore.status === 'requesting'}{t('settings.display.wakeLockRequesting')}
+					{:else if displayStore.keepScreenAwake}{t('settings.display.wakeLockInactive')}
+					{:else}{t('settings.display.wakeLockOff')}{/if}
 				</span>
 			</div>
 			<Switch
-				label="Keep screen awake"
+				label={t('settings.display.keepScreenAwake')}
 				checked={displayStore.keepScreenAwake}
 				onchange={displayStore.setKeepScreenAwake}
 				disabled={wakeLockStore.status === 'unsupported' && !displayStore.keepScreenAwake}
@@ -79,43 +94,38 @@
 		{#if displayStore.keepScreenAwake && wakeLockStore.status === 'inactive'}<Button
 				variant="secondary"
 				size="sm"
-				onclick={() => wakeLockStore.retry()}>Try again</Button
+				onclick={() => wakeLockStore.retry()}>{t('settings.display.wakeLockRetry')}</Button
 			>{/if}
 	</SettingsSection>
 
-	<SettingsSection title="Chat display">
+	<SettingsSection title={t('settings.display.chatDisplay')}>
 		{#snippet actions()}<Button
 				variant="secondary"
 				size="sm"
 				onclick={() => displayStore.resetChatDisplay()}
 			>
-				Reset to defaults
+				{t('settings.display.resetToDefaults')}
 			</Button>{/snippet}
 
 		<SegmentedControl
-			label="Chat display mode"
+			label={t('settings.display.chatDisplayMode')}
 			options={modes}
 			value={displayStore.chatDisplayMode}
 			onchange={displayStore.setChatDisplayMode}
 		/>
-		<p class="hint">
-			Immersive shows her replies in a bubble by her head. Chat window is a docked chat panel with
-			the full history and the input docked inside.
-		</p>
+		<p class="hint">{t('settings.display.chatDisplayHint')}</p>
 	</SettingsSection>
 
 	{#if sidebarActive}
-		<SettingsSection title="Chat window">
+		<SettingsSection title={t('settings.display.chatWindow')}>
 			<div class="settings-stack">
 				<div class="setting-row">
 					<div class="setting-info">
-						<span class="setting-label">Dock side</span>
-						<span class="setting-desc"
-							>Dock beside the avatar on wide screens, or below it on small screens</span
-						>
+						<span class="setting-label">{t('settings.display.dockSide')}</span>
+						<span class="setting-desc">{t('settings.display.dockSideDesc')}</span>
 					</div>
 					<SegmentedControl
-						label="Chat window dock side"
+						label={t('settings.display.dockSide')}
 						options={positions}
 						value={displayStore.sidebarPosition}
 						onchange={displayStore.setSidebarPosition}
@@ -127,35 +137,35 @@
 	{/if}
 
 	{#if !sidebarActive}
-		<SettingsSection title="Input bar">
+		<SettingsSection title={t('settings.display.inputBar')}>
 			<SegmentedControl
-				label="Floating bar alignment"
+				label={t('settings.display.inputBarAlignment')}
 				options={alignments}
 				value={displayStore.chatBarAlignment}
 				onchange={displayStore.setChatBarAlignment}
 			/>
-			<p class="hint">Where the input bar sits along the bottom edge.</p>
+			<p class="hint">{t('settings.display.inputBarHint')}</p>
 		</SettingsSection>
 	{/if}
-	<SettingsSection title="Text reveal">
+	<SettingsSection title={t('settings.display.textReveal')}>
 		<SegmentedControl
-			label="Text reveal speed"
+			label={t('settings.display.textRevealSpeed')}
 			options={revealSpeeds}
 			value={displayStore.textRevealSpeed}
 			onchange={displayStore.setTextRevealSpeed}
 		/>
-		<p class="hint">How quickly her replies appear, word by word. Off shows text instantly.</p>
+		<p class="hint">{t('settings.display.textRevealHint')}</p>
 	</SettingsSection>
 
-	<SettingsSection title="Typing indicator">
+	<SettingsSection title={t('settings.display.typingIndicator')}>
 		<div class="settings-stack">
 			<div class="setting-row">
 				<div class="setting-info">
-					<span class="setting-label">Wait tone</span>
-					<span class="setting-desc">Soft audio ping while the typing indicator is visible</span>
+					<span class="setting-label">{t('settings.display.waitTone')}</span>
+					<span class="setting-desc">{t('settings.display.waitToneDesc')}</span>
 				</div>
 				<Switch
-					label="Wait tone"
+					label={t('settings.display.waitTone')}
 					checked={displayStore.waitToneEnabled}
 					onchange={displayStore.setWaitToneEnabled}
 				/>
@@ -163,20 +173,20 @@
 
 			<div class="setting-row">
 				<div class="setting-info">
-					<span class="setting-label">Delay</span>
-					<span class="setting-desc">Wait before the typing dots appear</span>
+					<span class="setting-label">{t('settings.display.delay')}</span>
+					<span class="setting-desc">{t('settings.display.delayDesc')}</span>
 				</div>
 				<div class="delay-input-container">
 					<button
 						class="delay-step"
-						aria-label="Decrease typing delay"
+						aria-label={t('settings.display.delayDecrease')}
 						onclick={() => stepDelay(-0.1)}
 						disabled={displayStore.typingIndicatorDelayMs <= 0}>−</button
 					>
 					<input
 						type="number"
 						class="delay-input settings-field"
-						aria-label="Typing indicator delay in seconds"
+						aria-label={t('settings.display.delaySeconds')}
 						min="0"
 						max="10"
 						step="0.1"
@@ -189,7 +199,7 @@
 					<span class="delay-unit">s</span>
 					<button
 						class="delay-step"
-						aria-label="Increase typing delay"
+						aria-label={t('settings.display.delayIncrease')}
 						onclick={() => stepDelay(0.1)}
 						disabled={displayStore.typingIndicatorDelayMs >= 10000}>+</button
 					>

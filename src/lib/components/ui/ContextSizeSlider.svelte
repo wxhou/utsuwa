@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Switch from './Switch.svelte';
+	import { t } from '$lib/i18n';
 	import '../settings/settings-controls.css';
 	import {
 		CONTEXT_SIZE_STEPS,
@@ -12,15 +13,9 @@
 		contextSize: number | undefined;
 		onChange: (value: number | undefined) => void;
 		id?: string;
-		note?: string;
 	}
 
-	let {
-		contextSize,
-		onChange,
-		id = 'llm-context-size-toggle',
-		note = 'When enabled, memory injection and chat history are scaled to fit the selected model\'s context window.'
-	}: Props = $props();
+	let { contextSize, onChange, id = 'llm-context-size-toggle' }: Props = $props();
 
 	const enabled = $derived(contextSize !== undefined && contextSize > 0);
 
@@ -36,20 +31,20 @@
 
 <div class="context-size-row">
 	<label class="context-size-label" for={id}>
-		Context Window
+		{t('settings.llm.contextWindow')}
 		{#if enabled}
 			<span class="context-size-value">{formatContextSize(snapContextSize(contextSize as number))}</span>
 		{:else}
-			<span class="context-size-value">Default</span>
+			<span class="context-size-value">{t('settings.llm.contextDefault')}</span>
 		{/if}
 	</label>
-	<Switch {id} checked={enabled} onchange={handleToggle} label="Context window scaling" />
+	<Switch {id} checked={enabled} onchange={handleToggle} label={t('settings.llm.contextScaling')} />
 </div>
 {#if enabled}
 	<div class="context-size-slider-row">
 		<input
 			type="range"
-			class="settings-range" aria-label="Context window size"
+			class="settings-range" aria-label={t('llm.contextSize')}
 			min="0"
 			max={CONTEXT_SIZE_STEPS.length - 1}
 			step="1"
@@ -63,7 +58,7 @@
 		</div>
 	</div>
 {/if}
-<p class="context-size-note">{note}</p>
+<p class="context-size-note">{t('settings.llm.contextScalingHint')}</p>
 
 <style>
 	.context-size-row {

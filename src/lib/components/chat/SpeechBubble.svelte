@@ -2,7 +2,8 @@
 	import { vrmStore } from '$lib/stores/vrm.svelte';
 	import { displayStore, REVEAL_SPEED_MS } from '$lib/stores/display.svelte';
 	import { ShimmerLabel, StreamingText } from '$lib/components/ui';
-	import { phaseLabel, type ThinkingPhase } from '$lib/services/chat/chat-phase';
+	import { phaseLabelKey, type ThinkingPhase } from '$lib/services/chat/chat-phase';
+	import { t } from '$lib/i18n';
 	import { pop, fadeFast } from '$lib/utils/motion';
 
 	interface Props {
@@ -76,7 +77,7 @@
 				<div class="speech-bubble-content" in:fadeFast={{ duration: 180 }}>
 					{#if isTyping}
 						<div class="thinking-row">
-							<ShimmerLabel label={phaseLabel(phase)} />
+							<ShimmerLabel label={t(phaseLabelKey(phase))} />
 						</div>
 					{:else}
 						<p class="message"><StreamingText text={message} speedMs={revealSpeedMs} /></p>

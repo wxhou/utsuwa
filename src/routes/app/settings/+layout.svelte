@@ -6,21 +6,22 @@
 	import { Icon } from '$lib/components/ui';
 	import { localPath } from '$lib/config/links';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
+	import { t } from '$lib/i18n';
 
 	let { children } = $props();
 
 	const navItems = $derived([
-		{ href: localPath('app', '/settings/persona'), label: 'Character', icon: 'persona' },
-		{ href: localPath('app', '/settings/display'), label: 'Display', icon: 'monitor' },
-		{ href: localPath('app', '/settings/llm'), label: 'LLM Model', icon: 'brain' },
-		{ href: localPath('app', '/settings/tts'), label: 'TTS', icon: 'volume' },
-		{ href: localPath('app', '/settings/stt'), label: 'STT', icon: 'mic' },
+		{ href: localPath('app', '/settings/persona'), label: t('settings.nav.character'), icon: 'persona' },
+		{ href: localPath('app', '/settings/display'), label: t('settings.nav.display'), icon: 'monitor' },
+		{ href: localPath('app', '/settings/llm'), label: t('settings.nav.llm'), icon: 'brain' },
+		{ href: localPath('app', '/settings/tts'), label: t('settings.nav.tts'), icon: 'volume' },
+		{ href: localPath('app', '/settings/stt'), label: t('settings.nav.stt'), icon: 'mic' },
 		...(mcpStore.capability === 'none'
 			? []
-			: [{ href: localPath('app', '/settings/mcp'), label: 'MCP', icon: 'modules' }]),
-		{ href: localPath('app', '/settings/memory'), label: 'Memory', icon: 'brain' },
-		{ href: localPath('app', '/settings/data'), label: 'Data', icon: 'database' },
-		{ href: localPath('app', '/settings/developer'), label: 'Developer', icon: 'code' }
+			: [{ href: localPath('app', '/settings/mcp'), label: t('settings.nav.mcp'), icon: 'modules' }]),
+		{ href: localPath('app', '/settings/memory'), label: t('settings.nav.memory'), icon: 'brain' },
+		{ href: localPath('app', '/settings/data'), label: t('settings.nav.data'), icon: 'database' },
+		{ href: localPath('app', '/settings/developer'), label: t('settings.nav.developer'), icon: 'code' }
 	]);
 
 	onMount(() => {
@@ -36,11 +37,11 @@
 	<!-- Sidebar -->
 	<aside class="sidebar">
 		<div class="sidebar-header">
-			<a href={localPath('app')} class="back-button" aria-label="Back">
+			<a href={localPath('app')} class="back-button" aria-label={t('common.back')}>
 				<Icon name="chevron-left" size={20} />
-				<span>Back</span>
+				<span>{t('common.back')}</span>
 			</a>
-			<h1>Settings</h1>
+			<h1>{t('settings.title')}</h1>
 		</div>
 
 		<nav class="nav">

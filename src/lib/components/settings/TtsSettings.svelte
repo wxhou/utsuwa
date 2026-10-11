@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Switch from '$lib/components/ui/Switch.svelte';
+	import { t } from '$lib/i18n';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { getTTSProvider } from '$lib/services/providers/registry';
 	import { Icon, ProviderDropdown, ModelDropdown } from '$lib/components/ui';
@@ -15,7 +16,7 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 <div class="service-group">
 	<div class="service-header">
 		<Icon name="mic" size={14} />
-		<span>Speech (TTS)</span>
+		<span>{t('onboarding.speechTts')}</span>
 		<Switch checked={state.isTTSEnabled} onchange={state.toggleTTS} label="Speech (TTS)" />
 	</div>
 
@@ -24,7 +25,7 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 			type="tts"
 			value={state.speechSettings.activeProvider as string}
 			onSelect={state.handleTTSProviderChange}
-			placeholder="Select TTS provider..."
+			placeholder={t('onboarding.selectTtsProvider')}
 		/>
 
 		{#if state.speechSettings.activeProvider}
@@ -36,7 +37,7 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 						type="password"
 						class="api-key-input"
 						class:error={state.ttsFetchError}
-						placeholder="API Key" aria-label="API Key"
+						placeholder={t('settings.llm.apiKey')} aria-label={t('settings.llm.apiKey')}
 						value={settingsStore.getProviderConfig(provider.id).apiKey ?? ''}
 						oninput={(e) => state.handleApiKeyChange(provider.id, e.currentTarget.value)}
 						onblur={state.handleTTSApiKeyBlur}
@@ -49,7 +50,7 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 					models={state.ttsModels}
 					value={state.speechSettings.activeModel as string}
 					onSelect={state.handleTTSModelChange}
-					placeholder="Select model..."
+					placeholder={t('onboarding.selectModel')}
 					isLoading={state.ttsIsLoading}
 					onRefresh={state.ttsHasApiKey ? state.fetchTTSModels : undefined}
 					disabled={!state.ttsHasApiKey}
@@ -63,7 +64,7 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 						type="text"
 						class="api-key-input"
 						list="elevenlabs-voices"
-						placeholder="Voice ID" aria-label="Voice ID"
+						placeholder={t('onboarding.voiceId')} aria-label={t('onboarding.voiceId')}
 						value={state.speechSettings.activeVoiceId as string ?? ''}
 						onchange={(e) => state.handleTTSVoiceChange(e.currentTarget.value)}
 					/>
@@ -81,7 +82,7 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 						type="text"
 						class="api-key-input"
 						list="local-tts-voices"
-						placeholder="Voice (e.g. af_bella)" aria-label="Voice (e.g. af_bella)"
+						placeholder={t('settings.tts.voice')} aria-label={t('settings.tts.voice')}
 						value={state.speechSettings.activeVoiceId as string ?? ''}
 						onchange={(e) => state.handleTTSVoiceChange(e.currentTarget.value)}
 					/>
@@ -95,7 +96,7 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 					<input
 						type="text"
 						class="api-key-input"
-						placeholder="Model (optional, e.g. kokoro)" aria-label="Model (optional, e.g. kokoro)"
+						placeholder={t('settings.tts.modelOptional')} aria-label={t('settings.tts.modelOptional')}
 						value={state.speechSettings.activeModel as string ?? ''}
 						onchange={(e) => state.handleTTSModelChange(e.currentTarget.value)}
 					/>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { Icon } from '$lib/components/ui';
 	import './ai-services-settings.css';
@@ -7,16 +8,16 @@
 <div class="service-group">
 	<div class="service-header">
 		<Icon name="mic" size={14} />
-		<span>Voice Input (STT)</span>
+		<span>{t('onboarding.voiceInputStt')}</span>
 	</div>
-	<p class="stt-hint">Higher quality voice input via Whisper. A local server is used if configured, then Groq, then OpenAI, then the browser's built-in recognition. Required on desktop (which has no built-in recognition).</p>
+	<p class="stt-hint">{t('settings.stt.hint')}</p>
 
-	<span class="stt-sublabel">Groq API Key</span>
+	<span class="stt-sublabel">{t('settings.stt.groqLabel')}</span>
 	<div class="api-key-row">
 		<input
 			type="password"
 			class="api-key-input"
-			placeholder="Groq API Key" aria-label="Groq API Key"
+			placeholder={t('settings.stt.groqKey')} aria-label={t('settings.stt.groqKey')}
 			value={settingsStore.getProviderConfig('groq-stt').apiKey ?? ''}
 			oninput={(e) => {
 				const v = e.currentTarget.value;
@@ -27,12 +28,12 @@
 		/>
 	</div>
 
-	<span class="stt-sublabel">OpenAI API Key (Whisper)</span>
+	<span class="stt-sublabel">{t('settings.stt.openaiLabel')}</span>
 	<div class="api-key-row">
 		<input
 			type="password"
 			class="api-key-input"
-			placeholder="OpenAI API Key" aria-label="OpenAI API Key"
+			placeholder={t('settings.stt.openaiKey')} aria-label={t('settings.stt.openaiKey')}
 			value={settingsStore.getProviderConfig('openai-stt').apiKey ?? ''}
 			oninput={(e) => {
 				const v = e.currentTarget.value;
@@ -43,12 +44,12 @@
 		/>
 	</div>
 
-	<span class="stt-sublabel">Local server (Speaches, faster-whisper-server, whisper.cpp)</span>
+	<span class="stt-sublabel">{t('settings.stt.localServerLabel')}</span>
 	<div class="api-key-row">
 		<input
 			type="text"
 			class="api-key-input"
-			placeholder="http://localhost:8000/v1/" aria-label="http://localhost:8000/v1/"
+			placeholder={t('onboarding.sttServerUrl')} aria-label={t('onboarding.sttServerUrl')}
 			value={settingsStore.getProviderConfig('local-stt').baseUrl ?? ''}
 			oninput={(e) => {
 				const v = e.currentTarget.value.trim();
@@ -62,7 +63,7 @@
 		<input
 			type="text"
 			class="api-key-input"
-			placeholder="Model (e.g. Systran/faster-whisper-large-v3)" aria-label="Model (e.g. Systran/faster-whisper-large-v3)"
+			placeholder={t('settings.stt.localModel')} aria-label={t('settings.stt.localModel')}
 			value={settingsStore.getProviderConfig('local-stt').modelId ?? ''}
 			oninput={(e) => {
 				settingsStore.setProviderConfig('local-stt', { modelId: e.currentTarget.value.trim() });

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import ScreenWakeLock from '$lib/components/display/ScreenWakeLock.svelte';
 	import WakeLockIndicator from '$lib/components/display/WakeLockIndicator.svelte';
 	import VrmScene from '$lib/components/vrm/VrmScene.svelte';
@@ -301,22 +302,22 @@
 			onpointerup={onResizeEnd}
 			onpointercancel={onResizeEnd}
 			role="separator"
-			aria-label="Resize overlay"
-			title="Drag to resize"
+			aria-label={t('settings.overlay.resizeOverlay')}
+			title={t('settings.overlay.dragToResize')}
 		></div>
 	{/if}
 
 	<!-- Control rail (revealed on hover) -->
 	<div class="overlay-rail">
-		<button class="rail-btn" onclick={exitToMain} aria-label="Exit to main app" title="Back to app">
+		<button class="rail-btn" onclick={exitToMain} aria-label={t('settings.overlay.exitToMain')} title={t('settings.overlay.backToApp')}>
 			<Icon name="x" size={15} />
 		</button>
 		<button
 			class="rail-btn"
 			class:rail-btn-active={showCamera}
 			onclick={() => (showCamera = !showCamera)}
-			aria-label="Camera settings"
-			title="Camera"
+			aria-label={t('settings.overlay.cameraSettings')}
+			title={t('ui.camera')}
 		>
 			<Icon name="video" size={15} />
 		</button>
@@ -324,8 +325,8 @@
 			class="rail-btn"
 			class:rail-btn-active={positionLocked}
 			onclick={toggleLock}
-			aria-label={positionLocked ? 'Unlock position' : 'Lock position'}
-			title={positionLocked ? 'Position locked' : 'Lock position'}
+			aria-label={positionLocked ? t('settings.overlay.unlockPosition') : t('settings.overlay.lockPosition')}
+			title={positionLocked ? t('settings.overlay.positionLocked') : t('settings.overlay.lockPosition')}
 		>
 			<Icon name={positionLocked ? 'lock' : 'lock-open'} size={15} />
 		</button>
