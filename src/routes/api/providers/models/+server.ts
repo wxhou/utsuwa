@@ -26,7 +26,10 @@ interface FetchModelsResponse {
 const MODEL_FILTERS: Record<string, RegExp> = {
 	openai: /^(gpt-|o1-|o3-|chatgpt-4o-)/,
 	anthropic: /^claude-/,
-	deepseek: /^deepseek-(chat|reasoner)/,
+	// DeepSeek retired deepseek-chat/reasoner; the v4 family uses
+	// deepseek-flash / deepseek-v4-pro (api-docs.deepseek.com). Keep both so a
+	// provider-side rollback or legacy key still lists models.
+	deepseek: /^deepseek-(chat|reasoner|flash|v\d)/,
 	xai: /^grok-/,
 	google: /^gemini-/
 };
@@ -57,6 +60,7 @@ function normalizeModelName(id: string, providerId: string): string {
 		.replace(/-/g, ' ')
 		.replace(/\b\w/g, (c) => c.toUpperCase())
 		.replace(/Gpt/g, 'GPT')
+		.replace(/Deepseek/g, 'DeepSeek')
 		.replace(/O1/g, 'o1')
 		.replace(/O3/g, 'o3');
 

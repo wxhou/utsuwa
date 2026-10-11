@@ -13,6 +13,7 @@ import {
 } from '$lib/services/providers/provider-errors';
 import { type MessageContent, toOpenAIContent, toAnthropicContent } from './content';
 import { emitToolCalls, type ToolCallBuffer } from './tool-call-buffers';
+import { isTauri } from '$lib/services/platform';
 
 interface ChatToolCall {
 	id: string;
@@ -265,6 +266,26 @@ export async function extractStateUpdates(options: ExtractOptions): Promise<stri
 	const isLocal = isLocalLLMProvider(provider);
 	if (!apiKey && !isLocal && provider !== 'openai-compatible') return null;
 
+	// Same transport split as the main chat (companion-chat): Tauri and local
+	// providers talk to the provider directly — the desktop build has no server
+	// routes, and the proxy can't reach a provider on the user's machine. On the
+	// web, route through /api/extract: third-party APIs usually send no CORS
+	// headers, so a browser-direct call fails with net::ERR_FAILED.
+	if (!isTauri() && !isLocal) {
+		try {
+			const response = await fetch('/api/extract', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ provider, model, apiKey, baseURL, system, userMessage, reply })
+			});
+			if (!response.ok) return null;
+			const json = await response.json();
+			return typeof json?.text === 'string' ? json.text : null;
+		} catch {
+			return null;
+		}
+	}
+
 	const base = isLocal
 		? getChatBaseUrl(provider, baseURL)
 		: provider === 'openai-compatible' && baseURL
@@ -299,6 +320,9 @@ export async function extractStateUpdates(options: ExtractOptions): Promise<stri
 				{ role: 'user', content: userContent }
 			],
 			response_format: { type: 'json_object' },
+			// Same as /api/extract: DeepSeek v4 thinking models burn the token
+			// budget on reasoning and return empty content at max_tokens=400.
+			...(provider === 'deepseek' && { thinking: { type: 'disabled' } }),
 			stream: false,
 			max_tokens: 400
 		});
