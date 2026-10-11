@@ -96,6 +96,15 @@ export function getRecentTurns(limit: number = 10): ConversationTurn[] {
 	return workingMemory.turns.slice(-limit);
 }
 
+// Drop the in-RAM conversation history (used by the chat window's clear
+// action, which also deletes the persisted turns). Session bookkeeping stays:
+// the current session record keeps existing and later turns keep landing in it.
+export function resetWorkingMemoryTurns(): void {
+	workingMemory.turns = [];
+	workingMemory.messageCount = 0;
+	currentSessionTurnCount = 0;
+}
+
 // Hydrate working memory from IndexedDB (call on page load)
 export async function hydrateWorkingMemory(): Promise<void> {
 	if (workingMemory.turns.length > 0) return;

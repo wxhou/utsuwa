@@ -5,9 +5,12 @@
 	import { Icon, ShimmerLabel } from '$lib/components/ui';
 	import { renderMarkdown } from './render-markdown';
 	import { wrapWordsInHtml } from './reveal-markup';
-	import { phaseLabel, type ThinkingPhase } from '$lib/services/chat/chat-phase';
+	import { phaseLabelKey, type ThinkingPhase } from '$lib/services/chat/chat-phase';
+	import { t } from '$lib/i18n';
 	import { type PreparedImage } from '$lib/services/storage/keepsakes';
 	import { chatDraftStore } from '$lib/stores/chat-draft.svelte';
+	import { deleteAllTurns } from '$lib/services/storage/memory';
+	import { resetWorkingMemoryTurns } from '$lib/engine/memory';
 	import ChatInput from './ChatInput.svelte';
 	import CopyButton from '$lib/components/ui/CopyButton.svelte';
 
@@ -64,10 +67,19 @@
 
 	const revealCadenceMs = $derived(REVEAL_SPEED_MS[displayStore.textRevealSpeed]);
 
-	function handleClearHistory() {
+	async function handleClearHistory() {
 		if (!browser) return;
-		if (confirm('Delete all messages in this chat?')) {
+		if (confirm(t('chat.clearConfirm'))) {
 			chatStore.clearMessages();
+			// Clear the persisted record too, or a reload would bring the history
+			// right back. Persistence failures must not block the in-memory clear,
+			// mirroring recordTurn's non-fatal persistence policy.
+			resetWorkingMemoryTurns();
+			try {
+				await deleteAllTurns();
+			} catch (e) {
+				console.debug('Failed to delete persisted conversation turns:', e);
+			}
 		}
 	}
 </script>
@@ -76,7 +88,7 @@
 	class="chat-window docked"
 	inert={!open}
 	aria-hidden={!open}
-	aria-label="Chat window"
+	aria-label={t('chat.chatWindow')}
 	role="region"
 	class:open
 	class:pin-left={displayStore.sidebarPosition === 'left'}
@@ -85,8 +97,8 @@
 		<button
 			class="clear-btn"
 			onclick={handleClearHistory}
-			aria-label="Clear chat history"
-			title="Clear chat history"
+			aria-label={t('chat.clearHistory')}
+			title={t('chat.clearHistory')}
 			disabled={visibleMessages.length === 0}
 		>
 			<Icon name="trash" size={14} />
@@ -117,14 +129,14 @@
 								<p>{@html renderMarkdown(msg.content)}</p>
 							{/if}
 						</div>
-						{#if msg.content}<CopyButton text={msg.content} label="Copy message" />{/if}
+						{#if msg.content}<CopyButton text={msg.content} label={t('chat.copyMessage')} />{/if}
 					</div>
 				{/if}
 			{/each}
 			{#if isTyping}
 				<div class="message assistant">
 					<div class="bubble thinking">
-						<ShimmerLabel label={phaseLabel(phase)} />
+						<ShimmerLabel label={t(phaseLabelKey(phase))} />
 					</div>
 				</div>
 			{/if}
@@ -138,7 +150,7 @@
 	{#if open && chatDraftStore.dropActive}
 		<div class="drop-overlay">
 			<Icon name="camera" size={22} />
-			<span>Drop a photo to show her</span>
+			<span>{t('chat.dropPhoto')}</span>
 		</div>
 	{/if}
 </div>

@@ -4,12 +4,22 @@ export interface ShownImage {
 	url: string;
 }
 
+import { turnsToMessages } from './chat-hydrate';
+
 export interface Message {
 	id: string;
 	role: 'user' | 'assistant' | 'system';
 	content: string;
 	timestamp: Date;
 	images?: ShownImage[];
+}
+
+// Persisted conversation turn (subset of engine/memory's ConversationTurn that
+// display needs) used to refill the window on mount.
+export interface HydratableTurn {
+	role: 'user' | 'assistant';
+	content: string;
+	createdAt: Date;
 }
 
 function createChatStore() {
@@ -63,6 +73,13 @@ function createChatStore() {
 		messages = [];
 	}
 
+	// Refill the window from persisted history on mount. Replaces the whole
+	// list — the caller only invokes this when messages is empty, before any
+	// user interaction, so it never races a streaming update.
+	function hydrate(turns: HydratableTurn[]) {
+		messages = turnsToMessages(turns);
+	}
+
 	return {
 		get messages() {
 			return messages;
@@ -77,7 +94,8 @@ function createChatStore() {
 		updateLastMessage,
 		setLoading,
 		setError,
-		clearMessages
+		clearMessages,
+		hydrate
 	};
 }
 
