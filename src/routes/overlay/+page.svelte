@@ -28,7 +28,7 @@
 	import { type ThinkingPhase } from '$lib/services/chat/chat-phase';
 	import { createReminderFiredHandler } from '$lib/services/chat/reminder-chat';
 	import { type PreparedImage } from '$lib/services/storage/keepsakes';
-	import { eventsApi } from '$lib/engine/events';
+	import { eventsApi, findReplayableEvent } from '$lib/engine/events';
 	import { completionMarkers } from '$lib/engine/event-completion';
 	import { reminderStore } from '$lib/stores/reminders.svelte';
 	import type { EventDefinition } from '$lib/types/events';
@@ -48,6 +48,15 @@
 	let activeEvent = $state<EventDefinition | null>(null);
 	let showCamera = $state(false);
 	let positionLocked = $state(false);
+	// Inline volume control on the rail; same speech.volume setting as the
+	// chat dock and the TTS settings page. Takes effect on the next sentence.
+	let volumeOpen = $state(false);
+	const ttsVolume = $derived(
+		(modulesStore.getModuleSettings('speech').volume as number | undefined) ?? 1
+	);
+	function setVolume(value: number) {
+		modulesStore.setModuleSetting('speech', 'volume', Number.isFinite(value) ? value : 1);
+	}
 
 	const chatExpanded = $derived(overlayStore.chatExpanded);
 
@@ -175,6 +184,17 @@
 		if (debugEvent) {
 			activeEvent = debugEvent;
 		}
+	});
+	// Re-show an event abandoned in a previous session, once per session.
+	$effect(() => {
+		(async () => {
+			try {
+				const pending = await findReplayableEvent();
+				if (pending) activeEvent = pending;
+			} catch (e) {
+				console.debug('Event replay check failed:', e);
+			}
+		})();
 	});
 	// Start reminder polling in the overlay too, so timers fire even when the
 	// main app window is hidden. Fired reminders are sent back through the LLM
@@ -330,6 +350,34 @@
 		>
 			<Icon name={positionLocked ? 'lock' : 'lock-open'} size={15} />
 		</button>
+	</div>
+
+	<!-- Volume: same speech.volume setting as the chat dock and settings page -->
+	<div class="overlay-rail volume-rail">
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="volume-anchor" onclick={(e) => e.stopPropagation()}>
+			<button
+				class="rail-btn"
+				class:rail-btn-active={volumeOpen}
+				onclick={() => (volumeOpen = !volumeOpen)}
+				aria-label={t('chat.volumeLabel')}
+				title={t('chat.volumeLabel')}
+			>
+				<Icon name="volume-2" size={15} />
+			</button>
+			{#if volumeOpen}
+				<input
+					type="range"
+					class="volume-slider"
+					min="0"
+					max="2"
+					step="0.1"
+					value={ttsVolume}
+					oninput={(e) => setVolume(e.currentTarget.valueAsNumber)}
+				/>
+			{/if}
+		</div>
 	</div>
 
 	{#if showCamera}
@@ -523,6 +571,31 @@
 		opacity: 1;
 		pointer-events: auto;
 		color: var(--accent);
+	}
+
+	/* Volume rail: second column so its slider never reflows the tool rail;
+	   stays open while volumeOpen regardless of hover */
+	.volume-rail {
+		top: 11.5rem;
+	}
+	.volume-rail .volume-anchor {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.volume-rail .volume-slider {
+		width: 88px;
+		accent-color: var(--accent);
+		background: var(--bg-tertiary);
+		border-radius: var(--radius-full);
+		padding: 0 0.375rem;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.15s ease;
+	}
+	.volume-rail .volume-anchor .volume-slider {
+		opacity: 1;
+		pointer-events: auto;
 	}
 
 	.overlay-camera-anchor {

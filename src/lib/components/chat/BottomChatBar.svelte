@@ -23,6 +23,8 @@
 		/** The chat window is open and owns the input; keep drops and toasts alive
 		 *  but hide the visible bar. */
 		barHidden?: boolean;
+		/** Show the "open chat window" button (bubble mode on the main page). */
+		windowToggle?: boolean;
 	}
 
 	let {
@@ -32,7 +34,8 @@
 		providerLabel = 'your AI provider',
 		providerIsLocal = false,
 		overlay = false,
-		barHidden = false
+		barHidden = false,
+		windowToggle = false
 	}: Props = $props();
 
 	// Surface voice playback failures; without this a TTS misconfiguration
@@ -201,6 +204,18 @@
 				<span>{t('chat.dropPhoto')}</span>
 			</div>
 		{/if}
+		{#if windowToggle}
+			<button
+				type="button"
+				class="window-toggle-btn"
+				onclick={() => displayStore.setChatDisplayMode('sidebar')}
+				aria-label={t('chat.expandToWindow')}
+				title={t('chat.expandToWindow')}
+			>
+				<Icon name="message-square" size={20} />
+			</button>
+		{/if}
+
 		<div class="bar-row">
 			<ChatInput {onSend} {disabled} {visionCapable} {overlay} />
 		</div>
@@ -335,11 +350,13 @@
 		position: absolute;
 		bottom: 2.5rem;
 		left: 50%;
-		transform: translateX(-50%);
 		width: 100%;
 		max-width: 600px;
 		padding: 0 1rem;
 		z-index: 40;
+		/* margin, not transform: a transform would become the containing block
+		   for position:fixed children (the viewport-pinned window toggle) */
+		margin-left: -300px;
 	}
 
 	.bottom-chat-bar.overlay {
@@ -363,6 +380,31 @@
 		display: flex;
 		align-items: flex-end;
 		gap: 0.5rem;
+	}
+
+	.window-toggle-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		flex-shrink: 0;
+		background: var(--bg-tertiary);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-lg);
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition: background 0.15s ease, color 0.15s ease;
+		/* Pinned to the viewport bottom-right corner, clear of the bar and
+		   the dev annotation rail (which sits lower-right at ~2.5rem) */
+		position: fixed;
+		right: 1.25rem;
+		bottom: 5.25rem;
+		z-index: 45;
+	}
+	.window-toggle-btn:hover {
+		background: color-mix(in srgb, var(--bg-tertiary), var(--text-primary) 8%);
+		color: var(--text-primary);
 	}
 
 	.stt-error {

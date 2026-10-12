@@ -13,6 +13,7 @@
 	import { resetWorkingMemoryTurns } from '$lib/engine/memory';
 	import ChatInput from './ChatInput.svelte';
 	import CopyButton from '$lib/components/ui/CopyButton.svelte';
+	import { modulesStore } from '$lib/stores/modules.svelte';
 
 	interface Props {
 		open: boolean;
@@ -82,6 +83,16 @@
 			}
 		}
 	}
+
+	// Inline volume control, wired to the same speech.volume setting the TTS
+	// settings page edits. The change lands on the next played sentence.
+	let volumeOpen = $state(false);
+	const ttsVolume = $derived(
+		(modulesStore.getModuleSettings('speech').volume as number | undefined) ?? 1
+	);
+	function setVolume(value: number) {
+		modulesStore.setModuleSetting('speech', 'volume', Number.isFinite(value) ? value : 1);
+	}
 </script>
 
 <div
@@ -102,6 +113,40 @@
 			disabled={visibleMessages.length === 0}
 		>
 			<Icon name="trash" size={14} />
+		</button>
+		<div class="volume-wrap">
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="volume-anchor" onclick={(e) => e.stopPropagation()}>
+				<button
+					class="clear-btn volume-btn"
+					class:volume-btn-active={volumeOpen}
+					onclick={() => (volumeOpen = !volumeOpen)}
+					aria-label={t('chat.volumeLabel')}
+					title={t('chat.volumeLabel')}
+				>
+					<Icon name="volume-2" size={14} />
+				</button>
+				{#if volumeOpen}
+					<input
+						type="range"
+						class="volume-slider"
+						min="0"
+						max="2"
+						step="0.1"
+						value={ttsVolume}
+						oninput={(e) => setVolume(e.currentTarget.valueAsNumber)}
+					/>
+				{/if}
+			</div>
+		</div>
+		<button
+			class="clear-btn"
+			onclick={() => displayStore.setChatDisplayMode('bubble')}
+			aria-label={t('chat.collapseToBubble')}
+			title={t('chat.collapseToBubble')}
+		>
+			<Icon name="message" size={14} />
 		</button>
 	</div>
 
@@ -223,6 +268,29 @@
 	.clear-btn:hover:disabled {
 		background: transparent;
 		color: var(--text-tertiary);
+	}
+
+	.volume-wrap {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+	}
+
+	.volume-anchor {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.volume-btn-active {
+		color: var(--text-primary);
+		background: var(--bg-tertiary);
+	}
+
+	.volume-slider {
+		width: 88px;
+		accent-color: var(--accent);
 	}
 
 	.messages {

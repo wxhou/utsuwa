@@ -66,7 +66,8 @@
 		getEmbeddingBackfillStatus
 	} from '$lib/engine/memory';
 	import { initEmbeddingModel } from '$lib/services/embeddings';
-	import { eventsApi } from '$lib/engine/events';
+	import { eventsApi, findReplayableEvent } from '$lib/engine/events';
+	import { getMemoryBudget } from '$lib/types/memory';
 	import { completionMarkers } from '$lib/engine/event-completion';
 
 	let canvasRef: HTMLCanvasElement | null = null;
@@ -152,10 +153,31 @@
 			try {
 				await hydrateWorkingMemory();
 				if (chatStore.messages.length === 0) {
-					chatStore.hydrate(getWorkingMemory().turns);
+					// Mirror what she'd actually remember: the injection path caps
+					// recent turns at the context-window budget (10 when unset), so
+					// showing all 20 cached turns would display history she forgot.
+					const contextSize =
+						(modulesStore.getModuleSettings('consciousness').contextSize as number | undefined) ||
+						undefined;
+					const turnLimit = contextSize
+						? getMemoryBudget(contextSize).workingMemoryTurns
+						: 10;
+					chatStore.hydrate(getWorkingMemory().turns.slice(-turnLimit));
 				}
 			} catch (e) {
 				console.error('Failed to hydrate working memory:', e);
+			}
+		})();
+	});
+
+	// Re-show an event abandoned in a previous session, once per session.
+	$effect(() => {
+		(async () => {
+			try {
+				const pending = await findReplayableEvent();
+				if (pending) activeEvent = pending;
+			} catch (e) {
+				console.debug('Event replay check failed:', e);
 			}
 		})();
 	});
@@ -400,6 +422,7 @@
 				providerLabel={imageProvider.label}
 				providerIsLocal={imageProvider.isLocal}
 				barHidden={windowMode}
+				windowToggle
 			/>
 		</div>
 		{#if photomodeStore.active}

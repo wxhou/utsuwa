@@ -182,7 +182,9 @@ test('only settings switch between the persistent window and immersive bar', asy
 	await expect(page.getByRole('button', { name: 'Close chat', exact: true })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Chat history', exact: true })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: /Dock on/ })).toHaveCount(0);
-	await expect(panel.locator('.window-header').getByRole('button')).toHaveCount(1);
+	// Clear + volume + collapse-to-bubbles (volume since the chat-volume-control
+	// change, collapse since chat-collapse-toggle; the slider only mounts on click).
+	await expect(panel.locator('.window-header').getByRole('button')).toHaveCount(3);
 	await page.evaluate(async () => {
 		const path = '/src/lib/stores/chat.svelte.ts';
 		(await import(/* @vite-ignore */ path)).chatStore.addMessage('user', 'A message to clear');
