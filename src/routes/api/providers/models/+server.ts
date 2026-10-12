@@ -262,6 +262,16 @@ export const POST: RequestHandler = async ({ request }) => {
 				if (!apiKey) throw new Error('API key required for OpenAI TTS');
 				models = await fetchOpenAITTSModels(apiKey, cleanBaseUrl);
 				break;
+			// MiniMax has no models list endpoint; the dropdown uses the static
+			// registry list, so report zero models instead of an unknown-provider error.
+			case 'minimax':
+				models = [];
+				break;
+			// SiliconFlow's /v1/models returns hundreds of LLMs, not its few speech
+			// models — fall back to the static registry list instead of fetching.
+			case 'siliconflow':
+				models = [];
+				break;
 			default:
 				return Response.json(
 					{ models: [], error: `Unknown provider: ${providerId}` } as FetchModelsResponse,

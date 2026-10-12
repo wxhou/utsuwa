@@ -115,10 +115,68 @@ export const LLM_PROVIDERS: ProviderMetadata[] = [
 ];
 
 // ============================================
-// TTS PROVIDERS (3 total)
+// TTS PROVIDERS (5 total)
 // ============================================
 
 export const TTS_PROVIDERS: ProviderMetadata[] = [
+	// MiniMax (mainland platform) — native t2a_v2 format, hex-encoded audio.
+	// Voices below are the official Chinese-Mandarin system voices
+	// (platform.minimaxi.com/docs/faq/system-voice-id.md); female-shaonv is
+	// first because the provider switch resets the voice to voices[0].id.
+	// SiliconFlow (mainland platform) — OpenAI-compatible audio endpoints, same
+	// key serves TTS and STT. Voice ids carry the model prefix (official format);
+	// anna leads as the default voice. Sources in the siliconflow-provider design.
+	{
+		id: 'minimax',
+		name: 'MiniMax',
+		description: 'MiniMax TTS (mainland platform)',
+		category: 'tts',
+		icon: '🔊',
+		requiresApiKey: true,
+		defaultBaseUrl: 'https://api.minimax.cn/',
+		models: [
+			{ id: 'speech-2.8-turbo', name: 'Speech 2.8 Turbo (faster)' },
+			{ id: 'speech-2.8-hd', name: 'Speech 2.8 HD (quality)' },
+			{ id: 'speech-2.6-turbo', name: 'Speech 2.6 Turbo' },
+			{ id: 'speech-2.6-hd', name: 'Speech 2.6 HD' }
+		],
+		voices: [
+			{ id: 'female-shaonv', name: '少女音色 (zh)' },
+			{ id: 'female-yujie', name: '御姐音色 (zh)' },
+			{ id: 'female-chengshu', name: '成熟女性音色 (zh)' },
+			{ id: 'female-tianmei', name: '甜美女性音色 (zh)' },
+			{ id: 'male-qn-qingse', name: '青涩青年音色 (zh)' },
+			{ id: 'male-qn-jingying', name: '精英青年音色 (zh)' },
+			{ id: 'male-qn-badao', name: '霸道青年音色 (zh)' },
+			{ id: 'male-qn-daxuesheng', name: '青年大学生音色 (zh)' }
+		]
+	},
+	{
+		// SiliconFlow (mainland platform) — OpenAI-compatible /v1/audio/speech;
+		// reuses the OpenAI TTS client. Voice ids must carry the model prefix —
+		// the official format is `FunAudioLLM/CosyVoice2-0.5B:<name>`.
+		// 来源: api-docs.siliconflow.cn/docs/api/audio-speech-post
+		id: 'siliconflow',
+		name: 'SiliconFlow',
+		description: 'SiliconFlow TTS (mainland platform)',
+		category: 'tts',
+		icon: '💧',
+		requiresApiKey: true,
+		defaultBaseUrl: 'https://api.siliconflow.cn/v1/',
+		models: [
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B', name: 'CosyVoice2 0.5B' }
+		],
+		voices: [
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B:anna', name: 'Anna 沉稳女声' },
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B:bella', name: 'Bella 激情女声' },
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B:claire', name: 'Claire 温柔女声' },
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B:diana', name: 'Diana 欢快女声' },
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B:alex', name: 'Alex 沉稳男声' },
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B:benjamin', name: 'Benjamin 低沉男声' },
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B:charles', name: 'Charles 磁性男声' },
+			{ id: 'FunAudioLLM/CosyVoice2-0.5B:david', name: 'David 欢快男声' }
+		]
+	},
 	// Cloud TTS - models fetched dynamically from API after user enters key
 	{
 		id: 'elevenlabs',
@@ -227,6 +285,25 @@ export const TTS_PROVIDERS: ProviderMetadata[] = [
 // ============================================
 
 export const STT_PROVIDERS: ProviderMetadata[] = [
+	{
+		// SiliconFlow (mainland platform) — OpenAI-compatible multipart
+		// /v1/audio/transcriptions; shares the OpenAI stt client. Defaults to
+		// SenseVoiceSmall (strong zh); TeleAI/TeleSpeechASR stays hand-enterable.
+		// 来源: api-docs.siliconflow.cn/docs/api/audio-transcriptions-post
+		// STT entry shares the `siliconflow` provider config slot with the TTS
+		// entry: one key and base URL serve both links (no separate key entry).
+		id: 'siliconflow',
+		name: 'SiliconFlow',
+		description: 'SiliconFlow speech-to-text (mainland platform)',
+		category: 'stt',
+		icon: '💧',
+		requiresApiKey: true,
+		defaultBaseUrl: 'https://api.siliconflow.cn/v1/',
+		models: [
+			{ id: 'FunAudioLLM/SenseVoiceSmall', name: 'SenseVoiceSmall (zh/en/ja/ko/yue)' },
+			{ id: 'TeleAI/TeleSpeechASR', name: 'TeleSpeechASR' }
+		]
+	},
 	{
 		id: 'groq-stt',
 		name: 'Groq',

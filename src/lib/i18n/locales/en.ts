@@ -174,7 +174,8 @@ export const en = {
 			voice: 'Voice (e.g. af_bella)',
 			modelOptional: 'Model (optional, e.g. kokoro)',
 			title: 'Text-to-Speech',
-			subtitle: 'Configure the voice provider and speech settings.'
+			subtitle: 'Configure the voice provider and speech settings.',
+			volume: 'Volume (0 mutes, 1 is normal)'
 		},
 		stt: {
 			hint: "Higher quality voice input via Whisper. A local server is used if configured, then Groq, then OpenAI, then the browser's built-in recognition. Required on desktop (which has no built-in recognition).",
@@ -191,7 +192,9 @@ export const en = {
 			display: 'Display',
 			llm: 'LLM Model',
 			tts: 'TTS',
+			ttsHint: 'Text-to-Speech: your companion reads replies aloud',
 			stt: 'STT',
+			sttHint: 'Speech-to-Text: your spoken words are transcribed for her',
 			mcp: 'MCP',
 			memory: 'Memory',
 			data: 'Data',

@@ -180,6 +180,10 @@ export async function fetchModelsDirect(
 				break;
 			}
 			default:
+				// MiniMax has no models list endpoint, and SiliconFlow's /v1/models
+				// returns hundreds of LLMs rather than its few speech models — both
+				// fall back to the static registry list (zero models, no error).
+				if (providerId === 'minimax' || providerId === 'siliconflow') return { models: [] };
 				return { models: [], error: `Unknown provider: ${providerId}` };
 		}
 

@@ -14,8 +14,8 @@
 		{ href: localPath('app', '/settings/persona'), label: t('settings.nav.character'), icon: 'persona' },
 		{ href: localPath('app', '/settings/display'), label: t('settings.nav.display'), icon: 'monitor' },
 		{ href: localPath('app', '/settings/llm'), label: t('settings.nav.llm'), icon: 'brain' },
-		{ href: localPath('app', '/settings/tts'), label: t('settings.nav.tts'), icon: 'volume' },
-		{ href: localPath('app', '/settings/stt'), label: t('settings.nav.stt'), icon: 'mic' },
+		{ href: localPath('app', '/settings/tts'), label: t('settings.nav.tts'), icon: 'volume', hint: t('settings.nav.ttsHint') },
+		{ href: localPath('app', '/settings/stt'), label: t('settings.nav.stt'), icon: 'mic', hint: t('settings.nav.sttHint') },
 		...(mcpStore.capability === 'none'
 			? []
 			: [{ href: localPath('app', '/settings/mcp'), label: t('settings.nav.mcp'), icon: 'modules' }]),
@@ -49,7 +49,7 @@
 				<a
 					href={item.href}
 					aria-label={item.label}
-					title={item.label}
+					title={item.hint ?? item.label}
 					aria-current={$page.url.pathname === item.href ? 'page' : undefined}
 					class="nav-item"
 					class:active={$page.url.pathname === item.href}

@@ -19,11 +19,23 @@ class MockAudioBufferSourceNode {
 
 class MockAnalyserNode {
 	fftSize = 256;
-	connect() {
+	targets: unknown[] = [];
+	connect(target: unknown) {
+		this.targets.push(target);
 		return this;
 	}
 	disconnect() {}
 	getByteFrequencyData() {}
+}
+
+class MockGainNode {
+	gain = { value: 1 };
+	targets: unknown[] = [];
+	connect(target: unknown) {
+		this.targets.push(target);
+		return this;
+	}
+	disconnect() {}
 }
 
 class MockAudioContext {
@@ -35,6 +47,9 @@ class MockAudioContext {
 	}
 	createAnalyser() {
 		return new MockAnalyserNode() as unknown as AnalyserNode;
+	}
+	createGain() {
+		return new MockGainNode() as unknown as GainNode;
 	}
 	createBuffer(numChannels: number, length: number, sampleRate: number) {
 		return {
@@ -58,6 +73,7 @@ class MockAudioContext {
 globalThis.AudioContext = MockAudioContext;
 
 import { VoiceOrchestrator, resolveSegmentVoice, type SpeechSegment } from './voice-orchestrator.ts';
+import { getSharedAudioContext } from './tts/index.ts';
 import type { TTSOptions } from './tts/index.ts';
 
 const baseOptions: TTSOptions = { provider: 'openai-tts', apiKey: 'test-key' };
@@ -456,3 +472,54 @@ test('resolveSegmentVoice treats an alt language equal to the primary as unset',
 	);
 	assert.equal(res.voiceId, undefined);
 });
+
+// --- playback volume gain node ----------------------------------------------
+
+test('default volume keeps the node graph unchanged (no gain node)', async () => {
+	globalThis.fetch = () => mockFetchResponse();
+	const orchestrator = new VoiceOrchestrator();
+	let captured: MockAnalyserNode | null = null;
+	await orchestrator.speakSegments([{ text: 'Plain volume.' }], baseOptions, {
+		onAnalyserUpdate: (a) => {
+			captured = a as unknown as MockAnalyserNode;
+		}
+	});
+	const analyser = captured as unknown as MockAnalyserNode;
+	const destTargets = analyser.targets.filter((t) => t === orchestratorContext().destination);
+	assert.equal(destTargets.length, 1, 'analyser must connect straight to destination');
+	assert.equal(
+		analyser.targets.some((t) => t instanceof MockGainNode),
+		false,
+		'no gain node at default volume'
+	);
+});
+
+test('non-default volume routes analyser through a gain node with perceptual mapping', async () => {
+	globalThis.fetch = () => mockFetchResponse();
+	const orchestrator = new VoiceOrchestrator();
+	let captured: MockAnalyserNode | null = null;
+	await orchestrator.speakSegments([{ text: 'Quieter volume.' }], { ...baseOptions, volume: 0.5 }, {
+		onAnalyserUpdate: (a) => {
+			captured = a as unknown as MockAnalyserNode;
+		}
+	});
+	const analyser = captured as unknown as MockAnalyserNode;
+	const gain = analyser.targets.find((t) => t instanceof MockGainNode) as MockGainNode;
+	assert.ok(gain, 'a gain node must sit between analyser and destination');
+	// UI values map perceptually: gain = v² (0.5 → 0.25 ≈ -12 dB), so a
+	// mid-slider setting produces a clearly audible change.
+	assert.equal(gain.gain.value, 0.25);
+	assert.equal(gain.targets.includes(orchestratorContext().destination), true);
+	assert.equal(
+		analyser.targets.includes(orchestratorContext().destination),
+		false,
+		'analyser must not shortcut to destination when gain is active'
+	);
+});
+
+// Shared AudioContext mock instance so destinations can be compared: the
+// orchestrator resolves its context via getSharedAudioContext below.
+const mockContextRef = getSharedAudioContext() as unknown as MockAudioContext;
+function orchestratorContext(): MockAudioContext {
+	return mockContextRef;
+}

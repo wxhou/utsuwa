@@ -175,6 +175,51 @@ test('sends Authorization only when an API key is present', async () => {
 	assert.equal('Authorization' in (seen[1] ?? {}), false);
 });
 
+// --- SiliconFlow, served by this same client since the siliconflow-provider change ---
+
+test('SiliconFlow request body matches the official audio/speech fields', async () => {
+	const requests: { url: string; body: Record<string, unknown>; headers: Record<string, string> }[] = [];
+	// @ts-expect-error global fetch mock
+	globalThis.fetch = (url: string, init: RequestInit) => {
+		requests.push({ url, body: parseBody(init), headers: init.headers as Record<string, string> });
+		return mockFetchResponse();
+	};
+
+	const tts = new OpenAITTS({
+		provider: 'siliconflow',
+		apiKey: 'sk-sf',
+		voiceId: 'FunAudioLLM/CosyVoice2-0.5B:anna',
+		model: 'FunAudioLLM/CosyVoice2-0.5B',
+		baseUrl: 'https://api.siliconflow.cn/v1/',
+		speed: 1.1
+	});
+
+	await tts.fetchAudioBuffer('你好世界');
+
+	assert.equal(requests.length, 1);
+	assert.equal(requests[0].url, 'https://api.siliconflow.cn/v1/audio/speech');
+	assert.deepEqual(requests[0].body, {
+		model: 'FunAudioLLM/CosyVoice2-0.5B',
+		input: '你好世界',
+		voice: 'FunAudioLLM/CosyVoice2-0.5B:anna',
+		speed: 1.1,
+		response_format: 'mp3'
+	});
+	assert.equal(requests[0].headers.Authorization, 'Bearer sk-sf');
+});
+
+test('SiliconFlow HTTP error surfaces the SiliconFlow label', async () => {
+	globalThis.fetch = () =>
+		Promise.resolve({
+			ok: false,
+			status: 401,
+			json: () => Promise.resolve({ error: { message: 'Invalid token' } })
+		} as Response);
+
+	const tts = new OpenAITTS({ provider: 'siliconflow', apiKey: 'bad' });
+	await assert.rejects(() => tts.fetchAudioBuffer('Hi.'), /SiliconFlow/);
+});
+
 // --- OmniVoice, served by this same client since the fold in #141 ---
 
 test('fetchAudioBuffer sends WAV request with base fields and no API key', async () => {

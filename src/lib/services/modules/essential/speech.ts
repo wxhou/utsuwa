@@ -116,6 +116,13 @@ export const speechModule: ModuleDefinition = {
 				defaultValue: 1.0
 			},
 			{
+				key: 'volume',
+				type: 'number',
+				label: 'Volume',
+				description: 'Playback volume multiplier (0 mutes, 1 is normal)',
+				defaultValue: 1.0
+			},
+			{
 				key: 'instructions',
 				type: 'text',
 				label: 'Voice Instructions',

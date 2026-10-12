@@ -25,6 +25,7 @@ import {
 import { streamChatDirect } from '$lib/services/chat/client-chat';
 
 import { processCompanionTurn } from '$lib/services/chat/companion-turn';
+import { markEventShown } from '$lib/engine/event-replay';
 import { retrieveRelevantContext } from '$lib/engine/memory';
 import { buildSystemPrompt, buildMcpSecurityInstructions, truncateChatHistory, type PromptContext } from '$lib/ai/prompt-builder';
 import { keepImage, type PreparedImage } from '$lib/services/storage/keepsakes';
@@ -299,6 +300,7 @@ export async function sendCompanionMessage(
 			model: (displaySpeechSettings.activeModel as string) || ttsConfig.modelId,
 			baseUrl: ttsConfig.baseUrl || ttsMeta?.defaultBaseUrl,
 			speed: (displaySpeechSettings.speed as number) ?? 1,
+			volume: (displaySpeechSettings.volume as number) ?? undefined,
 			// Leave unset when the user hasn't picked one; the orchestrator
 			// infers the primary language from the first segment instead.
 			language: (displaySpeechSettings.activeLanguage as string) || undefined,
@@ -752,7 +754,12 @@ classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefine
 		}
 
 		hooks.onNewMemory?.(turn.newMemory);
-		if (turn.triggeredEvent) hooks.setActiveEvent(turn.triggeredEvent);
+		if (turn.triggeredEvent) {
+			// The single choke point both surfaces (app + overlay) pass a turn's
+			// event through; mark it so the scene is shown once per session.
+			markEventShown(turn.triggeredEvent.id);
+			hooks.setActiveEvent(turn.triggeredEvent);
+		}
 
 		// She's seen the images and responded; keep them as local keepsakes.
 		if (images.length > 0) {

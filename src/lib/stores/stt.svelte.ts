@@ -18,11 +18,15 @@ function createSttStore() {
 	// Which OpenAI-compatible STT provider to use, if any. A configured local
 	// server wins over Groq (mirrors how a Groq key wins over Web Speech), and
 	// both fall back to the browser's Web Speech API when neither is set up.
+	// Explicitly added providers (Groq/OpenAI/SiliconFlow key, local URL) come
+	// before the generic openai-stt endpoint so a newer domestic key is not
+	// accidentally routed to api.openai.com.
 	const activeOpenAiStt = $derived.by<string | null>(() => {
 		if (!browser) return null;
 		if (settingsStore.isProviderAdded('local-stt')) return 'local-stt';
 		if (settingsStore.getProviderConfig('groq-stt').apiKey) return 'groq-stt';
 		if (settingsStore.getProviderConfig('openai-stt').apiKey) return 'openai-stt';
+		if (settingsStore.getProviderConfig('siliconflow').apiKey) return 'siliconflow';
 		return null;
 	});
 	const useOpenAiStt = $derived(activeOpenAiStt !== null);

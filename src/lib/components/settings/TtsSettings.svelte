@@ -2,6 +2,7 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { t } from '$lib/i18n';
 	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { modulesStore } from '$lib/stores/modules.svelte';
 	import { getTTSProvider } from '$lib/services/providers/registry';
 	import { Icon, ProviderDropdown, ModelDropdown } from '$lib/components/ui';
 	import OmniVoiceSettings from './OmniVoiceSettings.svelte';
@@ -76,6 +77,42 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 				</div>
 			{/if}
 
+			{#if state.speechSettings.activeProvider === 'minimax'}
+				<div class="api-key-row">
+					<input
+						type="text"
+						class="api-key-input"
+						list="minimax-voices"
+						placeholder={t('onboarding.voiceId')} aria-label={t('onboarding.voiceId')}
+						value={state.speechSettings.activeVoiceId as string ?? ''}
+						onchange={(e) => state.handleTTSVoiceChange(e.currentTarget.value)}
+					/>
+					<datalist id="minimax-voices">
+						{#each provider?.voices ?? [] as voice}
+							<option value={voice.id}>{voice.name}</option>
+						{/each}
+					</datalist>
+				</div>
+			{/if}
+
+			{#if state.speechSettings.activeProvider === 'siliconflow'}
+				<div class="api-key-row">
+					<input
+						type="text"
+						class="api-key-input"
+						list="siliconflow-voices"
+						placeholder={t('onboarding.voiceId')} aria-label={t('onboarding.voiceId')}
+						value={state.speechSettings.activeVoiceId as string ?? ''}
+						onchange={(e) => state.handleTTSVoiceChange(e.currentTarget.value)}
+					/>
+					<datalist id="siliconflow-voices">
+						{#each provider?.voices ?? [] as voice}
+							<option value={voice.id}>{voice.name}</option>
+						{/each}
+					</datalist>
+				</div>
+			{/if}
+
 			{#if provider?.isLocal && state.speechSettings.activeProvider !== 'omnivoice'}
 				<div class="api-key-row">
 					<input
@@ -117,6 +154,27 @@ import { checkTTSProviderHealth } from '$lib/services/providers/health-check';
 
 			{#if provider && state.speechSettings.activeProvider === 'omnivoice'}
 				<OmniVoiceSettings {state} {provider} />
+			{/if}
+
+			{#if state.isTTSEnabled}
+				<div class="api-key-row">
+					<input
+						type="number"
+						class="api-key-input"
+						min="0"
+						max="2"
+						step="0.1"
+						aria-label={t('settings.tts.volume')}
+						placeholder="1.0"
+						value={(state.speechSettings.volume as number) ?? 1}
+						onchange={(e) =>
+							modulesStore.setModuleSetting(
+								'speech',
+								'volume',
+								Number.isFinite(e.currentTarget.valueAsNumber) ? e.currentTarget.valueAsNumber : 1
+							)}
+					/>
+				</div>
 			{/if}
 		{/if}
 	{/if}

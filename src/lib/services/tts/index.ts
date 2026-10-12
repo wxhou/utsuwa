@@ -119,6 +119,7 @@ export function unlockAudioContext(): void {
 
 // Import individual providers
 import { ElevenLabsTTS } from './elevenlabs.ts';
+import { MiniMaxTTS } from './minimax.ts';
 import { OpenAITTS } from './openai-tts.ts';
 
 // Provider factory
@@ -158,9 +159,22 @@ export function getTTSProvider(options: TTSOptions): ITTSProvider {
 		// Local TTS and the OmniVoice proxy are OpenAI-compatible, so they reuse
 		// the OpenAI client with a localhost base URL. The provider id drives URL,
 		// key, request format, and error handling.
+
+		// SiliconFlow uses the same request shape as OpenAI (model/input/voice/
+		// response_format/speed aligned field-for-field with api-docs.siliconflow.cn
+		// docs/api/audio-speech-post); speed is applied server-side.
+		case 'siliconflow':
+			currentProvider = new OpenAITTS(options);
+			break;
+
 		case 'local-tts':
 		case 'omnivoice':
 			currentProvider = new OpenAITTS(options);
+			break;
+
+		// MiniMax mainland platform speaks its own format (t2a_v2, hex audio).
+		case 'minimax':
+			currentProvider = new MiniMaxTTS(options);
 			break;
 
 		default:

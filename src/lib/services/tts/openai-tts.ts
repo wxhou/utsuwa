@@ -199,6 +199,14 @@ export class OpenAITTS implements ITTSProvider {
 
 	readonly capabilities: TTSCapabilities;
 
+	// Provider name used in error messages; siliconflow must not masquerade
+	// as OpenAI TTS in surfaced errors.
+	private get errorLabel(): string {
+		if (this.isOmniVoice) return 'OmniVoice';
+		if (this.providerId === 'siliconflow') return 'SiliconFlow';
+		return 'OpenAI TTS';
+	}
+
 	constructor(options: TTSOptions) {
 		this.providerId = options.provider;
 		this.isOmniVoice = options.provider === 'omnivoice';
@@ -300,7 +308,7 @@ export class OpenAITTS implements ITTSProvider {
 				// non-JSON error body
 			}
 			throw new Error(
-				providerErrorMessage(this.isOmniVoice ? 'OmniVoice' : 'OpenAI TTS', response.status, body)
+				providerErrorMessage(this.errorLabel, response.status, body)
 			);
 		}
 

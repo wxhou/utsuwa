@@ -221,6 +221,8 @@ export class VoiceOrchestrator {
 	private currentSource: AudioBufferSourceNode | null = null;
 	private currentAnalyser: AnalyserNode | null = null;
 	private isPlaying = false;
+	// Session-level playback volume (gain multiplier); 1/undefined means no gain node.
+	private sessionVolume = 1;
 
 	// Pipeline state
 	private channel: PipelineQueue | null = null;
@@ -274,6 +276,15 @@ export class VoiceOrchestrator {
 		this.interrupt();
 
 		this.sessionOptions = options;
+		// Snapshot for the whole session; mid-session changes must not corrupt
+		// the gain node of a playing segment. Perceptual mapping: UI value v is
+		// applied as gain v²  — linear gain tracks amplitude, not loudness, and
+		// a linear 1.5 (+3.5 dB) barely registers while 2.25 (+7 dB) does.
+		// Anchors preserved: 0 mutes, 1 stays normal; clamped to [0, 4] gain.
+		this.sessionVolume =
+			typeof options.volume === 'number' && options.volume > 0 && options.volume !== 1
+				? Math.min(options.volume * options.volume, 4)
+				: 1;
 		this.pipelineAbort = new AbortController();
 		this.pipelineIndex = 0;
 		this.inferredPrimaryLang = undefined;
@@ -625,6 +636,29 @@ export class VoiceOrchestrator {
 		}
 	}
 
+	// Connect the session gain between analyser and destination when a
+	// non-default volume is set; unwired sessions keep the node graph unchanged.
+	private connectOutput(analyser: AnalyserNode, audioContext: AudioContext): GainNode | null {
+		if (this.sessionVolume === 1) {
+			analyser.connect(audioContext.destination);
+			return null;
+		}
+		const gain = audioContext.createGain();
+		gain.gain.value = this.sessionVolume;
+		analyser.connect(gain);
+		gain.connect(audioContext.destination);
+		return gain;
+	}
+
+	private disconnectOutput(
+		gain: GainNode | null,
+		analyser: AnalyserNode,
+		audioContext: AudioContext
+	): void {
+		if (gain) gain.disconnect();
+		analyser.disconnect();
+	}
+
 	private async playBuffer(
 		buffer: AudioBuffer,
 		segment: SpeechSegment,
@@ -646,8 +680,9 @@ export class VoiceOrchestrator {
 		const analyser = audioContext.createAnalyser();
 		analyser.fftSize = 256;
 
+		const gain = this.connectOutput(analyser, audioContext);
+
 		source.connect(analyser);
-		analyser.connect(audioContext.destination);
 
 		this.currentSource = source;
 		this.currentAnalyser = analyser;
@@ -663,7 +698,7 @@ export class VoiceOrchestrator {
 		// One analyser is created per segment; leaving them connected to the
 		// destination accumulates nodes on the shared context over a session.
 		source.disconnect();
-		analyser.disconnect();
+		this.disconnectOutput(gain, analyser, audioContext);
 	}
 
 	/**
@@ -691,7 +726,7 @@ export class VoiceOrchestrator {
 
 		const analyser = audioContext.createAnalyser();
 		analyser.fftSize = 256;
-		analyser.connect(audioContext.destination);
+		const gain = this.connectOutput(analyser, audioContext);
 		this.currentAnalyser = analyser;
 
 		try {
@@ -875,7 +910,7 @@ export class VoiceOrchestrator {
 				});
 			}
 		} finally {
-			analyser.disconnect();
+			this.disconnectOutput(gain, analyser, audioContext);
 		}
 	}
 }

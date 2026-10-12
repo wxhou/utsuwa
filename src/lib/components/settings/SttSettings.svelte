@@ -44,6 +44,34 @@
 		/>
 	</div>
 
+	<span class="stt-sublabel">SiliconFlow</span>
+	<div class="api-key-row">
+		<input
+			type="password"
+			class="api-key-input"
+			placeholder={t('settings.stt.openaiKey')} aria-label={t('settings.stt.openaiKey')}
+			value={settingsStore.getProviderConfig('siliconflow').apiKey ?? ''}
+			oninput={(e) => {
+				const v = e.currentTarget.value;
+				// Config is shared with the TTS siliconflow entry (one key serves
+				// both); only clear the key so the TTS voice/model survive.
+				settingsStore.setProviderConfig('siliconflow', { apiKey: v });
+				if (v) settingsStore.markProviderAdded('siliconflow');
+			}}
+		/>
+	</div>
+	<div class="api-key-row">
+		<input
+			type="text"
+			class="api-key-input"
+			placeholder={t('settings.stt.localModel')} aria-label={t('settings.stt.localModel')}
+			value={settingsStore.getProviderConfig('siliconflow').modelId ?? ''}
+			oninput={(e) => {
+				settingsStore.setProviderConfig('siliconflow', { modelId: e.currentTarget.value.trim() });
+			}}
+		/>
+	</div>
+
 	<span class="stt-sublabel">{t('settings.stt.localServerLabel')}</span>
 	<div class="api-key-row">
 		<input
