@@ -24,8 +24,8 @@
 						</div>
 					</Tooltip>
 					<div class="bond-info">
-						<span class="bond-tier">{page.stageInfo.name}</span>
-						<span class="bond-description">{page.stageInfo.description}</span>
+						<span class="bond-tier">{t(page.stageInfo.nameKey)}</span>
+						<span class="bond-description">{t(page.stageInfo.descriptionKey)}</span>
 					</div>
 					<span class="bond-percent">{page.affectionPercent}%</span>
 				</div>
@@ -147,7 +147,7 @@
 				<Icon name={page.moodInfo.icon} size={24} />
 			</div>
 			<div class="mood-info">
-				<span class="mood-name">{page.moodInfo.description}</span>
+				<span class="mood-name">{t(page.moodInfo.descriptionKey)}</span>
 				{#if page.charState.mood.causes.length > 0}
 					<span class="mood-cause">{page.charState.mood.causes[page.charState.mood.causes.length - 1]}</span>
 				{/if}

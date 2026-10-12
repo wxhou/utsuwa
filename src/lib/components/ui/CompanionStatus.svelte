@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { characterStore } from '$lib/stores/character.svelte';
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { localPath } from '$lib/config/links';
 	import { pop, fadeFast } from '$lib/utils/motion';
 
@@ -162,7 +163,7 @@
 			<span class="mood-icon" style="color: {moodInfo.color}">
 				<Icon name={moodInfo.icon} size={18} />
 			</span>
-			<span class="mood-label">{moodInfo.description}</span>
+			<span class="mood-label">{t(moodInfo.descriptionKey)}</span>
 			<span class="chevron" class:rotated={isExpanded}>
 				<Icon name="chevron-up" size={14} />
 			</span>

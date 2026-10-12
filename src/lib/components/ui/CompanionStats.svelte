@@ -84,11 +84,11 @@
 			<header class="stats-header">
 				<div>
 					<h3>{character.name}</h3>
-					<p>{characterStore.stageInfo.name}</p>
+					<p>{t(characterStore.stageInfo.nameKey)}</p>
 				</div>
 				<span class="mood-badge"
 					><span style:color={mood.color}><Icon name={mood.icon} size={14} /></span
-					>{mood.name}</span
+					>{t(mood.nameKey)}</span
 				>
 			</header>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll this region on short screens.) -->
@@ -99,7 +99,7 @@
 						{@render metric(t('stats.energy'), character.energy)}
 						{@render metric(t('stats.moodIntensity'), character.mood.intensity)}
 					</dl>
-					<p class="mood-description">{mood.description}</p>
+					<p class="mood-description">{t(mood.descriptionKey)}</p>
 				</section>
 				{#if !companionMode}
 					<section aria-label={t('stats.relationshipSection')}>

@@ -1,3 +1,5 @@
+import type { DictKey } from '../i18n/locales/en.ts';
+
 // App mode - determines relationship mechanics
 export type AppMode = 'companion' | 'dating_sim';
 
@@ -194,90 +196,151 @@ export function createDefaultCharacterState(): Omit<CharacterState, 'id'> {
 	};
 }
 
-// Stage display info
+// Stage display info — text lives in i18n (stats.stage.*); the store type only
+// carries the keys so components call t() (locale-reactive) at render time.
 export interface RelationshipStageInfo {
-	name: string;
-	description: string;
+	nameKey: DictKey;
+	descriptionKey: DictKey;
 	color: string;
 	icon: string;
 }
 
 export const RELATIONSHIP_STAGE_INFO: Record<RelationshipStage, RelationshipStageInfo> = {
 	companion: {
-		name: 'Companion',
-		description: 'Your helpful AI assistant',
+		nameKey: 'stats.stage.companion',
+		descriptionKey: 'stats.stage.companionDesc',
 		color: 'var(--ctp-blue)',
 		icon: 'sparkles'
 	},
 	stranger: {
-		name: 'Stranger',
-		description: 'You just met. She is polite but guarded.',
+		nameKey: 'stats.stage.stranger',
+		descriptionKey: 'stats.stage.strangerDesc',
 		color: '#9ca0b0', // overlay0
 		icon: '👤'
 	},
 	acquaintance: {
-		name: 'Acquaintance',
-		description: 'She is starting to warm up to you.',
+		nameKey: 'stats.stage.acquaintance',
+		descriptionKey: 'stats.stage.acquaintanceDesc',
 		color: '#1e66f5', // blue
 		icon: '👋'
 	},
 	friend: {
-		name: 'Friend',
-		description: 'She is comfortable around you and enjoys your company.',
+		nameKey: 'stats.stage.friend',
+		descriptionKey: 'stats.stage.friendDesc',
 		color: '#40a02b', // green
 		icon: '😊'
 	},
 	close_friend: {
-		name: 'Close Friend',
-		description: 'She trusts you deeply and shares her thoughts freely.',
+		nameKey: 'stats.stage.close_friend',
+		descriptionKey: 'stats.stage.close_friendDesc',
 		color: '#8839ef', // mauve
 		icon: '💜'
 	},
 	romantic_interest: {
-		name: 'Romantic Interest',
-		description: 'There is something more between you...',
+		nameKey: 'stats.stage.romantic_interest',
+		descriptionKey: 'stats.stage.romantic_interestDesc',
 		color: '#ea76cb', // pink
 		icon: '💕'
 	},
 	dating: {
-		name: 'Dating',
-		description: 'You are together now. She is openly affectionate.',
+		nameKey: 'stats.stage.dating',
+		descriptionKey: 'stats.stage.datingDesc',
 		color: '#dd7878', // flamingo
 		icon: '💑'
 	},
 	committed: {
-		name: 'Committed',
-		description: 'Deep commitment and love. Partners in everything.',
+		nameKey: 'stats.stage.committed',
+		descriptionKey: 'stats.stage.committedDesc',
 		color: '#d20f39', // red
 		icon: '💖'
 	},
 	soulmate: {
-		name: 'Soulmate',
-		description: 'Profound, unshakeable bond. True partners.',
+		nameKey: 'stats.stage.soulmate',
+		descriptionKey: 'stats.stage.soulmateDesc',
 		color: '#e64553', // maroon
 		icon: '💞'
 	}
 };
 
-// Mood display info
+// Mood display info — text lives in i18n (stats.mood.*)
 export interface MoodInfo {
-	name: string;
-	description: string;
+	nameKey: DictKey;
+	descriptionKey: DictKey;
 	color: string;
 	icon: string;
 }
 
 export const MOOD_INFO: Record<Emotion, MoodInfo> = {
-	happy: { name: 'Happy', description: 'Feeling good!', color: 'var(--ctp-yellow)', icon: 'smile' },
-	sad: { name: 'Sad', description: 'Feeling down...', color: 'var(--ctp-blue)', icon: 'sad' },
-	excited: { name: 'Excited', description: 'So excited!', color: 'var(--ctp-peach)', icon: 'sparkles' },
-	anxious: { name: 'Anxious', description: 'A bit worried...', color: 'var(--ctp-mauve)', icon: 'alert-circle' },
-	content: { name: 'Content', description: 'Peacefully content', color: 'var(--ctp-green)', icon: 'sun' },
-	frustrated: { name: 'Frustrated', description: 'Ugh...', color: 'var(--ctp-red)', icon: 'frown' },
-	curious: { name: 'Curious', description: 'Hmm, interesting...', color: 'var(--ctp-sky)', icon: 'circle-help' },
-	affectionate: { name: 'Affectionate', description: 'Feeling close to you', color: 'var(--ctp-pink)', icon: 'heart' },
-	playful: { name: 'Playful', description: 'In a playful mood~', color: 'var(--ctp-teal)', icon: 'smile' },
-	melancholy: { name: 'Melancholy', description: 'Feeling reflective...', color: 'var(--ctp-overlay0)', icon: 'meh' },
-	flustered: { name: 'Flustered', description: 'W-what?!', color: 'var(--ctp-red)', icon: 'zap' },
-	neutral: { name: 'Neutral', description: 'Just normal', color: 'var(--ctp-subtext0)', icon: 'minus' }
+	happy: {
+		nameKey: 'stats.mood.happy',
+		descriptionKey: 'stats.mood.happyDesc',
+		color: 'var(--ctp-yellow)',
+		icon: 'smile'
+	},
+	sad: {
+		nameKey: 'stats.mood.sad',
+		descriptionKey: 'stats.mood.sadDesc',
+		color: 'var(--ctp-blue)',
+		icon: 'sad'
+	},
+	excited: {
+		nameKey: 'stats.mood.excited',
+		descriptionKey: 'stats.mood.excitedDesc',
+		color: 'var(--ctp-peach)',
+		icon: 'sparkles'
+	},
+	anxious: {
+		nameKey: 'stats.mood.anxious',
+		descriptionKey: 'stats.mood.anxiousDesc',
+		color: 'var(--ctp-mauve)',
+		icon: 'alert-circle'
+	},
+	content: {
+		nameKey: 'stats.mood.content',
+		descriptionKey: 'stats.mood.contentDesc',
+		color: 'var(--ctp-green)',
+		icon: 'sun'
+	},
+	frustrated: {
+		nameKey: 'stats.mood.frustrated',
+		descriptionKey: 'stats.mood.frustratedDesc',
+		color: 'var(--ctp-red)',
+		icon: 'frown'
+	},
+	curious: {
+		nameKey: 'stats.mood.curious',
+		descriptionKey: 'stats.mood.curiousDesc',
+		color: 'var(--ctp-sky)',
+		icon: 'circle-help'
+	},
+	affectionate: {
+		nameKey: 'stats.mood.affectionate',
+		descriptionKey: 'stats.mood.affectionateDesc',
+		color: 'var(--ctp-pink)',
+		icon: 'heart'
+	},
+	playful: {
+		nameKey: 'stats.mood.playful',
+		descriptionKey: 'stats.mood.playfulDesc',
+		color: 'var(--ctp-teal)',
+		icon: 'smile'
+	},
+	melancholy: {
+		nameKey: 'stats.mood.melancholy',
+		descriptionKey: 'stats.mood.melancholyDesc',
+		color: 'var(--ctp-overlay0)',
+		icon: 'meh'
+	},
+	flustered: {
+		nameKey: 'stats.mood.flustered',
+		descriptionKey: 'stats.mood.flusteredDesc',
+		color: 'var(--ctp-red)',
+		icon: 'zap'
+	},
+	neutral: {
+		nameKey: 'stats.mood.neutral',
+		descriptionKey: 'stats.mood.neutralDesc',
+		color: 'var(--ctp-subtext0)',
+		icon: 'minus'
+	}
 };

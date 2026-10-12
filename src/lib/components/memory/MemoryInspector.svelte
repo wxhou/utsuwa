@@ -284,9 +284,9 @@
 				<dt>{t('memory.fieldMode')}</dt>
 				<dd>{charState.appMode === 'companion' ? t('onboarding.companion') : t('onboarding.datingSim')}</dd>
 				<dt>{t('memory.fieldMood')}</dt>
-				<dd>{charState.mood.primary} · {charState.mood.intensity}%</dd>
+				<dd>{t(characterStore.moodInfo.nameKey)} · {charState.mood.intensity}%</dd>
 				<dt>{t('memory.fieldStage')}</dt>
-				<dd>{characterStore.stageInfo.name}</dd>
+				<dd>{t(characterStore.stageInfo.nameKey)}</dd>
 				<dt>{t('stats.energy')}</dt>
 				<dd>{charState.energy}</dd>
 				<dt>{t('memory.fieldConversations')}</dt>
