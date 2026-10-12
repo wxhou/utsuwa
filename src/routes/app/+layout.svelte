@@ -5,10 +5,13 @@
 	import UpdateBanner from '$lib/components/updater/UpdateBanner.svelte';
 
 	// Dev-only UI annotation tool: zero cost in production builds. Skipped under
-	// automated browsers (Playwright sets navigator.webdriver): its overlay
-	// intercepts pointer events and breaks click-based tests.
+	// the Playwright test server (its overlay intercepts pointer events and
+	// breaks click-based tests) — detect by port, not navigator.webdriver:
+	// the chrome-devtools MCP driver also sets webdriver and should see the tool.
+	const testPort = (import.meta.env.VITE_TEST_PORT as string | undefined) ?? '5188';
 	const devAnnotations =
-		import.meta.env.DEV && (typeof navigator === 'undefined' || !navigator.webdriver);
+		import.meta.env.DEV &&
+		(typeof location === 'undefined' || location.port !== testPort);
 	let AnnotationTool: typeof import('agent-ui-annotation/svelte').AgentUIAnnotation | null = $state(null);
 	$effect(() => {
 		if (!devAnnotations) return;

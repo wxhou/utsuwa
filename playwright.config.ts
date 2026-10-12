@@ -6,8 +6,9 @@ export default defineConfig({
 	workers: 1,
 	reporter: 'list',
 	timeout: 45_000,
+	//基线端口 5188；被外部进程占用时用 BW_PORT 指到空闲端口，避免改配置
 	use: {
-		baseURL: 'http://127.0.0.1:5188',
+		baseURL: `http://127.0.0.1:${process.env.BW_PORT ?? 5188}`,
 		// Keep DOM/action traces without continuously recording the animated 3D canvas.
 		// Visual review screenshots are captured explicitly by the tests.
 		trace: { mode: 'retain-on-failure', screenshots: false }
@@ -26,8 +27,9 @@ export default defineConfig({
 		{ name: 'mobile', use: { ...devices['iPhone 13'], defaultBrowserType: 'webkit' } }
 	],
 	webServer: {
-		command: 'pnpm dev --host 127.0.0.1 --port 5188',
-		url: 'http://127.0.0.1:5188/app/settings/display',
+		command: `pnpm dev --host 127.0.0.1 --port ${process.env.BW_PORT ?? 5188}`,
+		url: `http://127.0.0.1:${process.env.BW_PORT ?? 5188}/app/settings/display`,
+		env: { VITE_TEST_PORT: String(process.env.BW_PORT ?? 5188) },
 		reuseExistingServer: false
 	}
 });
