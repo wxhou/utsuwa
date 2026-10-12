@@ -10,6 +10,7 @@ import {
 	calculateFactImportance
 } from '$lib/engine/memory';
 import { checkAllEvents, checkEvent, eventsApi } from '$lib/engine/events';
+import { filterUnshownEvents, shownEventIds } from '$lib/engine/event-replay';
 import { allEvents, relationshipStrainEvent } from '$lib/data/events';
 import { extractStateUpdates } from './client-chat';
 import { extractReminderTags } from '$lib/utils/reminders';
@@ -198,6 +199,13 @@ export async function processCompanionTurn(input: CompanionTurnInput): Promise<C
 				if (triggeredEvents.length > 0) {
 					triggeredEvent = triggeredEvents[0];
 				}
+			}
+
+			// An abandoned scene (closed mid-way) never reaches the completion
+			// records and would otherwise re-fire every turn; one show per
+			// session is enough — the mount replay gives it back next session.
+			if (triggeredEvent && filterUnshownEvents([triggeredEvent], shownEventIds()).length === 0) {
+				triggeredEvent = null;
 			}
 		} catch (e) {
 			console.debug('Event check failed:', e);
