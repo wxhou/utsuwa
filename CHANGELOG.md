@@ -5,6 +5,136 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.3] - 2026-10-09
+
+### Added
+- A **Can see images** switch under the model in Settings > LLM Model, for the chat model and the separate vision model. The note under it says whether the provider reported the answer, it was guessed from the model name, or you set it. Flipping it back to the detected answer clears your choice. The paperclip follows the switch for whichever model gets photos ([#275](https://github.com/JuiceBoxxGames/utsuwa/pull/275)).
+
+### Changed
+- Utsuwa asks the provider which models take images instead of checking the name against a list. Ollama, LM Studio, and OpenRouter-style providers report it with their model lists, so a model like Gemma 4 in LM Studio works without an app update. On OpenAI, Anthropic, Google, and xAI, a new model can see photos unless it is a known text-only one. DeepSeek still trusts only Flash, because it ignores images it can't read instead of returning an error ([#275](https://github.com/JuiceBoxxGames/utsuwa/pull/275), closes [#265](https://github.com/JuiceBoxxGames/utsuwa/issues/265)).
+
+### Fixed
+- Some VRM models loaded too low in the frame, with only the upper body showing. Cleaning up unused joints applied the mesh's own offset a second time, so the avatar was placed from the wrong bounds ([#264](https://github.com/JuiceBoxxGames/utsuwa/pull/264)).
+
+## [0.20.2] - 2026-10-05
+
+### Fixed
+- On the desktop app, MCP servers on any port other than 80 or 443 were refused with "url not allowed on the configured scope". That included Home Assistant on `:8123` and local servers on dev ports. The app's network permission only matched default ports; it now allows any port, which is what it was meant to do ([#262](https://github.com/JuiceBoxxGames/utsuwa/pull/262)).
+
+### Changed
+- The desktop app runs on Tauri 2.12, with the updater, HTTP, file, opener, shortcut, and process plugins on their latest 2.x releases ([#261](https://github.com/JuiceBoxxGames/utsuwa/pull/261)).
+- Release builds use tauri-action v1, and CI uses newer setup-node, pnpm, upload-artifact, and rust-cache actions ([#260](https://github.com/JuiceBoxxGames/utsuwa/pull/260), [#218](https://github.com/JuiceBoxxGames/utsuwa/pull/218), [#219](https://github.com/JuiceBoxxGames/utsuwa/pull/219)).
+
+## [0.20.1] - 2026-10-02
+
+### Fixed
+- On the desktop app the Character settings page scrolled the whole window, so it had a scrollbar inside a scrollbar and could scroll sideways too. Two hidden field labels were sitting outside the page's own scroll area. Now only the page scrolls ([#258](https://github.com/JuiceBoxxGames/utsuwa/pull/258)).
+- The Quick Tests in Settings > Developer (Test Blink, Smile, Surprised, Sad, and Mouth Open) did nothing. They used face shapes most VRM models don't have, and the automatic mood, blink, and lip-sync faces overwrote them on the next frame anyway. Each test now uses the model's own expression when the detailed shapes aren't there. The tests and the expression sliders hold over the automatic faces until you reset them or leave the page ([#258](https://github.com/JuiceBoxxGames/utsuwa/pull/258)).
+
+## [0.20.0] - 2026-10-02
+
+### Added
+- **Your own system prompt.** Settings > Character has a new System prompt field that replaces the built-in framing and rules at the top of every prompt, in both modes. Empty keeps the default, which the field shows as a placeholder. **Start from default** copies it in to edit, and **Reset to default** clears your version after you confirm. Memory, mood, relationship state, and the reply format are still added after it, so a custom prompt can't break replies ([#253](https://github.com/JuiceBoxxGames/utsuwa/pull/253), closes [#245](https://github.com/JuiceBoxxGames/utsuwa/issues/245)).
+- `{{char}}` and `{{user}}` macros in Personality and the system prompt, so character cards from other frontends paste in cleanly. `{{char}}` becomes your companion's name and `{{user}}` becomes "the user" ([#253](https://github.com/JuiceBoxxGames/utsuwa/pull/253)).
+- **A separate model for photos.** Settings > LLM Model > Vision sends photos to a different model, which describes them, and your chat model replies from that description without receiving the image. Text-only chat models can react to photos, and image tokens can go to a cheaper or local model. If the vision model isn't set up or can't be reached, the photo goes back to the chat box with an error; it never falls back to the chat model. The privacy notice names the provider that actually receives the photo ([#254](https://github.com/JuiceBoxxGames/utsuwa/pull/254), closes [#244](https://github.com/JuiceBoxxGames/utsuwa/issues/244)).
+
+### Changed
+- The hosted web app allows up to 240 API requests a minute per IP address. Normal use stays far below it; self-hosted builds are unchanged ([#251](https://github.com/JuiceBoxxGames/utsuwa/pull/251)).
+- New landing page hero and download page, plus a dev log on the blog ([#243](https://github.com/JuiceBoxxGames/utsuwa/pull/243)).
+
+### Fixed
+- The DeepSeek model list was empty. DeepSeek renamed its models (`deepseek-chat` is now `deepseek-flash`, plus `deepseek-v4-pro`), and the list only kept the old names. `deepseek-flash` can now see photos; `deepseek-v4-pro` is text-only and says so ([#252](https://github.com/JuiceBoxxGames/utsuwa/pull/252), [#244](https://github.com/JuiceBoxxGames/utsuwa/issues/244)).
+- The DeepSeek provider icon was an alert symbol, so the provider looked broken. It now shows DeepSeek's whale ([#255](https://github.com/JuiceBoxxGames/utsuwa/pull/255)).
+- Character edits (name, personality, system prompt) save right away. Before, an edit made just before reloading or closing the window could be lost ([#253](https://github.com/JuiceBoxxGames/utsuwa/pull/253)).
+- When the very first message in a chat failed before she answered, a photo attached to it was lost instead of going back to the chat box ([#254](https://github.com/JuiceBoxxGames/utsuwa/pull/254)).
+
+## [0.19.2] - 2026-09-26
+
+### Changed
+- Temporary provider failures are retried automatically. Rate limits, overloaded servers, and dropped connections get up to two retries, after 2 and 4 seconds or after the provider's own `Retry-After` when it is 20 seconds or less, with a short "retrying" notice while it waits. Bad keys and bad requests are never retried, and neither is a reply that has already started. Stop cancels the wait ([#241](https://github.com/JuiceBoxxGames/utsuwa/pull/241)).
+- A message that fails before she answers goes back into the chat box, photos included, so you can resend it without retyping and without the question landing in the history twice ([#241](https://github.com/JuiceBoxxGames/utsuwa/pull/241)).
+
+### Fixed
+- Custom OpenAI-compatible endpoints could never attach images, even with a vision model like Gemini through an aggregator. The paperclip now checks the model name for these endpoints, the same way it does for Ollama and LM Studio ([#240](https://github.com/JuiceBoxxGames/utsuwa/pull/240), fixes [#237](https://github.com/JuiceBoxxGames/utsuwa/issues/237)).
+- Provider errors on the web app showed raw text like `Remote sent 401 response: {...}`. They now show the provider's own message, the same as the desktop app ([#241](https://github.com/JuiceBoxxGames/utsuwa/pull/241)).
+
+## [0.19.1] - 2026-09-25
+
+### Fixed
+- After a gesture the avatar never fully returned to idle: the finished clip stayed at full weight and blended with the idle, so the arms hung between the two poses. The finished emote now fades out as the idle fades in ([#238](https://github.com/JuiceBoxxGames/utsuwa/pull/238)).
+- The desktop overlay and the main window held separate conversations after startup. Every recorded turn is now shared between windows, so both show the same transcript and the model sees the same history ([#238](https://github.com/JuiceBoxxGames/utsuwa/pull/238)).
+
+## [0.19.0] - 2026-09-25
+
+This release is the codebase audit: three tranches of hardening, cleanup, and structure work with no new features. Every change was verified live before merging.
+
+### Changed
+- Chat requests always settle: a per-turn abort with a 90 second stall limit and a 10 minute cap, a Stop button while a reply streams, and a keepsake write that can no longer fail the turn ([#214](https://github.com/JuiceBoxxGames/utsuwa/pull/214)).
+- One LLM transport for chat, memory extraction, and generated moments. On the hosted web build the memory extraction fallback now goes through the server route, so it works with cloud providers that block browser calls ([#223](https://github.com/JuiceBoxxGames/utsuwa/pull/223)).
+- Toasts are accessible: one component with a live region, a real Dismiss button, and a timer that pauses on hover and focus. Event scenes are proper dialogs that take focus, keep Tab inside, close on Escape, and return focus ([#224](https://github.com/JuiceBoxxGames/utsuwa/pull/224)).
+- Contrast fixed at the token level: secondary text passes 4.5:1 on every app fill, controls drawn on the accent blue use dark ink, blue text on neutral fills uses its own darker token, and error messages use error surfaces. One radius scale across controls, panels, and dialogs ([#229](https://github.com/JuiceBoxxGames/utsuwa/pull/229)).
+- Photo mode and the camera panel use the shared tabs, segmented controls, and swatch sizes, announce captures, and return focus on close. The docs mobile drawer traps focus and closes on Escape ([#234](https://github.com/JuiceBoxxGames/utsuwa/pull/235)).
+- Module settings are typed, with one defaults object each; saves missing a key now read its default ([#226](https://github.com/JuiceBoxxGames/utsuwa/pull/226)).
+- The embedding model moved to `@huggingface/transformers` 3. Vectors are identical, so nothing re-indexes. The ONNX runtime now ships with the app instead of loading a script from a CDN ([#227](https://github.com/JuiceBoxxGames/utsuwa/pull/227)).
+- Docs and blog index pages load only frontmatter, three.js sits in its own cached chunk, and the settings pages no longer download it ([#225](https://github.com/JuiceBoxxGames/utsuwa/pull/225)).
+- Onboarding reuses the settings state, so switching TTS providers during setup no longer keeps the previous provider's model id ([#233](https://github.com/JuiceBoxxGames/utsuwa/pull/233)).
+- Internal structure: the app and overlay share one session bootstrap; VrmModel, the chat send loop, and the OmniVoice settings are split into tested modules; dead code and duplicate helpers removed; the MCP guide documents the stdio allowlists and the tool confirmation flow ([#230](https://github.com/JuiceBoxxGames/utsuwa/pull/230), [#231](https://github.com/JuiceBoxxGames/utsuwa/pull/231), [#232](https://github.com/JuiceBoxxGames/utsuwa/pull/232), [#234](https://github.com/JuiceBoxxGames/utsuwa/pull/235)).
+
+### Fixed
+- Provider proxies reject private, loopback, and metadata hosts after DNS resolution and refuse redirects, closing SSRF bypasses ([#210](https://github.com/JuiceBoxxGames/utsuwa/pull/210)).
+- Security headers on every route, a narrower desktop file scope, and an MCP stdio policy with a full command-line allowlist, an env allowlist, output caps, and a per-server confirmation ([#213](https://github.com/JuiceBoxxGames/utsuwa/pull/213)).
+- Clear All Data removes every store and key, storage quota errors are reported instead of swallowed, and memories are capped in length ([#212](https://github.com/JuiceBoxxGames/utsuwa/pull/212)).
+- CI cancels superseded runs, and the browser suite skips the avatar in tests that never look at it, cutting the desktop job from about 20 minutes to under 10 ([#211](https://github.com/JuiceBoxxGames/utsuwa/pull/211), [#228](https://github.com/JuiceBoxxGames/utsuwa/pull/228)).
+
+### Upgrade notes
+- Desktop builds are about 21 MB larger because the ONNX runtime is bundled instead of fetched from a CDN. The model itself still downloads once from Hugging Face on first use.
+- Self-hosted web builds that run MCP stdio servers must set `MCP_STDIO_ALLOWED_COMMANDS`; see the MCP guide.
+
+## [0.18.0] - 2026-09-24
+
+### Added
+- Animation library: upload your own `.vrma` motions, describe them, and let the companion use them. She can trigger one gesture per reply when it fits, with cooldowns so she never spams. The built-in emotes ship with names and descriptions contributed by @dezihh ([#196](https://github.com/JuiceBoxxGames/utsuwa/pull/196)).
+- Base animations: choose which idle motions she cycles through and give her a thinking motion for the wait before a reply. Proposed by @dezihh ([#198](https://github.com/JuiceBoxxGames/utsuwa/pull/198)).
+- Brief facial reactions on request: the model can flash an expression when a moment calls for it, layered over the resting mood face. Proposed by @dezihh ([#193](https://github.com/JuiceBoxxGames/utsuwa/pull/193)).
+- Personalized event moments: anniversary and story scenes are written by the companion from your shared memories, in the language you write in. State changes always come from the built-in scene, which plays unchanged when there is no provider or generation fails. Toggle under Settings > Display. Proposed by @dezihh ([#195](https://github.com/JuiceBoxxGames/utsuwa/pull/195)).
+- Self-hosted web builds can proxy local TTS engines (OmniVoice, Kokoro-FastAPI, openedai-speech) through the server when the browser is blocked by CORS, behind `ALLOW_LOCAL_PROVIDER_HOSTS=true`. Proposed by @dezihh ([#194](https://github.com/JuiceBoxxGames/utsuwa/pull/194)).
+
+### Changed
+- Repo hygiene: stale settings paths in errors and guides now name the LLM Model, TTS, and STT pages; unreferenced assets (about 22 MB) and dead CSS removed; copy cleaned up ([#199](https://github.com/JuiceBoxxGames/utsuwa/pull/199)).
+- In-range updates for svelte, SvelteKit, and vite clear their security advisories ([#200](https://github.com/JuiceBoxxGames/utsuwa/pull/200)).
+
+### Upgrade notes
+- Custom animations, uploaded backgrounds, and animation settings are stored on the device and are not part of the save export.
+
+## [0.17.0] - 2026-09-23
+
+### Added
+- Fish Audio is available as a TTS provider, with voices from its official library or any voice id. Web requests go through a pass-through route because Fish Audio's API has no CORS support; desktop calls it directly ([#183](https://github.com/JuiceBoxxGames/utsuwa/pull/183)).
+- The avatar's resting face follows her tracked mood, scaled by intensity, with a toggle in Settings > Display ([#185](https://github.com/JuiceBoxxGames/utsuwa/pull/185)).
+- Upload your own background image from the camera controls. It persists locally, shows behind the avatar, and bakes into room photo captures ([#188](https://github.com/JuiceBoxxGames/utsuwa/pull/188)).
+- The transcription timeout for a local STT server is configurable in Settings > Voice Input ([#184](https://github.com/JuiceBoxxGames/utsuwa/pull/184)).
+
+### Changed
+- The LLM, TTS, and Voice Input settings pages use the shared section layout, labels, and fields introduced in 0.16.0 ([#187](https://github.com/JuiceBoxxGames/utsuwa/pull/187)).
+- The marketing site has a new landing page, download page, and a Japanese version at `/ja` ([#186](https://github.com/JuiceBoxxGames/utsuwa/pull/186)).
+
+### Fixed
+- A transcription request that outran the STT timeout was treated like a user cancel and failed with no message. It now reports the timeout ([#184](https://github.com/JuiceBoxxGames/utsuwa/pull/184)).
+
+## [0.16.0] - 2026-09-21
+
+### Changed
+- A UI pass across the app introduces a shared design system for light and dark mode. Neutral fills define controls and panels, with `#04B2FD` primary actions and white text and icons on blue controls.
+- Settings, dropdowns, dialogs, photo controls, chat, and the desktop overlay share component styling. `DESIGN.md` documents the palette, spacing, focus behavior, and layout rules.
+- Character settings separates Profile from State & activity. The mood popup, settings page, and overlay use the same companion state summary.
+- Onboarding presents smaller steps for avatar, name, mode, chat, and voice while preserving its artwork and card styling. Optional services can be set up later.
+- Remove obsolete components and duplicate styles from the previous UI.
+
+### Fixed
+- Chat window messages have filled bubbles, and composite text inputs show one focus indicator around the whole control.
+- Onboarding completion saves before leaving setup, preventing setup from reopening after a reload.
+- Overlay controls support keyboard and touch access, synchronize appearance with the main window, and report failed navigation without hiding the companion.
+
 ## [0.15.0] - 2026-09-18
 
 ### Added
@@ -196,7 +326,7 @@ On your first launch after this update, Utsuwa downloads the new multilingual me
 ## [0.7.2] - 2026-07-04
 
 ### Changed
-- **Viewer scene overhaul**: a clean, minimal stage for your companion — single white key light with tone mapping disabled so MToon models render with their authored colors, pure-white (light) / near-black (dark) backdrop with a soft studio floor, and free orbit controls with unrestricted pan and zoom.
+- **Viewer scene overhaul**: a clean, minimal stage for your companion, with a single white key light with tone mapping disabled so MToon models render with their authored colors, pure-white (light) / near-black (dark) backdrop with a soft studio floor, and free orbit controls with unrestricted pan and zoom.
 - **New default avatars**: Tsuki, Yuki, and Momo (VRoid Project sample models) replace the previous bundled model. Each model's license is documented in `static/models/README.md`.
 
 ### Fixed

@@ -334,6 +334,8 @@ export const zhCN: Partial<Record<DictKey, string>> = {
 	'stats.tileChats': '对话',
 	'stats.tileDays': '天数',
 	'stats.achievements': '成就',
+	'stats.rightNow': '当前',
+	'stats.timeTogether': '共处时光',
 	'stats.stage.companion': '伙伴',
 	'stats.stage.companionDesc': '你的得力 AI 助手',
 	'stats.stage.stranger': '陌生人',

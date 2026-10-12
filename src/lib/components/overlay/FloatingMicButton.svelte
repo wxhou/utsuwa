@@ -73,10 +73,11 @@
 
 <style>
 	.floating-mic-btn {
-		width: 48px;
-		height: 48px;
-		border-radius: var(--radius-full);
-		background: var(--bg-tertiary);
+		width: 36px;
+		height: 36px;
+		border-radius: var(--control-radius, var(--radius-md));
+		background: var(--control-bg);
+		border: 1px solid transparent;
 		color: var(--text-secondary);
 		cursor: pointer;
 		display: flex;
@@ -108,13 +109,13 @@
 
 	.floating-mic-btn.recording {
 		background: var(--accent);
-		color: #fff;
-		box-shadow: var(--shadow-glow);
+		color: var(--accent-contrast);
+		box-shadow: none;
 	}
 
 	.floating-mic-btn.recording:hover {
 		background: var(--accent-hover);
-		color: #fff;
+		color: var(--accent-contrast);
 	}
 
 	.floating-mic-btn.transcribing {
@@ -178,7 +179,8 @@
 		font-weight: 600;
 		letter-spacing: 0.02em;
 		white-space: nowrap;
-		background: var(--bg-tertiary);
+		background: var(--control-bg);
+		border: 1px solid transparent;
 		color: var(--text-secondary);
 		box-shadow: var(--shadow-sm);
 		animation: pill-appear 0.25s ease-out;
@@ -211,4 +213,5 @@
 			transform: translateY(0) scale(1);
 		}
 	}
+	@media (pointer: coarse) { button { min-width: 44px; min-height: 44px; } }
 </style>

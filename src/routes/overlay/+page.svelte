@@ -1,52 +1,46 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
 	import ScreenWakeLock from '$lib/components/display/ScreenWakeLock.svelte';
 	import WakeLockIndicator from '$lib/components/display/WakeLockIndicator.svelte';
 	import VrmScene from '$lib/components/vrm/VrmScene.svelte';
 	import { pop } from '$lib/utils/motion';
 	import BottomChatBar from '$lib/components/chat/BottomChatBar.svelte';
+	import McpConfirmDialog from '$lib/components/mcp/McpConfirmDialog.svelte';
 	import SpeechBubble from '$lib/components/chat/SpeechBubble.svelte';
 	import FloatingChatIcon from '$lib/components/overlay/FloatingChatIcon.svelte';
 	import FloatingMicButton from '$lib/components/overlay/FloatingMicButton.svelte';
 	import HotkeyHandler from '$lib/components/overlay/HotkeyHandler.svelte';
-	import CompanionStatus from '$lib/components/ui/CompanionStatus.svelte';
+	import CompanionStats from '$lib/components/ui/CompanionStats.svelte';
+	import { goto } from '$app/navigation';
+	import { onMount, tick } from 'svelte';
 	import CameraSettingsPanel from '$lib/components/ui/CameraSettingsPanel.svelte';
 	import FloatingStatIndicators from '$lib/components/ui/FloatingStatIndicators.svelte';
 	import { EventScene } from '$lib/components/events';
 	import { Icon } from '$lib/components/ui';
+	import Toasts from '$lib/components/ui/Toasts.svelte';
 	import { vrmStore } from '$lib/stores/vrm.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
-	import { sttStore } from '$lib/stores/stt.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { modulesStore } from '$lib/stores/modules.svelte';
 	import { ttsStore } from '$lib/stores/tts.svelte';
-	import { characterStore } from '$lib/stores/character.svelte';
 	import { personaStore } from '$lib/stores/persona.svelte';
 	import { overlayStore } from '$lib/stores/overlay.svelte';
 	import { isTauri, startDragging } from '$lib/services/platform';
 	import { sendCompanionMessage, type SendCompanionMessageOptions } from '$lib/services/chat/companion-chat';
 	import { type ThinkingPhase } from '$lib/services/chat/chat-phase';
-	import { createReminderFiredHandler } from '$lib/services/chat/reminder-chat';
 	import { type PreparedImage } from '$lib/services/storage/keepsakes';
-	import { eventsApi, findReplayableEvent } from '$lib/engine/events';
-	import { completionMarkers } from '$lib/engine/event-completion';
-	import { reminderStore } from '$lib/stores/reminders.svelte';
-	import type { EventDefinition } from '$lib/types/events';
-	import type { StateUpdates } from '$lib/types/character';
-
-	import {
-		hydrateWorkingMemory,
-		backfillEmbeddings,
-		getEmbeddingBackfillStatus
-	} from '$lib/engine/memory';
-	import { initEmbeddingModel } from '$lib/services/embeddings';
-	import { debugEventsStore } from '$lib/stores/debugEvents.svelte';
+	import { STORAGE_INVENTORY } from '$lib/db/storage-inventory';
+	import { startCompanionSession } from '$lib/services/session/companion-session';
+	import { createEventSession } from '$lib/services/session/event-session.svelte';
+	import { findReplayableEvent } from '$lib/engine/events';
+	import { t } from '$lib/i18n';
 
 	let latestResponse = $state('');
 	let isTyping = $state(false);
 	let thinkingPhase = $state<ThinkingPhase>('thinking');
-	let activeEvent = $state<EventDefinition | null>(null);
+	const events = createEventSession();
+
 	let showCamera = $state(false);
+	let windowError = $state('');
 	let positionLocked = $state(false);
 	// Inline volume control on the rail; same speech.volume setting as the
 	// chat dock and the TTS settings page. Takes effect on the next sentence.
@@ -61,8 +55,8 @@
 	const chatExpanded = $derived(overlayStore.chatExpanded);
 
 	// --- Overlay window sizing & lock ---
-	const SIZE_KEY = 'utsuwa-overlay-size';
-	const LOCK_KEY = 'utsuwa-overlay-locked';
+	const SIZE_KEY = STORAGE_INVENTORY.localStorage.overlaySize;
+	const LOCK_KEY = STORAGE_INVENTORY.localStorage.overlayLocked;
 
 	// Restore lock preference and last window size
 	$effect(() => {
@@ -153,63 +147,24 @@
 		}
 	}
 
-	// Hydrate working memory on start
-	$effect(() => {
-		(async () => {
-			try {
-				await hydrateWorkingMemory();
-			} catch (e) {
-				console.error('Failed to hydrate working memory:', e);
-			}
-		})();
-	});
+	onMount(() =>
+		startCompanionSession({
+			send: (content, options) => handleSend(content, [], options),
+			onEvent: events.open
+		})
+	);
 
-	// Initialize embedding model and backfill facts without embeddings
-	$effect(() => {
-		initEmbeddingModel().then(async (ready) => {
-			if (ready) {
-				const status = await getEmbeddingBackfillStatus();
-				if (status.withoutEmbeddings > 0) {
-					await backfillEmbeddings();
-				}
-			}
-		}).catch((e) => {
-			console.error('Failed to initialize embedding model:', e);
-		});
-	});
-
-	// Debug events (from developer tools)
-	$effect(() => {
-		const debugEvent = debugEventsStore.consume();
-		if (debugEvent) {
-			activeEvent = debugEvent;
-		}
-	});
 	// Re-show an event abandoned in a previous session, once per session.
 	$effect(() => {
 		(async () => {
 			try {
 				const pending = await findReplayableEvent();
-				if (pending) activeEvent = pending;
+				if (pending) events.open(pending);
 			} catch (e) {
 				console.debug('Event replay check failed:', e);
 			}
 		})();
 	});
-	// Start reminder polling in the overlay too, so timers fire even when the
-	// main app window is hidden. Fired reminders are sent back through the LLM
-	// so the companion can react (speech, search, etc.).
-	$effect(() => {
-		const unsubscribeReminder = reminderStore.addReminderFiredListener(
-			createReminderFiredHandler(handleReminderSend)
-		);
-		reminderStore.startPolling();
-		return () => {
-			reminderStore.stopPolling();
-			unsubscribeReminder();
-		};
-	});
-
 
 	// Handle drag for Tauri window
 	function handleDragStart(e: MouseEvent) {
@@ -219,8 +174,9 @@
 	}
 
 	// Exit overlay and return to main window
-	async function exitToMain() {
-		if (!isTauri()) return;
+	async function exitToMain(openSettings = false) {
+		windowError = '';
+		if (!isTauri()) { await goto(openSettings ? '/app/settings/persona?view=state' : '/app'); return; }
 		try {
 			const { getCurrentWindow, getAllWindows } = await import('@tauri-apps/api/window');
 
@@ -229,16 +185,18 @@
 
 			if (!mainWindow) {
 				// Main window was closed — don't hide overlay or user loses the app
-				console.error('Main window not found, cannot exit overlay');
+				windowError = 'The main window is unavailable. Your companion is still here.';
 				return;
 			}
 
 			await mainWindow.show();
 			await mainWindow.setFocus();
+			if (openSettings) await mainWindow.emitTo('main', 'utsuwa-open-character-settings');
 
 			const overlay = getCurrentWindow();
 			await overlay.hide();
 		} catch (e) {
+			windowError = 'Could not open the main window. Try again.';
 			console.error('Failed to exit overlay:', e);
 		}
 	}
@@ -246,22 +204,15 @@
 
 	// Send a message through the shared companion pipeline. The overlay collapses
 	// its chat on send and has no image path.
-	async function handleSend(content: string, images: PreparedImage[] = []) {
+	async function handleSend(
+		content: string,
+		images: PreparedImage[] = [],
+		options?: SendCompanionMessageOptions
+	) {
 		await sendCompanionMessage(content, images, {
 			setTyping: (v) => (isTyping = v),
 			setLatestResponse: (v) => (latestResponse = v),
-			setActiveEvent: (e) => (activeEvent = e),
-			setPhase: (p) => (thinkingPhase = p),
-			beforeStream: () => overlayStore.setChatExpanded(false)
-		});
-	}
-
-	// Send a fired reminder through the overlay pipeline as a system event.
-	async function handleReminderSend(content: string, options?: SendCompanionMessageOptions) {
-		await sendCompanionMessage(content, [], {
-			setTyping: (v) => (isTyping = v),
-			setLatestResponse: (v) => (latestResponse = v),
-			setActiveEvent: (e) => (activeEvent = e),
+			setActiveEvent: events.open,
 			setPhase: (p) => (thinkingPhase = p),
 			beforeStream: () => overlayStore.setChatExpanded(false)
 		}, options);
@@ -274,36 +225,16 @@
 	function handleCharacterClick() {
 		overlayStore.activate();
 	}
-
-	function handleEventComplete(choiceIndex?: number, stateChanges?: Partial<StateUpdates>) {
-		if (!activeEvent) return;
-		const event = $state.snapshot(activeEvent);
-		if (stateChanges) {
-			characterStore.applyUpdates(stateChanges as StateUpdates);
-		} else if (event.stateChanges) {
-			characterStore.applyUpdates(event.stateChanges);
-		}
-		// Apply gating markers synchronously before the DB write so a failed write
-		// can't strand a stage unlock (see app/+page.svelte for the full rationale).
-		for (const marker of completionMarkers(event, choiceIndex)) {
-			characterStore.markEventCompleted(marker);
-		}
-		eventsApi
-			.recordCompletedEvent(
-				event,
-				choiceIndex,
-				choiceIndex !== undefined ? `Choice ${choiceIndex + 1}` : undefined
-			)
-			.catch((e) => console.error('Failed to record event:', e));
-		activeEvent = null;
-	}
-
-	function handleEventClose() {
-		activeEvent = null;
-	}
 </script>
 
+<svelte:window onkeydown={async event => {
+	if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+	if ((event.target as HTMLElement).closest('[role="dialog"], [role="menu"], [role="listbox"]')) return;
+	if (showCamera) { event.preventDefault(); showCamera = false; await tick(); document.querySelector<HTMLButtonElement>('[aria-label="Camera settings"]')?.focus(); }
+	else if (chatExpanded) { event.preventDefault(); overlayStore.setChatExpanded(false); await tick(); document.querySelector<HTMLButtonElement>('[aria-label="Open chat"]')?.focus(); }
+}} />
 <ScreenWakeLock />
+<McpConfirmDialog />
 <div class="overlay-wake-status"><WakeLockIndicator /></div>
 <div class="overlay-container">
 	<!-- VRM Scene (fills the overlay) - locked to prevent rotation when dragging -->
@@ -322,22 +253,22 @@
 			onpointerup={onResizeEnd}
 			onpointercancel={onResizeEnd}
 			role="separator"
-			aria-label={t('settings.overlay.resizeOverlay')}
-			title={t('settings.overlay.dragToResize')}
+			aria-label="Resize overlay"
+			title="Drag to resize"
 		></div>
 	{/if}
 
 	<!-- Control rail (revealed on hover) -->
 	<div class="overlay-rail">
-		<button class="rail-btn" onclick={exitToMain} aria-label={t('settings.overlay.exitToMain')} title={t('settings.overlay.backToApp')}>
-			<Icon name="x" size={15} />
+		<button class="rail-btn" onclick={() => exitToMain()} aria-label="Exit to main app" title="Back to app">
+			<Icon name="chevron-left" size={15} />
 		</button>
 		<button
 			class="rail-btn"
 			class:rail-btn-active={showCamera}
 			onclick={() => (showCamera = !showCamera)}
-			aria-label={t('settings.overlay.cameraSettings')}
-			title={t('ui.camera')}
+			aria-label="Camera settings" aria-expanded={showCamera}
+			title="Camera"
 		>
 			<Icon name="video" size={15} />
 		</button>
@@ -345,15 +276,13 @@
 			class="rail-btn"
 			class:rail-btn-active={positionLocked}
 			onclick={toggleLock}
-			aria-label={positionLocked ? t('settings.overlay.unlockPosition') : t('settings.overlay.lockPosition')}
-			title={positionLocked ? t('settings.overlay.positionLocked') : t('settings.overlay.lockPosition')}
+			aria-pressed={positionLocked}
+			aria-label={positionLocked ? 'Unlock position' : 'Lock position'}
+			title={positionLocked ? 'Position locked' : 'Lock position'}
 		>
 			<Icon name={positionLocked ? 'lock' : 'lock-open'} size={15} />
 		</button>
-	</div>
-
-	<!-- Volume: same speech.volume setting as the chat dock and settings page -->
-	<div class="overlay-rail volume-rail">
+		<!-- Volume: same speech.volume setting as the chat dock and settings page -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="volume-anchor" onclick={(e) => e.stopPropagation()}>
@@ -401,7 +330,7 @@
 
 	<!-- Bottom controls (status + mic + chat icon) -->
 	<div class="chat-controls">
-		<CompanionStatus overlay={true} />
+		<CompanionStats onOpenSettings={() => exitToMain(true)} />
 		{#if !chatExpanded}
 			<FloatingMicButton onTranscript={handleSend} />
 		{/if}
@@ -415,32 +344,20 @@
 		</div>
 	{/if}
 
-	<!-- Error toasts -->
-	{#if chatStore.error}
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="error-toast" out:pop={{ base: 'translateX(-50%)', y: 8, duration: 180 }} onclick={() => chatStore.setError(null)}>
-			<span>{chatStore.error}</span>
-		</div>
-	{/if}
-	{#if sttStore.error}
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="error-toast error-toast--stt" out:pop={{ base: 'translateX(-50%)', y: 8, duration: 180 }} onclick={() => sttStore.clearError()}>
-			<span>{sttStore.error}</span>
-		</div>
-	{/if}
+	{#if windowError}<div class="window-error" role="alert"><span>{windowError}</span><button class="btn btn-ghost btn-sm" aria-label="Dismiss window error" onclick={() => windowError = ''}><Icon name="x" size={14} /></button></div>{/if}
+	<Toasts placement="bottom" />
 
 	<!-- Event Scene Overlay -->
-	{#if activeEvent?.scene}
+	{#if events.activeEvent?.scene}
 		<EventScene
-			scene={activeEvent?.scene}
-			eventName={activeEvent?.name}
-			eventType={activeEvent?.type}
+			scene={events.generatedScene ?? events.activeEvent.scene}
+			pending={events.pending}
+			eventName={events.activeEvent.name}
+			eventType={events.activeEvent.type}
 			companionName={personaStore.activeCard.name}
 			overlay={true}
-			onComplete={handleEventComplete}
-			onClose={handleEventClose}
+			onComplete={events.complete}
+			onClose={events.close}
 		/>
 	{/if}
 
@@ -466,17 +383,15 @@
 		cursor: grabbing;
 	}
 
-	/* Soft boundary stroke so the invisible window edges are discoverable.
-	   Double stroke (light outer, dark inner) stays visible on any desktop. */
+	/* A faint fill reveals the draggable window on hover. */
 	.overlay-frame {
 		position: fixed;
 		inset: 5px;
 		border-radius: 22px;
 		pointer-events: none;
 		z-index: 45;
-		box-shadow:
-			0 0 0 1.5px rgba(255, 255, 255, 0.3),
-			inset 0 0 0 1.5px rgba(0, 0, 0, 0.18);
+		background: color-mix(in srgb, var(--bg-primary) 8%, transparent);
+		box-shadow: var(--shadow-md);
 		opacity: 0;
 		transition: opacity 0.2s ease;
 	}
@@ -497,7 +412,7 @@
 		touch-action: none;
 		border-radius: 16px 4px 8px 4px;
 		background: color-mix(in srgb, var(--bg-tertiary) 65%, transparent);
-		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+		box-shadow: var(--shadow-sm);
 		opacity: 0;
 		transition: opacity 0.2s ease, background 0.15s ease;
 	}
@@ -537,9 +452,9 @@
 	.rail-btn {
 		width: 32px;
 		height: 32px;
-		border: none;
-		border-radius: var(--radius-full);
-		background: var(--bg-tertiary);
+		border: 1px solid transparent;
+		border-radius: 8px;
+		background: var(--control-bg);
 		color: var(--text-secondary);
 		cursor: pointer;
 		display: flex;
@@ -552,8 +467,25 @@
 			box-shadow 0.15s ease, transform 0.15s ease;
 	}
 
-	.overlay-container:hover .rail-btn {
-		opacity: 0.6;
+	/* Volume sits inline in the rail (button + slider side by side) so the
+	   slider never reflows the tool column. */
+	.volume-anchor {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.volume-anchor .rail-btn {
+		flex-shrink: 0;
+	}
+	.volume-slider {
+		width: 88px;
+		accent-color: var(--accent);
+	}
+
+	.overlay-container:hover .rail-btn,
+	.overlay-rail:focus-within .rail-btn,
+	.rail-btn:focus-visible {
+		opacity: 1;
 		pointer-events: auto;
 	}
 
@@ -562,7 +494,7 @@
 		color: var(--text-primary);
 		background: color-mix(in srgb, var(--bg-tertiary), var(--text-primary) 8%);
 		box-shadow: var(--shadow-md);
-		transform: scale(1.1);
+		transform: none;
 	}
 
 	/* Active states (camera panel open, position locked) stay visible */
@@ -573,31 +505,6 @@
 		color: var(--accent);
 	}
 
-	/* Volume rail: second column so its slider never reflows the tool rail;
-	   stays open while volumeOpen regardless of hover */
-	.volume-rail {
-		top: 11.5rem;
-	}
-	.volume-rail .volume-anchor {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-	}
-	.volume-rail .volume-slider {
-		width: 88px;
-		accent-color: var(--accent);
-		background: var(--bg-tertiary);
-		border-radius: var(--radius-full);
-		padding: 0 0.375rem;
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity 0.15s ease;
-	}
-	.volume-rail .volume-anchor .volume-slider {
-		opacity: 1;
-		pointer-events: auto;
-	}
-
 	.overlay-camera-anchor {
 		position: fixed;
 		top: 0.875rem;
@@ -606,14 +513,20 @@
 	}
 
 	.chat-controls {
-		position: fixed;
+		position: absolute;
 		bottom: 1.5rem;
 		left: 50%;
 		transform: translateX(-50%);
 		z-index: 40;
 		display: flex;
-		gap: 0.75rem;
-		align-items: flex-end;
+		gap: 8px;
+		align-items: center;
+		max-width: calc(100% - 24px);
+		padding: 6px;
+		border: 1px solid var(--border-light);
+		border-radius: 12px;
+		background: var(--control-bg);
+		box-shadow: var(--shadow-md);
 	}
 
 	.chat-bar-container {
@@ -639,55 +552,8 @@
 		}
 	}
 
-	.error-toast {
-		position: fixed;
-		bottom: 5rem;
-		left: 50%;
-		transform: translateX(-50%);
-		padding: 0.5rem 0.875rem;
-		background: var(--color-error);
-		border: 1px solid transparent;
-		border-radius: var(--radius-lg);
-		color: #fff;
-		font-size: 0.75rem;
-		max-width: calc(100% - 2rem);
-		text-align: center;
-		cursor: pointer;
-		z-index: 50;
-		animation: slideUpShake 0.5s ease-out;
-		box-shadow: var(--shadow-lg);
-	}
-
-	/* STT errors stack above chat errors instead of sharing the same slot */
-	.error-toast--stt {
-		bottom: 8.5rem;
-	}
-
-	@keyframes slideUpShake {
-		0% {
-			opacity: 0;
-			transform: translateX(-50%) translateY(8px);
-		}
-		30% {
-			opacity: 1;
-			transform: translateX(-50%) translateY(0);
-		}
-		45% {
-			transform: translateX(calc(-50% + 6px)) translateY(0);
-		}
-		60% {
-			transform: translateX(calc(-50% - 5px)) translateY(0);
-		}
-		75% {
-			transform: translateX(calc(-50% + 3px)) translateY(0);
-		}
-		90% {
-			transform: translateX(calc(-50% - 2px)) translateY(0);
-		}
-		100% {
-			transform: translateX(-50%) translateY(0);
-		}
-	}
-
 	.overlay-wake-status { position: fixed; top: 48px; right: 12px; z-index: 70; }
+	.window-error { position: fixed; top: 12px; left: 12px; right: 64px; padding: 10px; display: flex; align-items: center; gap: 8px; background: var(--control-bg); border: 1px solid var(--color-error); color: var(--text-primary); border-radius: 8px; font-size: 13px; z-index: 100; }
+	@media (hover: none), (pointer: coarse) { .rail-btn { opacity: 1; pointer-events: auto; width: 44px; height: 44px; } .overlay-camera-anchor { right: 68px; } }
+	@media (prefers-reduced-motion: reduce) { .rail-btn, .overlay-frame, .resize-tab { transition: none; } .chat-bar-container { animation: none; } }
 </style>

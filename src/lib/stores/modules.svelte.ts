@@ -1,7 +1,9 @@
 import { browser } from '$app/environment';
+import { STORAGE_INVENTORY } from '$lib/db/storage-inventory';
 import type { ModuleDefinition, ModuleState, ModuleMetadata, ModuleWithState } from '$lib/types/module';
+import { withModuleDefaults, type ModuleSettings } from '$lib/services/modules/settings';
 
-const STORAGE_PREFIX = 'utsuwa-module-';
+const STORAGE_PREFIX = STORAGE_INVENTORY.localStorageModulePrefix;
 
 function createModulesStore() {
 	let registry = $state<Map<string, ModuleDefinition>>(new Map());
@@ -15,6 +17,7 @@ function createModulesStore() {
 				const moduleId = e.key.slice(STORAGE_PREFIX.length);
 				try {
 					const state = JSON.parse(e.newValue);
+					state.settings = withModuleDefaults(moduleId, state.settings);
 					moduleStates.set(moduleId, state);
 					moduleStates = new Map(moduleStates);
 				} catch {
@@ -74,6 +77,7 @@ function createModulesStore() {
 		if (saved) {
 			try {
 				const state = JSON.parse(saved);
+				state.settings = withModuleDefaults(moduleId, state.settings);
 				moduleStates.set(moduleId, state);
 				moduleStates = new Map(moduleStates);
 			} catch (e) {
@@ -88,16 +92,7 @@ function createModulesStore() {
 	// Initialize default state for a module
 	function initDefaultState(moduleId: string) {
 		const definition = registry.get(moduleId);
-		const defaultSettings: Record<string, unknown> = {};
-
-		// Collect default values from schema
-		if (definition?.settingsSchema) {
-			for (const field of definition.settingsSchema.fields) {
-				if (field.defaultValue !== undefined) {
-					defaultSettings[field.key] = field.defaultValue;
-				}
-			}
-		}
+		const defaultSettings = withModuleDefaults(moduleId, undefined);
 
 		moduleStates.set(moduleId, {
 			enabled: false,
@@ -128,9 +123,11 @@ function createModulesStore() {
 		return moduleStates.get(moduleId);
 	}
 
-	// Get module settings
-	function getModuleSettings(moduleId: string): Record<string, unknown> {
-		return moduleStates.get(moduleId)?.settings ?? {};
+	// Typed for consciousness and speech. Every path into moduleStates merges
+	// their defaults, so the cast only restates what load/save guarantee.
+	function getModuleSettings<Id extends string>(moduleId: Id): ModuleSettings<Id> {
+		const settings = moduleStates.get(moduleId)?.settings ?? withModuleDefaults(moduleId, undefined);
+		return settings as ModuleSettings<Id>;
 	}
 
 	// Update module settings
@@ -140,10 +137,11 @@ function createModulesStore() {
 
 		if (!currentState || !definition) return;
 
+		const merged = withModuleDefaults(moduleId, settings);
 		const newState: ModuleState = {
 			...currentState,
-			settings,
-			configured: definition.isConfigured(settings)
+			settings: merged,
+			configured: definition.isConfigured(merged)
 		};
 
 		moduleStates.set(moduleId, newState);
@@ -152,13 +150,17 @@ function createModulesStore() {
 
 		// Notify module of settings change
 		if (definition.onSettingsChange) {
-			definition.onSettingsChange(settings);
+			definition.onSettingsChange(merged);
 		}
 	}
 
 	// Update a single setting
-	function setModuleSetting(moduleId: string, key: string, value: unknown) {
-		const currentSettings = getModuleSettings(moduleId);
+	function setModuleSetting<Id extends string, K extends keyof ModuleSettings<Id> & string>(
+		moduleId: Id,
+		key: K,
+		value: ModuleSettings<Id>[K]
+	) {
+		const currentSettings = moduleStates.get(moduleId)?.settings;
 		setModuleSettings(moduleId, { ...currentSettings, [key]: value });
 	}
 

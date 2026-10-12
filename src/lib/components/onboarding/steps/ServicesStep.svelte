@@ -1,16 +1,12 @@
 <script lang="ts">
+	import Switch from '$lib/components/ui/Switch.svelte';
 	import { Icon, ProviderDropdown, ModelDropdown, ContextSizeSlider } from '$lib/components/ui';
-	import { t } from '$lib/i18n';
 	import { modulesStore } from '$lib/stores/modules.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { createLlmSettingsState, createTtsSettingsState } from '$lib/stores/ai-services-settings.svelte';
+	import { createFetchSignature } from '$lib/stores/ai-services-settings-logic';
 	import { getLLMProvider, getTTSProvider } from '$lib/services/providers/registry';
-	import { defaultVoiceForProvider } from '$lib/services/tts/provider-utils';
-	import {
-		fetchModels,
-		getCachedModelsForProvider,
-		debounce,
-		type ModelInfo
-	} from '$lib/services/providers/use-model-fetch';
+	import { debounce } from '$lib/services/providers/use-model-fetch';
 	import { DOCS_URL } from '$lib/config/site';
 	import { isTauri } from '$lib/services/platform';
 
@@ -27,388 +23,102 @@
 	interface Props {
 		onNext: () => void;
 		onBack: () => void;
+		stage: 'chat' | 'voice';
+		ttsEnabled?: boolean;
 	}
 
-	let { onNext, onBack }: Props = $props();
+	let { onNext, onBack, stage, ttsEnabled = $bindable(false) }: Props = $props();
 
-	function handleContextSizeChange(value: number | undefined) {
-		modulesStore.setModuleSetting('consciousness', 'contextSize', value);
-	}
+	const llm = createLlmSettingsState();
+	const tts = createTtsSettingsState();
+	const llmSettings = $derived(llm.consciousnessSettings);
+	const ttsSettings = $derived(tts.speechSettings);
+	const llmProvider = $derived(getLLMProvider(llmSettings.activeProvider));
+	const ttsProvider = $derived(getTTSProvider(ttsSettings.activeProvider));
 
-	// LLM State
-	const llmSettings = $derived(modulesStore.getModuleSettings('consciousness'));
-	const llmProvider = $derived(getLLMProvider(llmSettings.activeProvider as string));
-	const staticLLMModels = $derived(llmProvider?.models ?? []);
-	const llmContextSize = $derived(llmSettings.contextSize as number | undefined);
-
-	// Dynamic model fetching state for LLM
-	let llmIsLoading = $state(false);
-	let llmFetchError = $state<string | null>(null);
-	let llmDynamicModels = $state<ModelInfo[] | null>(null);
-	let lastLocalLLMFetchKey = $state('');
-
-	// Use dynamic models if available, otherwise static
-	const llmModels = $derived(llmDynamicModels ?? staticLLMModels);
-
-	// Check if API key is present for current LLM provider
-	const llmHasApiKey = $derived.by(() => {
-		if (!llmProvider) return false;
-		if (llmProvider.isLocal || !llmProvider.requiresApiKey) return true;
-		const config = settingsStore.getProviderConfig(llmProvider.id);
-		return !!config.apiKey;
-	});
-
-	// TTS State
-	let ttsEnabled = $state(false);
-
-	// STT (voice input) is config-based, not a module. A configured local server
-	// wins, then Groq, then OpenAI, then the browser's Web Speech API.
-	let sttEnabled = $state(false);
-	const ttsSettings = $derived(modulesStore.getModuleSettings('speech'));
-	const ttsProvider = $derived(getTTSProvider(ttsSettings.activeProvider as string));
-	const staticTTSModels = $derived(ttsProvider?.models ?? []);
-
-	// Dynamic model fetching state for TTS
-	let ttsIsLoading = $state(false);
-	let ttsFetchError = $state<string | null>(null);
-	let ttsDynamicModels = $state<ModelInfo[] | null>(null);
-
-	// Use dynamic models if available, otherwise static
-	const ttsModels = $derived(ttsDynamicModels ?? staticTTSModels);
-
-	// Check if API key is present for current TTS provider
-	const ttsHasApiKey = $derived.by(() => {
-		if (!ttsProvider) return false;
-		if (ttsProvider.isLocal || !ttsProvider.requiresApiKey) return true;
-		const config = settingsStore.getProviderConfig(ttsProvider.id);
-		return !!config.apiKey;
-	});
-
-	// Validation
-	const isLLMConfigured = $derived.by(() => {
-		if (!llmSettings.activeProvider) return false;
-		const provider = getLLMProvider(llmSettings.activeProvider as string);
-		if (!provider) return false;
-		if (provider.isLocal) {
-			const activeModel = llmSettings.activeModel as string;
-			return !!activeModel && llmModels.some((model) => model.id === activeModel);
-		}
-		// Custom endpoints need a base URL and a hand-entered model to work.
-		if (provider.custom) {
-			const config = settingsStore.getProviderConfig(provider.id);
-			return !!config.baseUrl && !!(llmSettings.activeModel as string);
-		}
-		if (!provider.requiresApiKey) return true;
-		const config = settingsStore.getProviderConfig(provider.id);
-		return !!config.apiKey;
-	});
-
-	// Fetch LLM models from provider API
-	async function fetchLLMModels() {
-		const targetProvider = llmProvider?.id;
-		if (!targetProvider) return;
-
-		const config = settingsStore.getProviderConfig(targetProvider);
-
-		await fetchModels({
-			providerId: targetProvider,
-			apiKey: config.apiKey ?? '',
-			baseUrl: config.baseUrl,
-			isLocal: llmProvider?.isLocal,
-			getCurrentProviderId: () => llmProvider?.id,
-			onStart: () => {
-				llmIsLoading = true;
-				llmFetchError = null;
-			},
-			onSuccess: (models) => {
-				llmIsLoading = false;
-				llmDynamicModels = models;
-				const currentModel = llmSettings.activeModel as string;
-				const modelExists = models.some((m) => m.id === currentModel);
-				if (!currentModel || !modelExists) {
-					modulesStore.setModuleSetting('consciousness', 'activeModel', models[0].id);
-				}
-			},
-			onError: (error) => {
-				llmIsLoading = false;
-				llmFetchError = error ?? t('onboarding.fetchModelsFailed');
-				llmDynamicModels = llmProvider?.isLocal ? [] : null;
-			},
-			onEmpty: () => {
-				llmIsLoading = false;
-				llmFetchError = llmProvider?.isLocal
-					? t('onboarding.noLocalModels')
-					: null;
-				llmDynamicModels = llmProvider?.isLocal ? [] : null;
-			},
-			onStale: () => {
-				llmIsLoading = false;
-			}
-		});
-	}
-
-	// Fetch TTS models from provider API
-	async function fetchTTSModels() {
-		const targetProvider = ttsProvider?.id;
-		if (!targetProvider) return;
-
-		const config = settingsStore.getProviderConfig(targetProvider);
-
-		await fetchModels({
-			providerId: targetProvider,
-			apiKey: config.apiKey ?? '',
-			baseUrl: config.baseUrl,
-			isLocal: ttsProvider?.isLocal,
-			getCurrentProviderId: () => ttsProvider?.id,
-			onStart: () => {
-				ttsIsLoading = true;
-				ttsFetchError = null;
-			},
-			onSuccess: (models) => {
-				ttsIsLoading = false;
-				ttsDynamicModels = models;
-				// Auto-select first model if none selected
-				if (!ttsSettings.activeModel && models.length > 0) {
-					modulesStore.setModuleSetting('speech', 'activeModel', models[0].id);
-				}
-			},
-			onError: () => {
-				ttsIsLoading = false;
-				ttsFetchError = t('onboarding.usingDefaultList');
-				ttsDynamicModels = null;
-			},
-			onEmpty: () => {
-				ttsIsLoading = false;
-				ttsDynamicModels = null;
-			},
-			onStale: () => {
-				ttsIsLoading = false;
-			}
-		});
-	}
-
-	// Debounced fetch to avoid rapid API calls
-	const debouncedFetchLLMModels = debounce(fetchLLMModels, 300);
-	const debouncedFetchTTSModels = debounce(fetchTTSModels, 300);
+	// Setup always asks the provider instead of the 24h model cache, so a stale
+	// model from an earlier session gets swapped for one the provider has.
+	const refreshLLMModelsSoon = debounce(llm.refreshLLMModels, 300);
 
 	$effect(() => {
+		if (stage !== 'chat') return;
 		if (!llmProvider?.isLocal) {
-			lastLocalLLMFetchKey = '';
+			llm.lastLocalLLMFetchKey = '';
 			return;
 		}
-
 		const baseUrl = settingsStore.getProviderConfig(llmProvider.id).baseUrl ?? llmProvider.defaultBaseUrl ?? '';
-		const fetchKey = `${llmProvider.id}:${baseUrl}`;
-
-		if (fetchKey !== lastLocalLLMFetchKey) {
-			lastLocalLLMFetchKey = fetchKey;
-			debouncedFetchLLMModels();
+		const fetchKey = createFetchSignature(llmProvider.id, baseUrl);
+		if (fetchKey !== llm.lastLocalLLMFetchKey) {
+			llm.lastLocalLLMFetchKey = fetchKey;
+			refreshLLMModelsSoon();
 		}
 	});
 
-	// Handlers
-	function handleLLMProviderChange(providerId: string) {
-		modulesStore.setModuleSetting('consciousness', 'activeProvider', providerId);
-		const provider = getLLMProvider(providerId);
-
-		// Reset dynamic models when provider changes
-		llmDynamicModels = null;
-		llmFetchError = null;
-		llmIsLoading = false;
-
-		// Check for cached models
-		const cached = getCachedModelsForProvider(providerId);
-		if (cached) {
-			llmDynamicModels = cached;
-		}
-
-		if (provider && !provider.isLocal && provider.models?.length) {
-			modulesStore.setModuleSetting('consciousness', 'activeModel', provider.models[0].id);
-		}
-		// Custom endpoints have no preset models; clear any stale selection so the
-		// manual model field starts empty.
-		if (provider?.custom) {
-			modulesStore.setModuleSetting('consciousness', 'activeModel', '');
-		}
-		// Mark local providers as added immediately (they don't need API keys)
-		if (provider?.isLocal || !provider?.requiresApiKey) {
-			settingsStore.markProviderAdded(providerId);
-		}
-	}
-
-	function handleLLMModelChange(modelId: string) {
-		modulesStore.setModuleSetting('consciousness', 'activeModel', modelId);
-	}
-
-	function handleLLMApiKeyChange(apiKey: string) {
-		if (llmProvider) {
-			llmFetchError = null; // Clear error when user types
-			settingsStore.setProviderConfig(llmProvider.id, { apiKey });
-			if (apiKey) {
-				settingsStore.markProviderAdded(llmProvider.id);
-			}
-		}
-	}
-
 	function handleLLMApiKeyBlur() {
-		const config = settingsStore.getProviderConfig(llmProvider?.id ?? '');
-		if (config.apiKey && llmProvider && !llmProvider.isLocal) {
-			debouncedFetchLLMModels();
+		if (llmProvider && !llmProvider.isLocal && settingsStore.getProviderConfig(llmProvider.id).apiKey) {
+			refreshLLMModelsSoon();
 		}
 	}
 
-	function handleLLMBaseUrlChange(baseUrl: string) {
-		if (llmProvider) {
-			settingsStore.setProviderConfig(llmProvider.id, { baseUrl });
-			llmFetchError = null;
-		}
-	}
-
-	function handleTTSProviderChange(providerId: string) {
-		modulesStore.setModuleSetting('speech', 'activeProvider', providerId);
-		const provider = getTTSProvider(providerId);
-
-		// Reset dynamic models when provider changes
-		ttsDynamicModels = null;
-		ttsFetchError = null;
-		ttsIsLoading = false;
-
-		// Check for cached models
-		const cached = getCachedModelsForProvider(providerId);
-		if (cached) {
-			ttsDynamicModels = cached;
-		}
-
-		if (provider?.models?.length) {
-			modulesStore.setModuleSetting('speech', 'activeModel', provider.models[0].id);
-		}
-		// Voice ids are provider-specific (a Kokoro voice id means nothing to
-		// ElevenLabs), so switching providers always resets the voice: the new
-		// provider's first declared voice, or empty so its own default applies.
-		// Carrying the old value over made the next provider 404 silently.
-		modulesStore.setModuleSetting('speech', 'activeVoiceId', defaultVoiceForProvider(provider));
-		// Mark local providers as added immediately (they don't need API keys)
-		if (provider?.isLocal || !provider?.requiresApiKey) {
-			settingsStore.markProviderAdded(providerId);
-		}
-	}
-
-	function handleTTSVoiceChange(voiceId: string) {
-		modulesStore.setModuleSetting('speech', 'activeVoiceId', voiceId.trim());
-	}
-
-	function handleTTSModelChange(modelId: string) {
-		modulesStore.setModuleSetting('speech', 'activeModel', modelId);
-	}
-
-	function handleTTSApiKeyChange(apiKey: string) {
-		if (ttsProvider) {
-			ttsFetchError = null; // Clear error when user types
-			settingsStore.setProviderConfig(ttsProvider.id, { apiKey });
-			if (apiKey) {
-				settingsStore.markProviderAdded(ttsProvider.id);
-			}
-		}
-	}
-
-	function handleTTSApiKeyBlur() {
-		const config = settingsStore.getProviderConfig(ttsProvider?.id ?? '');
-		if (config.apiKey && ttsProvider && !ttsProvider.isLocal) {
-			debouncedFetchTTSModels();
-		}
-	}
-
-	function handleTTSBaseUrlChange(baseUrl: string) {
-		if (ttsProvider) {
-			settingsStore.setProviderConfig(ttsProvider.id, { baseUrl });
-		}
-	}
-
-	function handleNext() {
-		modulesStore.setModuleEnabled('consciousness', true);
-		if (ttsEnabled && ttsSettings.activeProvider) {
-			modulesStore.setModuleEnabled('speech', true);
-		}
+	async function handleNext() {
+		if (stage === 'chat') await modulesStore.setModuleEnabled('consciousness', true);
+		else await modulesStore.setModuleEnabled('speech', ttsEnabled && !!ttsSettings.activeProvider);
 		onNext();
 	}
 </script>
 
 {#snippet troubleHelp()}
 	<p class="provider-help">
-		{t('onboarding.havingTrouble')} <a
-			href={LOCAL_LLM_DOCS_URL}
-			target="_blank"
-			rel="noopener"
-			onclick={openLocalLlmDocs}>{t('onboarding.clickHere')}</a
-		>
+		Having trouble? Click <a href={LOCAL_LLM_DOCS_URL} target="_blank" rel="noopener" onclick={openLocalLlmDocs}>here</a>
 	</p>
 {/snippet}
 
 <div class="ob-step services-step">
 	<div class="ob-head">
-		<h2 class="ob-title">{t('onboarding.configureServices')}</h2>
-		<p class="ob-subtitle">{t('onboarding.servicesSubtitle')}</p>
+		<h2 class="ob-title" tabindex="-1">{stage === 'chat' ? 'Connect a chat model' : 'Want to hear them?'}</h2>
+		<p class="ob-subtitle">{stage === 'chat' ? 'Choose the service that powers your conversations. You can connect it later in Settings.' : 'Add spoken replies, or keep things quiet for now.'}</p>
 	</div>
 
-	<div class="security-note">
-		<Icon name="lock" size={14} />
-		<span>{t('onboarding.keysStayLocal')}</span>
-	</div>
-
+	{#if stage === 'chat'}
 	<!-- LLM Section -->
 	<div class="service-section">
 		<div class="service-header">
 			<Icon name="brain" size={16} />
-			<span class="service-title">{t('onboarding.chatLlm')}</span>
-			<span class="required-badge">{t('onboarding.required')}</span>
+			<span class="service-title">Chat provider</span>
 		</div>
 
-		<ProviderDropdown
-			type="llm"
-			value={llmSettings.activeProvider as string}
-			onSelect={handleLLMProviderChange}
-			placeholder={t('onboarding.selectLlmProvider')}
-		/>
+		<ProviderDropdown type="llm" value={llmSettings.activeProvider} onSelect={llm.handleLLMProviderChange} placeholder="Select LLM provider..." />
 
 		{#if llmProvider?.requiresApiKey || llmProvider?.custom}
-			<input
-				type="password"
-				class="api-key-input"
-				class:error={llmFetchError}
-				placeholder={llmProvider?.custom ? t('onboarding.apiKeyOptional') : t('onboarding.enterApiKey')}
+			<input type="password" class="api-key-input" class:error={llm.llmFetchError} aria-label="Chat API key"
+				placeholder={llmProvider?.custom ? 'API Key (optional)' : 'Enter API Key...'}
 				value={settingsStore.getProviderConfig(llmProvider.id).apiKey ?? ''}
-				oninput={(e) => handleLLMApiKeyChange(e.currentTarget.value)}
-				onblur={llmProvider?.custom ? undefined : handleLLMApiKeyBlur}
-			/>
+				oninput={(e) => llm.handleApiKeyChange(llmProvider.id, e.currentTarget.value)}
+				onblur={llmProvider?.custom ? undefined : handleLLMApiKeyBlur} />
 		{/if}
 
 		<!-- Base URL for local providers and custom OpenAI-compatible endpoints -->
 		{#if llmProvider?.isLocal || llmProvider?.custom}
-			{#if llmProvider.isLocal && llmFetchError}
+			{#if llmProvider.isLocal && llm.llmFetchError}
 				<div class="provider-error">
 					<p class="provider-note error">
 						<Icon name="alert-circle" size={14} />
-						{llmFetchError}
+						{llm.llmFetchError}
 					</p>
 					{@render troubleHelp()}
 				</div>
 			{/if}
-			<input
-				type="text"
-				class="api-key-input"
-				placeholder={llmProvider.custom
-					? 'https://api.openai.com/v1/ or your endpoint'
-					: llmProvider.defaultBaseUrl || 'http://localhost:11434/v1/'}
+			<input type="text" class="api-key-input"
+				placeholder={llmProvider.custom ? 'https://api.openai.com/v1/ or your endpoint' : llmProvider.defaultBaseUrl || 'http://localhost:11434/v1/'}
 				value={settingsStore.getProviderConfig(llmProvider.id).baseUrl ?? ''}
-				oninput={(e) => handleLLMBaseUrlChange(e.currentTarget.value)}
-				onblur={llmProvider.custom ? undefined : fetchLLMModels}
-			/>
+				oninput={(e) => llm.handleLLMBaseUrlChange(llmProvider.id, e.currentTarget.value)}
+				onblur={llmProvider.custom ? undefined : llm.refreshLLMModels} />
 			{#if llmProvider.isLocal}
 				<p class="provider-note">
 					<Icon name="check-circle" size={14} />
 					Local provider, no API key needed
 				</p>
-				{#if !llmFetchError}
+				{#if !llm.llmFetchError}
 					{@render troubleHelp()}
 				{/if}
 			{/if}
@@ -417,103 +127,54 @@
 		<!-- Model: manual entry for custom endpoints, discovered dropdown otherwise -->
 		{#if llmProvider?.custom}
 			{@const customConfig = settingsStore.getProviderConfig(llmProvider.id)}
-			<input
-				type="text"
-				class="api-key-input"
-				placeholder={t('settings.llm.model')}
-				value={(llmSettings.activeModel as string) ?? ''}
-				oninput={(e) => handleLLMModelChange(e.currentTarget.value.trim())}
-			/>
+			<input type="text" class="api-key-input" placeholder="Model (e.g. gpt-4o-mini, meta-llama/llama-3-70b)" value={llmSettings.activeModel ?? ''}
+				oninput={(e) => llm.handleLLMModelChange(e.currentTarget.value.trim())} />
 			{#if customConfig.baseUrl}
-				<ModelDropdown
-					models={llmModels}
-					value={llmSettings.activeModel as string}
-					onSelect={handleLLMModelChange}
-					placeholder={t('onboarding.pickFetchedModel')}
-					isLoading={llmIsLoading}
-					onRefresh={fetchLLMModels}
-					disabled={false}
-				/>
+				<ModelDropdown models={llm.llmModels} value={llmSettings.activeModel} onSelect={llm.handleLLMModelChange} placeholder="Pick a fetched model..."
+					isLoading={llm.llmIsLoading} onRefresh={llm.refreshLLMModels} disabled={false} />
 			{:else}
-				<p class="provider-note">{t('onboarding.enterBaseUrlForModels')}</p>
+				<p class="provider-note">Enter a base URL to fetch available models.</p>
 			{/if}
 		{:else if llmSettings.activeProvider}
-			<ModelDropdown
-				models={llmModels}
-				value={llmSettings.activeModel as string}
-				onSelect={handleLLMModelChange}
-				placeholder={t('onboarding.selectModel')}
-				isLoading={llmIsLoading}
-				onRefresh={llmHasApiKey ? fetchLLMModels : undefined}
-				disabled={!llmHasApiKey}
-				disabledMessage={t('onboarding.enterApiKeyFirst')}
-			/>
+			<ModelDropdown models={llm.llmModels} value={llmSettings.activeModel} onSelect={llm.handleLLMModelChange} placeholder="Select model..."
+				isLoading={llm.llmIsLoading} onRefresh={llm.llmHasApiKey ? llm.refreshLLMModels : undefined}
+				disabled={!llm.llmHasApiKey} disabledMessage="Enter API key first" />
 		{/if}
 
-		<!-- Context Window -->
-		<ContextSizeSlider
-			contextSize={llmContextSize}
-			onChange={handleContextSizeChange}
-			id="ob-llm-context-size-toggle"
-		/>
+		<details class="ob-advanced"><summary>Advanced options</summary>
+		<ContextSizeSlider contextSize={llmSettings.contextSize} onChange={(value) => llm.handleLLMNumberSetting('contextSize', value)} id="ob-llm-context-size-toggle" />
+		</details>
 	</div>
 
+	{:else}
 	<!-- TTS Section -->
 	<div class="service-section">
 		<div class="service-header">
 			<Icon name="mic" size={16} />
-			<span class="service-title">{t('onboarding.speechTts')}</span>
-			<span class="optional-badge">{t('onboarding.optional')}</span>
-			<button class="toggle-btn" class:enabled={ttsEnabled} onclick={() => ttsEnabled = !ttsEnabled} aria-label={t('onboarding.toggleTts')}>
-				<span class="toggle-track">
-					<span class="toggle-thumb"></span>
-				</span>
-			</button>
+			<span class="service-title">Spoken replies</span>
+
+			<Switch label="Spoken replies" checked={ttsEnabled} onchange={(value) => ttsEnabled = value} />
 		</div>
 
 		{#if ttsEnabled}
-			<ProviderDropdown
-				type="tts"
-				value={ttsSettings.activeProvider as string}
-				onSelect={handleTTSProviderChange}
-				placeholder={t('onboarding.selectTtsProvider')}
-			/>
+			<ProviderDropdown type="tts" value={ttsSettings.activeProvider} onSelect={tts.handleTTSProviderChange} placeholder="Select TTS provider..." />
 
 			{#if ttsProvider?.requiresApiKey}
-				<input
-					type="password"
-					class="api-key-input"
-					class:error={ttsFetchError}
-					placeholder={t('onboarding.enterApiKey')}
+				<input type="password" class="api-key-input" class:error={tts.ttsFetchError} aria-label="Voice API key" placeholder="Enter API Key..."
 					value={settingsStore.getProviderConfig(ttsProvider.id).apiKey ?? ''}
-					oninput={(e) => handleTTSApiKeyChange(e.currentTarget.value)}
-					onblur={handleTTSApiKeyBlur}
-				/>
+					oninput={(e) => tts.handleApiKeyChange(ttsProvider.id, e.currentTarget.value)} onblur={tts.handleTTSApiKeyBlur} />
 			{/if}
 
 			{#if ttsSettings.activeProvider && !ttsProvider?.isLocal}
-				<ModelDropdown
-					models={ttsModels}
-					value={ttsSettings.activeModel as string}
-					onSelect={handleTTSModelChange}
-					placeholder={t('onboarding.selectModel')}
-					isLoading={ttsIsLoading}
-					onRefresh={ttsHasApiKey ? fetchTTSModels : undefined}
-					disabled={!ttsHasApiKey}
-					disabledMessage={t('onboarding.enterApiKeyFirst')}
-				/>
+				<ModelDropdown models={tts.ttsModels} value={ttsSettings.activeModel} onSelect={(id) => tts.setSpeech('activeModel', id)} placeholder="Select model..."
+					isLoading={tts.ttsIsLoading} onRefresh={tts.ttsHasApiKey ? tts.fetchTTSModels : undefined}
+					disabled={!tts.ttsHasApiKey} disabledMessage="Enter API key first" />
 			{/if}
 
-			{#if ttsSettings.activeProvider === 'elevenlabs'}
-				<input
-					type="text"
-					class="api-key-input"
-					list="elevenlabs-voices"
-					placeholder={t('onboarding.voiceId')}
-					value={ttsSettings.activeVoiceId as string ?? ''}
-					oninput={(e) => handleTTSVoiceChange(e.currentTarget.value)}
-				/>
-				<datalist id="elevenlabs-voices">
+			{#if ttsProvider?.id === 'elevenlabs' || ttsProvider?.id === 'fish-audio'}
+				<input type="text" class="api-key-input" list="{ttsProvider.id}-voices" placeholder="Voice ID" value={ttsSettings.activeVoiceId ?? ''}
+					oninput={(e) => tts.setSpeech('activeVoiceId', e.currentTarget.value.trim())} />
+				<datalist id="{ttsProvider.id}-voices">
 					{#each ttsProvider?.voices ?? [] as voice}
 						<option value={voice.id}>{voice.name}</option>
 					{/each}
@@ -521,130 +182,44 @@
 			{/if}
 
 			{#if ttsProvider?.isLocal}
-				<input
-					type="text"
-					class="api-key-input"
-					placeholder={t('onboarding.modelVoiceName')}
-					value={ttsSettings.activeModel as string ?? ''}
-					oninput={(e) => handleTTSModelChange(e.currentTarget.value)}
-				/>
-			{/if}
-
-			{#if ttsProvider?.isLocal}
-				<input
-					type="text"
-					class="api-key-input"
-					placeholder={ttsProvider.defaultBaseUrl || 'http://localhost:5000/'}
+				<input type="text" class="api-key-input" placeholder="Model/voice name" value={ttsSettings.activeModel ?? ''}
+					oninput={(e) => tts.setSpeech('activeModel', e.currentTarget.value)} />
+				<input type="text" class="api-key-input" placeholder={ttsProvider.defaultBaseUrl || 'http://localhost:5000/'}
 					value={settingsStore.getProviderConfig(ttsProvider.id).baseUrl ?? ''}
-					oninput={(e) => handleTTSBaseUrlChange(e.currentTarget.value)}
-				/>
+					oninput={(e) => settingsStore.setProviderConfig(ttsProvider.id, { baseUrl: e.currentTarget.value })} />
 				<p class="provider-note">
 					<Icon name="check-circle" size={14} />
-					{t('onboarding.localProviderNoKey')}
+					Local provider - no API key needed
 				</p>
 			{/if}
 		{:else}
-			<p class="skip-note">{t('onboarding.enableToAddVoice')}</p>
+			<p class="skip-note">Enable to add voice to your companion</p>
 		{/if}
 	</div>
 
-	<!-- STT Section -->
-	<div class="service-section">
-		<div class="service-header">
-			<Icon name="mic" size={16} />
-			<span class="service-title">{t('onboarding.voiceInputStt')}</span>
-			<span class="optional-badge">{t('onboarding.optional')}</span>
-			<button class="toggle-btn" class:enabled={sttEnabled} onclick={() => sttEnabled = !sttEnabled} aria-label={t('onboarding.toggleStt')}>
-				<span class="toggle-track">
-					<span class="toggle-thumb"></span>
-				</span>
-			</button>
-		</div>
-
-		{#if sttEnabled}
-			<p class="skip-note">{t('onboarding.sttHowItWorks')}</p>
-
-			<input
-				type="text"
-				class="api-key-input"
-				placeholder={t('onboarding.sttServerUrl')}
-				value={settingsStore.getProviderConfig('local-stt').baseUrl ?? ''}
-				oninput={(e) => {
-					const v = e.currentTarget.value.trim();
-					settingsStore.setProviderConfig('local-stt', { baseUrl: v });
-					if (v) settingsStore.markProviderAdded('local-stt');
-					else settingsStore.removeProvider('local-stt');
-				}}
-			/>
-
-			<input
-				type="text"
-				class="api-key-input"
-				placeholder={t('onboarding.sttLocalModel')}
-				value={settingsStore.getProviderConfig('local-stt').modelId ?? ''}
-				oninput={(e) => settingsStore.setProviderConfig('local-stt', { modelId: e.currentTarget.value.trim() })}
-			/>
-
-			<input
-				type="password"
-				class="api-key-input"
-				placeholder={t('onboarding.groqApiKeyOptional')}
-				value={settingsStore.getProviderConfig('groq-stt').apiKey ?? ''}
-				oninput={(e) => {
-					settingsStore.setProviderConfig('groq-stt', { apiKey: e.currentTarget.value });
-					settingsStore.markProviderAdded('groq-stt');
-				}}
-			/>
-
-			<input
-				type="password"
-				class="api-key-input"
-				placeholder={t('onboarding.openaiWhisperApiKey')}
-				value={settingsStore.getProviderConfig('openai-stt').apiKey ?? ''}
-				oninput={(e) => {
-					settingsStore.setProviderConfig('openai-stt', { apiKey: e.currentTarget.value });
-					settingsStore.markProviderAdded('openai-stt');
-				}}
-			/>
-		{:else}
-			<p class="skip-note">{t('onboarding.enableMicInput')}</p>
-		{/if}
-	</div>
+	<p class="skip-note">You can use the microphone button to speak instead of type. Transcription options live in Settings.</p>
+	{/if}
 
 	<div class="ob-actions ob-actions--split">
 		<button class="btn btn-secondary" onclick={onBack}>
 			<Icon name="chevron-left" size={16} />
-			{t('common.back')}
+			Back
 		</button>
-		<button class="btn btn-primary" onclick={handleNext} disabled={!isLLMConfigured}>
-			{t('common.next')}
+		<button class="btn btn-primary" onclick={handleNext} disabled={stage === 'chat' ? !llm.isLLMConfigured : ttsEnabled && (!ttsSettings.activeProvider || !tts.ttsHasApiKey)}>
+			Next
 			<Icon name="chevron-right" size={16} />
 		</button>
 	</div>
+	<button class="btn btn-ghost btn-block" onclick={onNext}>Set up later</button>
+	<p class="ob-hint">Provider keys save on this device. Requests go to the provider you choose.</p>
 </div>
 
 <style>
+	.service-header > :global(.ui-switch) { margin-left: auto; }
 	/* Scrollable variant of the shared ob-step layout */
 	.services-step {
 		max-height: 70vh;
 		overflow-y: auto;
-	}
-
-	.security-note {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		padding: 0.7rem 1rem;
-		background: var(--bg-secondary);
-		border-radius: var(--radius-lg);
-		font-size: 0.75rem;
-		color: var(--text-secondary);
-	}
-
-	.security-note :global(svg) {
-		color: var(--text-tertiary);
-		flex-shrink: 0;
 	}
 
 	.service-section {
@@ -670,85 +245,7 @@
 		color: var(--text-primary);
 	}
 
-	.required-badge {
-		font-size: 0.65rem;
-		font-weight: 600;
-		letter-spacing: 0.02em;
-		text-transform: uppercase;
-		color: var(--accent);
-		background: var(--accent-subtle);
-		padding: 0.2rem 0.55rem;
-		border-radius: var(--radius-full);
-		margin-left: auto;
-	}
-
-	.optional-badge {
-		font-size: 0.65rem;
-		font-weight: 600;
-		letter-spacing: 0.02em;
-		text-transform: uppercase;
-		color: var(--text-tertiary);
-		background: var(--bg-tertiary);
-		padding: 0.2rem 0.55rem;
-		border-radius: var(--radius-full);
-	}
-
-	.toggle-btn {
-		margin-left: auto;
-		position: relative;
-		width: 42px;
-		height: 24px;
-		background: transparent;
-		border: none;
-		padding: 0;
-		cursor: pointer;
-	}
-
-	.toggle-track {
-		display: block;
-		width: 100%;
-		height: 100%;
-		background: var(--bg-tertiary);
-		border-radius: var(--radius-full);
-		transition: background 0.2s;
-	}
-
-	.toggle-btn.enabled .toggle-track {
-		background: var(--accent);
-	}
-
-	.toggle-thumb {
-		position: absolute;
-		top: 3px;
-		left: 3px;
-		width: 18px;
-		height: 18px;
-		background: var(--bg-primary);
-		border-radius: 50%;
-		transition: transform 0.2s;
-		box-shadow: var(--shadow-xs);
-	}
-
-	.toggle-btn.enabled .toggle-thumb {
-		background: #fff;
-		transform: translateX(18px);
-	}
-
-	.api-key-input {
-		width: 100%;
-		padding: 0.85rem 1rem;
-		background: var(--bg-secondary);
-		border-radius: var(--radius-lg);
-		font-size: 0.9rem;
-		font-family: var(--font-mono);
-		color: var(--text-primary);
-		transition: box-shadow 0.15s, background 0.15s;
-	}
-
-	.api-key-input::placeholder {
-		color: var(--text-tertiary);
-	}
-
+	/* The shared field recipe in app-controls.css sets the rest. */
 	.api-key-input:focus {
 		outline: none;
 		background: var(--bg-primary);

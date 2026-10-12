@@ -1,118 +1,132 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
 	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { Icon } from '$lib/components/ui';
-	import './ai-services-settings.css';
+	import { DEFAULT_STT_TIMEOUT_MS, resolveSttTimeoutMs } from '$lib/services/stt/openai-stt';
+	import SettingsSection from './SettingsSection.svelte';
 </script>
 
-<div class="service-group">
-	<div class="service-header">
-		<Icon name="mic" size={14} />
-		<span>{t('onboarding.voiceInputStt')}</span>
+<SettingsSection
+	title="Cloud providers"
+	description="A local server is used first, then Groq, then OpenAI, then the browser's built-in recognition. Required on desktop, which has no built-in recognition."
+>
+	<div class="ai-fields">
+		<div class="ai-field">
+			<label class="settings-label" for="stt-groq-key">Groq API key</label>
+			<input
+				id="stt-groq-key"
+				type="password"
+				class="settings-field"
+				placeholder="Groq API Key" aria-label="Groq API Key"
+				value={settingsStore.getProviderConfig('groq-stt').apiKey ?? ''}
+				oninput={(e) => {
+					const v = e.currentTarget.value;
+					settingsStore.setProviderConfig('groq-stt', { apiKey: v });
+					if (v) settingsStore.markProviderAdded('groq-stt');
+					else settingsStore.removeProvider('groq-stt');
+				}}
+			/>
+		</div>
+		<div class="ai-field">
+			<label class="settings-label" for="stt-openai-key">OpenAI API key (Whisper)</label>
+			<input
+				id="stt-openai-key"
+				type="password"
+				class="settings-field"
+				placeholder="OpenAI API Key" aria-label="OpenAI API Key"
+				value={settingsStore.getProviderConfig('openai-stt').apiKey ?? ''}
+				oninput={(e) => {
+					const v = e.currentTarget.value;
+					settingsStore.setProviderConfig('openai-stt', { apiKey: v });
+					if (v) settingsStore.markProviderAdded('openai-stt');
+					else settingsStore.removeProvider('openai-stt');
+				}}
+			/>
+		</div>
+		<div class="ai-field">
+			<label class="settings-label" for="stt-siliconflow-key">SiliconFlow API key</label>
+			<input
+				id="stt-siliconflow-key"
+				type="password"
+				class="settings-field"
+				placeholder="SiliconFlow API Key" aria-label="SiliconFlow API Key"
+				value={settingsStore.getProviderConfig('siliconflow').apiKey ?? ''}
+				oninput={(e) => {
+					const v = e.currentTarget.value;
+					// Config is shared with the TTS siliconflow entry (one key serves
+					// both); only clear the key so the TTS voice/model survive.
+					settingsStore.setProviderConfig('siliconflow', { apiKey: v });
+					if (v) settingsStore.markProviderAdded('siliconflow');
+				}}
+			/>
+		</div>
+		<div class="ai-field">
+			<label class="settings-label" for="stt-siliconflow-model">SiliconFlow model</label>
+			<input
+				id="stt-siliconflow-model"
+				type="text"
+				class="settings-field"
+				placeholder="SenseVoiceSmall"
+				aria-label="SiliconFlow STT model"
+				value={settingsStore.getProviderConfig('siliconflow').modelId ?? ''}
+				oninput={(e) => {
+					settingsStore.setProviderConfig('siliconflow', { modelId: e.currentTarget.value.trim() });
+				}}
+			/>
+		</div>
 	</div>
-	<p class="stt-hint">{t('settings.stt.hint')}</p>
+</SettingsSection>
 
-	<span class="stt-sublabel">{t('settings.stt.groqLabel')}</span>
-	<div class="api-key-row">
-		<input
-			type="password"
-			class="api-key-input"
-			placeholder={t('settings.stt.groqKey')} aria-label={t('settings.stt.groqKey')}
-			value={settingsStore.getProviderConfig('groq-stt').apiKey ?? ''}
-			oninput={(e) => {
-				const v = e.currentTarget.value;
-				settingsStore.setProviderConfig('groq-stt', { apiKey: v });
-				if (v) settingsStore.markProviderAdded('groq-stt');
-				else settingsStore.removeProvider('groq-stt');
-			}}
-		/>
+<SettingsSection
+	title="Local server"
+	description="Speaches, faster-whisper-server, whisper.cpp, or any OpenAI-compatible transcription endpoint."
+>
+	<div class="ai-fields">
+		<div class="ai-field">
+			<label class="settings-label" for="stt-local-url">Server URL</label>
+			<input
+				id="stt-local-url"
+				type="text"
+				class="settings-field"
+				placeholder="http://localhost:8000/v1/" aria-label="http://localhost:8000/v1/"
+				value={settingsStore.getProviderConfig('local-stt').baseUrl ?? ''}
+				oninput={(e) => {
+					const v = e.currentTarget.value.trim();
+					settingsStore.setProviderConfig('local-stt', { baseUrl: v });
+					if (v) settingsStore.markProviderAdded('local-stt');
+					else settingsStore.removeProvider('local-stt');
+				}}
+			/>
+		</div>
+		<div class="ai-field">
+			<label class="settings-label" for="stt-local-model">Model</label>
+			<input
+				id="stt-local-model"
+				type="text"
+				class="settings-field"
+				placeholder="Model (e.g. Systran/faster-whisper-large-v3)" aria-label="Model (e.g. Systran/faster-whisper-large-v3)"
+				value={settingsStore.getProviderConfig('local-stt').modelId ?? ''}
+				oninput={(e) => {
+					settingsStore.setProviderConfig('local-stt', { modelId: e.currentTarget.value.trim() });
+				}}
+			/>
+		</div>
+		<div class="ai-field">
+			<label class="settings-label" for="stt-local-timeout">Transcription timeout (seconds)</label>
+			<input
+				id="stt-local-timeout"
+				type="number"
+				class="settings-field"
+				min="5"
+				max="600"
+				step="5"
+				value={Math.round((settingsStore.getProviderConfig('local-stt').timeoutMs ?? DEFAULT_STT_TIMEOUT_MS) / 1000)}
+				onchange={(e) => {
+					// change, not input: clamping per keystroke would fight the user mid-typing
+					const timeoutMs = resolveSttTimeoutMs(e.currentTarget.valueAsNumber);
+					settingsStore.setProviderConfig('local-stt', { timeoutMs });
+					e.currentTarget.value = String(timeoutMs / 1000);
+				}}
+			/>
+			<p class="hint">How long to wait for the server to transcribe. Raise this for slow or CPU-only machines.</p>
+		</div>
 	</div>
-
-	<span class="stt-sublabel">{t('settings.stt.openaiLabel')}</span>
-	<div class="api-key-row">
-		<input
-			type="password"
-			class="api-key-input"
-			placeholder={t('settings.stt.openaiKey')} aria-label={t('settings.stt.openaiKey')}
-			value={settingsStore.getProviderConfig('openai-stt').apiKey ?? ''}
-			oninput={(e) => {
-				const v = e.currentTarget.value;
-				settingsStore.setProviderConfig('openai-stt', { apiKey: v });
-				if (v) settingsStore.markProviderAdded('openai-stt');
-				else settingsStore.removeProvider('openai-stt');
-			}}
-		/>
-	</div>
-
-	<span class="stt-sublabel">SiliconFlow</span>
-	<div class="api-key-row">
-		<input
-			type="password"
-			class="api-key-input"
-			placeholder={t('settings.stt.openaiKey')} aria-label={t('settings.stt.openaiKey')}
-			value={settingsStore.getProviderConfig('siliconflow').apiKey ?? ''}
-			oninput={(e) => {
-				const v = e.currentTarget.value;
-				// Config is shared with the TTS siliconflow entry (one key serves
-				// both); only clear the key so the TTS voice/model survive.
-				settingsStore.setProviderConfig('siliconflow', { apiKey: v });
-				if (v) settingsStore.markProviderAdded('siliconflow');
-			}}
-		/>
-	</div>
-	<div class="api-key-row">
-		<input
-			type="text"
-			class="api-key-input"
-			placeholder={t('settings.stt.localModel')} aria-label={t('settings.stt.localModel')}
-			value={settingsStore.getProviderConfig('siliconflow').modelId ?? ''}
-			oninput={(e) => {
-				settingsStore.setProviderConfig('siliconflow', { modelId: e.currentTarget.value.trim() });
-			}}
-		/>
-	</div>
-
-	<span class="stt-sublabel">{t('settings.stt.localServerLabel')}</span>
-	<div class="api-key-row">
-		<input
-			type="text"
-			class="api-key-input"
-			placeholder={t('onboarding.sttServerUrl')} aria-label={t('onboarding.sttServerUrl')}
-			value={settingsStore.getProviderConfig('local-stt').baseUrl ?? ''}
-			oninput={(e) => {
-				const v = e.currentTarget.value.trim();
-				settingsStore.setProviderConfig('local-stt', { baseUrl: v });
-				if (v) settingsStore.markProviderAdded('local-stt');
-				else settingsStore.removeProvider('local-stt');
-			}}
-		/>
-	</div>
-	<div class="api-key-row">
-		<input
-			type="text"
-			class="api-key-input"
-			placeholder={t('settings.stt.localModel')} aria-label={t('settings.stt.localModel')}
-			value={settingsStore.getProviderConfig('local-stt').modelId ?? ''}
-			oninput={(e) => {
-				settingsStore.setProviderConfig('local-stt', { modelId: e.currentTarget.value.trim() });
-			}}
-		/>
-	</div>
-</div>
-
-<style>
-	.stt-hint {
-		font-size: 0.8125rem;
-		color: var(--text-tertiary);
-		margin: 0;
-		line-height: 1.4;
-	}
-
-	.stt-sublabel {
-		display: block;
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--text-secondary);
-		margin-top: 0.25rem;
-	}
-</style>
+</SettingsSection>

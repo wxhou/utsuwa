@@ -74,6 +74,8 @@ export interface CharacterState {
 	// Persona fields (unified - no more separate persona storage)
 	name: string;
 	systemPrompt: string;
+	// Replaces the built-in <system> framing; empty or missing uses the default
+	customSystemPrompt?: string;
 	extensions: PersonaExtensions;
 
 	// Mood
@@ -135,66 +137,14 @@ export interface StateUpdates {
 	newMemory?: string;
 	newInsideJoke?: string;
 	triggeredEvent?: string;
-}
-
-// Default values for creating new state
-export function createDefaultPersonality(): PersonalityProfile {
-	return {
-		openness: 0,
-		warmth: 20,
-		assertiveness: -10,
-		playfulness: 10,
-		sensitivity: 20,
-		likesTeasing: 0,
-		prefersDirectness: -10,
-		romanticStyle: 'slow_burn'
-	};
-}
-
-export function createDefaultMood(): MoodState {
-	return {
-		primary: 'neutral',
-		intensity: 50,
-		causes: []
-	};
+	// Animation library id she wants to perform this reply
+	action?: string;
+	expression?: Emotion;
 }
 
 // Default system prompt for new characters
 export const DEFAULT_SYSTEM_PROMPT =
 	'You are a friendly AI assistant named Utsuwa. You communicate through a VRM avatar and can express emotions through facial expressions and gestures. Be helpful, conversational, and engaging.';
-
-export function createDefaultCharacterState(): Omit<CharacterState, 'id'> {
-	const now = new Date();
-	return {
-		// Persona fields
-		name: 'Utsuwa',
-		systemPrompt: DEFAULT_SYSTEM_PROMPT,
-		extensions: {},
-
-		// Character state
-		mood: createDefaultMood(),
-		energy: 100,
-		affection: 0,
-		trust: 0,
-		intimacy: 0,
-		comfort: 0,
-		respect: 0,
-		appMode: 'dating_sim',
-		relationshipStage: 'stranger',
-		personality: createDefaultPersonality(),
-		lastInteraction: null,
-		lastDecayAt: null,
-		firstMet: now,
-		daysKnown: 0,
-		totalInteractions: 0,
-		currentStreak: 0,
-		longestStreak: 0,
-		streakLastDate: null,
-		completedEvents: [],
-		createdAt: now,
-		updatedAt: now
-	};
-}
 
 // Stage display info — text lives in i18n (stats.stage.*); the store type only
 // carries the keys so components call t() (locale-reactive) at render time.
@@ -209,7 +159,7 @@ export const RELATIONSHIP_STAGE_INFO: Record<RelationshipStage, RelationshipStag
 	companion: {
 		nameKey: 'stats.stage.companion',
 		descriptionKey: 'stats.stage.companionDesc',
-		color: 'var(--ctp-blue)',
+		color: 'var(--color-info)',
 		icon: 'sparkles'
 	},
 	stranger: {
@@ -274,73 +224,73 @@ export const MOOD_INFO: Record<Emotion, MoodInfo> = {
 	happy: {
 		nameKey: 'stats.mood.happy',
 		descriptionKey: 'stats.mood.happyDesc',
-		color: 'var(--ctp-yellow)',
+		color: 'var(--mood-happy)',
 		icon: 'smile'
 	},
 	sad: {
 		nameKey: 'stats.mood.sad',
 		descriptionKey: 'stats.mood.sadDesc',
-		color: 'var(--ctp-blue)',
+		color: 'var(--mood-sad)',
 		icon: 'sad'
 	},
 	excited: {
 		nameKey: 'stats.mood.excited',
 		descriptionKey: 'stats.mood.excitedDesc',
-		color: 'var(--ctp-peach)',
+		color: 'var(--mood-excited)',
 		icon: 'sparkles'
 	},
 	anxious: {
 		nameKey: 'stats.mood.anxious',
 		descriptionKey: 'stats.mood.anxiousDesc',
-		color: 'var(--ctp-mauve)',
+		color: 'var(--mood-anxious)',
 		icon: 'alert-circle'
 	},
 	content: {
 		nameKey: 'stats.mood.content',
 		descriptionKey: 'stats.mood.contentDesc',
-		color: 'var(--ctp-green)',
+		color: 'var(--mood-content)',
 		icon: 'sun'
 	},
 	frustrated: {
 		nameKey: 'stats.mood.frustrated',
 		descriptionKey: 'stats.mood.frustratedDesc',
-		color: 'var(--ctp-red)',
+		color: 'var(--mood-frustrated)',
 		icon: 'frown'
 	},
 	curious: {
 		nameKey: 'stats.mood.curious',
 		descriptionKey: 'stats.mood.curiousDesc',
-		color: 'var(--ctp-sky)',
+		color: 'var(--mood-curious)',
 		icon: 'circle-help'
 	},
 	affectionate: {
 		nameKey: 'stats.mood.affectionate',
 		descriptionKey: 'stats.mood.affectionateDesc',
-		color: 'var(--ctp-pink)',
+		color: 'var(--mood-affectionate)',
 		icon: 'heart'
 	},
 	playful: {
 		nameKey: 'stats.mood.playful',
 		descriptionKey: 'stats.mood.playfulDesc',
-		color: 'var(--ctp-teal)',
+		color: 'var(--mood-playful)',
 		icon: 'smile'
 	},
 	melancholy: {
 		nameKey: 'stats.mood.melancholy',
 		descriptionKey: 'stats.mood.melancholyDesc',
-		color: 'var(--ctp-overlay0)',
+		color: 'var(--mood-melancholy)',
 		icon: 'meh'
 	},
 	flustered: {
 		nameKey: 'stats.mood.flustered',
 		descriptionKey: 'stats.mood.flusteredDesc',
-		color: 'var(--ctp-red)',
+		color: 'var(--mood-frustrated)',
 		icon: 'zap'
 	},
 	neutral: {
 		nameKey: 'stats.mood.neutral',
 		descriptionKey: 'stats.mood.neutralDesc',
-		color: 'var(--ctp-subtext0)',
+		color: 'var(--mood-neutral)',
 		icon: 'minus'
 	}
 };

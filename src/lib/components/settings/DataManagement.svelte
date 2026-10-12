@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
-	import { t, currentLocale } from '$lib/i18n';
+	import SettingsSection from './SettingsSection.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { pop, slideOpen } from '$lib/utils/motion';
 	import {
@@ -113,7 +113,7 @@
 				window.location.reload();
 			}, 1500);
 		} catch (e) {
-			importError = e instanceof Error ? e.message : t('settings.data.importFailed');
+			importError = e instanceof Error ? e.message : 'Import failed';
 		} finally {
 			isImporting = false;
 		}
@@ -135,12 +135,8 @@
 
 		isClearing = true;
 		try {
+			// Reloads the page when it finishes
 			await clearAllData();
-			showClearConfirm = false;
-			// Refresh to reset stores
-			setTimeout(() => {
-				window.location.reload();
-			}, 500);
 		} catch (e) {
 			console.error('Clear failed:', e);
 		} finally {
@@ -149,7 +145,7 @@
 	}
 
 	function formatDate(date: Date): string {
-		return date.toLocaleDateString(currentLocale() === 'zh-CN' ? 'zh-CN' : 'en-US', {
+		return date.toLocaleDateString(undefined, {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric',
@@ -160,26 +156,22 @@
 </script>
 
 <div class="data-management">
-	<h2 class="section-title">{t('settings.data.pageTitle')}</h2>
-	<p class="section-description">{t('settings.data.pageDesc')}</p>
+	<header class="page-header"><h2>Data Management</h2>
+	<p>
+		Export your data as a save file or import a previous save. All data is stored locally in your
+		browser.
+	</p></header>
 
 	<div class="actions">
 		<!-- Export -->
-		<div class="action-card">
-			<div class="action-header">
-				<Icon name="download" size={20} />
-				<h3>{t('settings.data.exportSave')}</h3>
-			</div>
-			<p class="action-description">
-				{t('settings.data.exportDesc')}
-			</p>
-			<Button onclick={handleExport} disabled={isExporting}>
+		<SettingsSection title="Export Save" description="Download all your data as a JSON file. Includes character states, memories, conversation history, and milestones.">
+			<Button variant="secondary" onclick={handleExport} disabled={isExporting}>
 				{#snippet children()}
 					{#if isExporting}
-						{t('settings.data.exporting')}
+						Exporting...
 					{:else}
 						<Icon name="download" size={16} />
-						{t('settings.data.downloadSave')}
+						Download Save File
 					{/if}
 				{/snippet}
 			</Button>
@@ -192,22 +184,17 @@
 					<span>{exportMessage.text}</span>
 				</div>
 			{/if}
-		</div>
+		</SettingsSection>
 
 		<!-- Import -->
-		<div class="action-card">
-			<div class="action-header">
-				<Icon name="upload" size={20} />
-				<h3>{t('settings.data.importSave')}</h3>
-			</div>
-			<p class="action-description">{t('settings.data.importSaveDesc')}</p>
+		<SettingsSection title="Import Save" description="Restore data from a previously exported save file.">
 
 			<input
 				type="file"
 				accept=".json"
 				onchange={handleFileSelect}
 				bind:this={fileInput}
-				class="file-input"
+				class="settings-field settings-file" aria-label="Import save file"
 			/>
 
 			{#if importError}
@@ -232,19 +219,19 @@
 				<div class="import-preview" transition:slideOpen>
 					<div class="preview-header">
 						<Icon name="file" size={16} />
-						<span>{t('settings.data.saveFilePreview')}</span>
+						<span>Save File Preview</span>
 					</div>
 					<div class="preview-details">
 						<div class="preview-row">
-							<span class="label">{t('settings.data.exported')}:</span>
+							<span class="label">Exported:</span>
 							<span class="value">{formatDate(importPreview.exportedAt)}</span>
 						</div>
 						<div class="preview-row">
-							<span class="label">{t('settings.data.character')}:</span>
-							<span class="value">{importPreview.characterName || t('settings.data.unknown')}</span>
+							<span class="label">Character:</span>
+							<span class="value">{importPreview.characterName || 'Unknown'}</span>
 						</div>
 						<div class="preview-row">
-							<span class="label">{t('settings.data.records')}:</span>
+							<span class="label">Records:</span>
 							<span class="value">
 								{importPreview.counts.facts} facts, {importPreview.counts.conversationTurns} messages
 							</span>
@@ -254,19 +241,19 @@
 					<div class="import-mode">
 						<label class="mode-option">
 							<input type="radio" bind:group={importMode} value="replace" />
-							<span class="mode-label">{t('settings.data.replace')}</span>
-							<span class="mode-description">{t('settings.data.replaceDesc')}</span>
+							<span class="mode-label">Replace</span>
+							<span class="mode-description">Clear existing data and import</span>
 						</label>
 						<label class="mode-option">
 							<input type="radio" bind:group={importMode} value="merge" />
-							<span class="mode-label">{t('settings.data.merge')}</span>
-							<span class="mode-description">{t('settings.data.mergeDesc')}</span>
+							<span class="mode-label">Merge</span>
+							<span class="mode-description">Add to existing data (skip duplicates)</span>
 						</label>
 					</div>
 
 					<div class="import-actions">
 						<Button variant="secondary" onclick={cancelImport}>
-							{#snippet children()}{t('common.cancel')}{/snippet}
+							{#snippet children()}Cancel{/snippet}
 						</Button>
 						<Button onclick={handleImport} disabled={isImporting}>
 							{#snippet children()}
@@ -281,33 +268,26 @@
 					</div>
 				</div>
 			{/if}
-		</div>
+		</SettingsSection>
 
 		<!-- Clear Data -->
-		<div class="action-card danger">
-			<div class="action-header">
-				<Icon name="trash" size={20} />
-				<h3>{t('settings.data.clearAll')}</h3>
-			</div>
-			<p class="action-description">
-				{t('settings.data.clearDesc')}
-			</p>
+		<SettingsSection title="Clear All Data" description="Permanently delete everything Utsuwa stores on this device: saves, memories, conversations, reminders, photos, custom models and animations, backgrounds, provider keys, MCP servers, and settings. This cannot be undone. An export only holds your save, memories, and conversations.">
 
 			{#if showClearConfirm}
 				<div class="confirm-message" transition:pop={{ duration: 200, y: 6 }}>
 					<Icon name="warning" size={16} />
-					{t('settings.data.confirmClear')}
+					Are you sure? Saves, memories, conversations, reminders, photos, custom models and animations, backgrounds, provider keys, MCP servers, and settings will all be deleted.
 				</div>
 				<div class="confirm-actions">
 					<Button variant="secondary" onclick={() => (showClearConfirm = false)}>
-						{#snippet children()}{t('common.cancel')}{/snippet}
+						{#snippet children()}Cancel{/snippet}
 					</Button>
 					<Button variant="danger" onclick={handleClear} disabled={isClearing}>
 						{#snippet children()}
 							{#if isClearing}
-								{t('settings.data.clearing')}
+								Clearing...
 							{:else}
-								{t('settings.data.yesDelete')}
+								Yes, Delete Everything
 							{/if}
 						{/snippet}
 					</Button>
@@ -316,105 +296,25 @@
 				<Button variant="danger" onclick={handleClear}>
 					{#snippet children()}
 						<Icon name="trash" size={16} />
-						{t('settings.data.clearAll')}
+						Clear All Data
 					{/snippet}
 				</Button>
 			{/if}
-		</div>
+		</SettingsSection>
 	</div>
 </div>
 
 <style>
-	.data-management {
-		padding: 0;
-	}
+	.data-management { display: flex; flex-direction: column; gap: 28px; }
 
-	.section-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: var(--text-primary);
-		margin: 0 0 0.25rem;
-	}
-
-	.section-description {
-		font-size: 0.875rem;
-		color: var(--text-secondary);
-		margin: 0 0 1.5rem;
-	}
-
-	.actions {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.action-card {
-		background: var(--bg-primary);
-		border-radius: var(--radius-lg);
-		padding: 1.25rem;
-		box-shadow: var(--shadow-sm);
-		transition: box-shadow 0.15s ease, border-color 0.15s ease;
-	}
-
-	.action-card:hover {
-		box-shadow: var(--shadow-md);
-	}
-
-	.action-card.danger {
-		background: color-mix(in srgb, var(--color-error) 5%, var(--bg-primary));
-	}
-
-	.action-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-bottom: 0.5rem;
-		color: var(--accent);
-	}
-
-	.action-card.danger .action-header {
-		color: var(--color-error);
-	}
-
-	.action-header h3 {
-		font-size: 0.9375rem;
-		font-weight: 600;
-		margin: 0;
-		color: var(--text-primary);
-	}
-
-	.action-description {
-		font-size: 0.875rem;
-		color: var(--text-secondary);
-		margin-bottom: 1rem;
-	}
-
-	.file-input {
-		display: block;
-		width: 100%;
-		padding: 0.875rem 1rem;
-		font-size: 0.875rem;
-		border: 1.5px dashed var(--border-light);
-		border-radius: var(--radius-md);
-		background: var(--bg-secondary);
-		color: var(--text-secondary);
-		cursor: pointer;
-		margin-bottom: 1rem;
-		transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-	}
-
-	.file-input:hover {
-		border-color: var(--accent);
-		background: var(--accent-subtle);
-		color: var(--text-primary);
-	}
+	.actions { display: flex; flex-direction: column; gap: 24px; }
 
 	.error-message {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.875rem 1rem;
-		background: color-mix(in srgb, var(--color-error) 10%, transparent);
+		background: var(--color-error-bg);
 		border-radius: var(--radius-md);
 		color: var(--text-primary);
 		font-size: 0.875rem;
@@ -455,7 +355,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		font-weight: 600;
-		color: var(--accent);
+		color: var(--accent-text);
 		margin-bottom: 0.75rem;
 	}
 
@@ -495,6 +395,7 @@
 		gap: 0.25rem 0.75rem;
 		cursor: pointer;
 		padding: 0.75rem;
+		border: 1px solid var(--border-light);
 		background: var(--bg-primary);
 		border-radius: var(--radius-md);
 		transition: background 0.15s ease, border-color 0.15s ease;
@@ -505,7 +406,8 @@
 	}
 
 	.mode-option:has(input:checked) {
-		background: var(--accent-muted);
+		background: var(--control-selected);
+		border-color: transparent;
 	}
 
 	.mode-option input {
@@ -555,5 +457,4 @@
 		gap: 0.75rem;
 	}
 
-	@media (max-width: 640px) { .action-card { padding: 1rem; } }
 </style>

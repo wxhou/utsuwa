@@ -3,8 +3,9 @@ import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import type { LLMProvider } from '$lib/types';
 import { ensureOpenAIPath, getChatBaseUrl } from '$lib/services/providers/local-endpoints';
-import { assertSafeProviderUrl } from '$lib/services/providers/url-guard';
+import { assertSafeProviderTarget, createGuardedFetch } from '$lib/services/providers/url-guard.server';
 import { sanitizeProviderError } from '$lib/services/providers/provider-errors';
+import { providerFailure } from '$lib/services/llm/retry';
 import { DEFAULT_CHAT_BASE_URLS } from '$lib/services/providers/provider-defaults';
 
 // Providers that don't require API keys
@@ -61,8 +62,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Block SSRF: the base URL is client-supplied and fetched server-side.
+		const allowPrivate = env.ALLOW_LOCAL_PROVIDER_HOSTS === 'true';
 		try {
-			assertSafeProviderUrl(providerBaseURL, env.ALLOW_LOCAL_PROVIDER_HOSTS === 'true');
+			await assertSafeProviderTarget(providerBaseURL, allowPrivate);
 		} catch (e) {
 			return new Response(
 				JSON.stringify({ error: e instanceof Error ? e.message : 'Invalid provider URL' }),
@@ -106,6 +108,8 @@ export const POST: RequestHandler = async ({ request }) => {
 				model,
 				messages: messagesWithSystem,
 				headers,
+				fetch: createGuardedFetch(allowPrivate, 60_000),
+				abortSignal: request.signal,
 				...(typedProvider === 'openai-compatible' && {
 					...(temperature !== undefined && { temperature }),
 					...(maxTokens !== undefined && { max_tokens: maxTokens }),
@@ -118,7 +122,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : 'Failed to connect to provider';
-			return new Response(JSON.stringify({ error: sanitizeProviderError(msg, providerBaseURL) }), {
+			return new Response(JSON.stringify({ error: sanitizeProviderError(msg, providerBaseURL), ...providerFailure(err) }), {
 				status: 502,
 				headers: { 'Content-Type': 'application/json' }
 			});
@@ -147,7 +151,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : 'Failed to start stream';
 					controller.enqueue(
-						encoder.encode(`e:${JSON.stringify({ error: sanitizeProviderError(msg, providerBaseURL) })}\n`)
+						encoder.encode(`e:${JSON.stringify({ error: sanitizeProviderError(msg, providerBaseURL), ...providerFailure(err) })}\n`)
 					);
 					controller.close();
 					return;
@@ -189,7 +193,7 @@ export const POST: RequestHandler = async ({ request }) => {
 					const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 					controller.enqueue(
 						encoder.encode(
-							`e:${JSON.stringify({ error: sanitizeProviderError(errorMessage, providerBaseURL) })}\n`
+							`e:${JSON.stringify({ error: sanitizeProviderError(errorMessage, providerBaseURL), ...providerFailure(error) })}\n`
 						)
 					);
 					controller.close();
@@ -209,7 +213,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch (error) {
 		console.error('Chat API error:', error);
 		const msg = error instanceof Error ? error.message : 'Unknown error';
-		return new Response(JSON.stringify({ error: sanitizeProviderError(msg, baseURL) }), {
+		return new Response(JSON.stringify({ error: sanitizeProviderError(msg) }), {
 			status: 500,
 			headers: { 'Content-Type': 'application/json' }
 		});

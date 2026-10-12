@@ -3,20 +3,25 @@
 </script>
 
 <svelte:head>
-	<title>Privacy Policy — Utsuwa</title>
+	<title>Privacy Policy - Utsuwa</title>
 	<meta
 		name="description"
 		content="How Utsuwa handles your data: no accounts, no analytics, no tracking. Your conversations, memories, and settings live on your device."
 	/>
 	<link rel="canonical" href={`${SITE_URL}/privacy`} />
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content="Privacy Policy — Utsuwa" />
+	<meta property="og:title" content="Privacy Policy - Utsuwa" />
 	<meta
 		property="og:description"
 		content="How Utsuwa handles your data: no accounts, no analytics, no tracking."
 	/>
 	<meta property="og:url" content={`${SITE_URL}/privacy`} />
 	<meta property="og:site_name" content="Utsuwa" />
+	<meta property="og:image" content={`${SITE_URL}/brand-assets/og-image.jpg`} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:image" content={`${SITE_URL}/brand-assets/og-image.jpg`} />
 </svelte:head>
 
 <header class="legal-header">
@@ -113,7 +118,7 @@
 			own privacy policies.
 		</li>
 		<li>
-			<strong>Vercel</strong> hosts the website and web app. Like any host, it produces standard,
+			<strong>Cloudflare</strong> hosts the website and web app. Like any host, it produces standard,
 			short-lived infrastructure logs (such as IP addresses and request timestamps) as part of
 			serving pages. We don't use these to identify or profile anyone.
 		</li>

@@ -4,7 +4,7 @@
 	import type { McpAuth, McpServerConfig, McpTransport } from '$lib/types/mcp';
 	import { parseEnvLines, parseQuotedArgs } from '$lib/services/mcp/protocol';
 	import { Button, Icon } from '$lib/components/ui';
-	import { t } from '$lib/i18n';
+	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 
 	// ── Form state (shared for add + edit) ──────────────────────────────────
@@ -19,6 +19,7 @@
 	let formAuthType = $state<'none' | 'bearer'>('none');
 	let formAuthToken = $state('');
 	let formInjectResultsAsUser = $state(false);
+	let formAskBeforeRun = $state(true);
 	let formError = $state('');
 
 	const isEditing = $derived(editingId !== null);
@@ -32,6 +33,7 @@
 		formAuthType = 'none';
 		formAuthToken = '';
 		formInjectResultsAsUser = false;
+		formAskBeforeRun = true;
 		formError = '';
 		editingId = null;
 		showForm = false;
@@ -58,6 +60,7 @@
 		formAuthType = server.auth?.type === 'bearer' ? 'bearer' : 'none';
 		formAuthToken = server.auth?.type === 'bearer' ? server.auth.token : '';
 		formInjectResultsAsUser = server.injectResultsAsUser ?? false;
+		formAskBeforeRun = server.askBeforeRun !== false;
 		formError = '';
 		showForm = true;
 	}
@@ -94,7 +97,8 @@
 			args: formTransport === 'stdio' ? args : undefined,
 			env: formTransport === 'stdio' ? env : undefined,
 			auth: formTransport === 'http' ? auth : undefined,
-			injectResultsAsUser: formInjectResultsAsUser
+			injectResultsAsUser: formInjectResultsAsUser,
+			askBeforeRun: formAskBeforeRun
 		};
 
 		if (isEditing) {
@@ -112,7 +116,7 @@
 
 <div class="page">
 	<header class="page-header">
-		<h2>{t('settings.nav.mcp')} Servers</h2>
+		<h2>MCP Servers</h2>
 		<p>
 			Connect to Model Context Protocol servers to give your companion tools like home control,
 			web search, and more.
@@ -137,28 +141,27 @@
 	{/if}
 
 	{#if mcpStore.serverEnabled}
-		<section class="section">
-			<div class="section-header">
-				<h3>{t('settings.mcp.servers')}</h3>
+		<SettingsSection title="Servers">
+			{#snippet actions()}
 				<Button variant="secondary" onclick={() => (showForm && !isEditing ? resetForm() : openAddForm())}>
 					<Icon name={showForm && !isEditing ? 'xmark' : 'plus'} size={13} />
 					{showForm && !isEditing ? 'Cancel' : 'Add Server'}
 				</Button>
-			</div>
+			{/snippet}
 
 			{#if showForm}
 				<div class="form-card">
 					<div class="form-title">{isEditing ? 'Edit Server' : 'New Server'}</div>
 
 					<div class="form-row">
-						<label class="form-label" for="mcp-name">{t('settings.mcp.name')}</label>
-						<input id="mcp-name" class="settings-field" bind:value={formName} placeholder={t('settings.mcp.namePlaceholder')} />
+						<label class="form-label" for="mcp-name">Name</label>
+						<input id="mcp-name" class="settings-field" bind:value={formName} placeholder="Home Assistant" />
 					</div>
 
 					<div class="form-row">
-						<span class="form-label">{t('settings.mcp.transport')}</span>
+						<span class="form-label">Transport</span>
 						<div class="transport-toggle">
-							<label class="transport-opt" class:active={formTransport === 'http'}>
+							<label class="transport-opt">
 								<input
 									type="radio"
 									name="mcp-transport"
@@ -168,7 +171,7 @@
 								/>
 								HTTP
 							</label>
-							<label class="transport-opt" class:active={formTransport === 'stdio'}>
+							<label class="transport-opt">
 								<input
 									type="radio"
 									name="mcp-transport"
@@ -183,8 +186,10 @@
 
 					{#if formTransport === 'stdio'}
 						<p class="form-hint">
-							stdio is fail-closed: set <code>MCP_STDIO_ALLOWED_COMMANDS</code> (e.g.
-							<code>npx</code>) in the server environment, otherwise this server stays disabled.
+							stdio is fail-closed: the full command line must be listed in
+							<code>MCP_STDIO_ALLOWED_COMMANDS</code> (e.g.
+							<code>npx -y @brave/brave-search-mcp-server</code>), and env vars must be named in
+							<code>MCP_STDIO_ENV_ALLOWLIST</code>, otherwise this server stays disabled.
 						</p>
 					{/if}
 
@@ -200,9 +205,9 @@
 							/>
 						</div>
 						<div class="form-row">
-							<span class="form-label">{t('settings.mcp.auth')}</span>
+							<span class="form-label">Auth</span>
 							<div class="transport-toggle">
-								<label class="transport-opt" class:active={formAuthType === 'none'}>
+								<label class="transport-opt">
 									<input
 										type="radio"
 										name="mcp-auth"
@@ -212,7 +217,7 @@
 									/>
 									None
 								</label>
-								<label class="transport-opt" class:active={formAuthType === 'bearer'}>
+								<label class="transport-opt">
 									<input
 										type="radio"
 										name="mcp-auth"
@@ -226,23 +231,23 @@
 						</div>
 						{#if formAuthType === 'bearer'}
 							<div class="form-row">
-								<label class="form-label" for="mcp-token">{t('settings.mcp.token')}</label>
+								<label class="form-label" for="mcp-token">Token</label>
 								<input
 									id="mcp-token"
 									class="settings-field"
 									bind:value={formAuthToken}
-									placeholder={t('settings.mcp.tokenPlaceholder')}
+									placeholder="Long-lived access token"
 									type="password"
 								/>
 							</div>
 						{/if}
 					{:else}
 						<div class="form-row">
-							<label class="form-label" for="mcp-command">{t('settings.mcp.command')}</label>
+							<label class="form-label" for="mcp-command">Command</label>
 							<input id="mcp-command" class="settings-field" bind:value={formCommand} placeholder="npx" />
 						</div>
 						<div class="form-row">
-							<label class="form-label" for="mcp-args">{t('settings.mcp.arguments')}</label>
+							<label class="form-label" for="mcp-args">Arguments</label>
 							<input
 								id="mcp-args"
 								class="settings-field"
@@ -259,7 +264,7 @@
 								id="mcp-env"
 								class="settings-field form-textarea"
 								bind:value={formEnv}
-								placeholder={t('settings.mcp.envPlaceholder')}
+								placeholder="SEARXNG_URL=http://your-searxng-host:8080"
 								rows="3"
 							></textarea>
 						</div>
@@ -270,9 +275,15 @@
 					{/if}
 
 					<label class="checkbox-row">
+						<input type="checkbox" bind:checked={formAskBeforeRun} />
+						<span>Ask before running tools</span>
+						<span class="form-hint">Shows each tool call with its arguments so you can run or skip it.</span>
+					</label>
+
+					<label class="checkbox-row">
 						<input type="checkbox" bind:checked={formInjectResultsAsUser} />
-						<span>{t('settings.mcp.injectText')}</span>
-						<span class="form-hint">{t('settings.mcp.injectHint')}</span>
+						<span>Inject text tool results as user messages</span>
+						<span class="form-hint">Helps with local/SLIM models that ignore strict tool-role messages.</span>
 					</label>
 
 					<div class="form-actions">
@@ -303,9 +314,12 @@
 						</div>
 						<div class="server-actions">
 							{#if server.transport === 'http' && server.auth?.type === 'bearer'}
-								<span class="server-badge auth">auth</span>
+								<span class="ui-badge">auth</span>
 							{/if}
-							<span class="server-badge">{server.transport}</span>
+							{#if server.askBeforeRun === false}
+								<span class="ui-badge" title="Tools run without asking">auto-run</span>
+							{/if}
+							<span class="ui-badge">{server.transport}</span>
 							<Switch
 								checked={server.enabled}
 								onchange={() => mcpStore.toggleServer(server.id)}
@@ -314,16 +328,16 @@
 							<Button
 								variant="ghost"
 								onclick={() => openEditForm(server)}
-								title={t('settings.mcp.editServer')}
-								aria-label={t('settings.mcp.editServer')}
+								title="Edit server"
+								aria-label="Edit server"
 							>
 								<Icon name="pencil" size={13} />
 							</Button>
 							<Button
 								variant="danger"
 								onclick={() => mcpStore.removeServer(server.id)}
-								title={t('settings.mcp.removeServer')}
-								aria-label={t('settings.mcp.removeServer')}
+								title="Remove server"
+								aria-label="Remove server"
 							>
 								<Icon name="trash" size={13} />
 							</Button>
@@ -331,16 +345,15 @@
 					</li>
 				{/each}
 			</ul>
-		</section>
+		</SettingsSection>
 
-		<section class="section">
-			<div class="section-header">
-				<h3>{t('settings.mcp.availableTools')}</h3>
+		<SettingsSection title="Available Tools">
+			{#snippet actions()}
 				<Button variant="secondary" onclick={() => mcpStore.refreshTools()} disabled={mcpStore.isLoadingTools}>
 					<Icon name="refresh" size={13} />
 					{mcpStore.isLoadingTools ? 'Loading…' : 'Refresh'}
 				</Button>
-			</div>
+			{/snippet}
 
 			{#if mcpStore.toolsError}
 				<p class="form-error">{mcpStore.toolsError}</p>
@@ -380,29 +393,13 @@
 					{/each}
 				</ul>
 			{/if}
-		</section>
+		</SettingsSection>
 	{/if}
 </div>
 
 <style>
 	.section {
 		margin-bottom: 1rem;
-	}
-
-	.section-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1rem;
-	}
-
-	.section h3 {
-		margin: 0;
-		font-size: 0.8rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--text-secondary);
 	}
 
 	.notice {
@@ -440,13 +437,7 @@
 		gap: 0.7rem;
 	}
 
-	.form-title {
-		font-size: 0.8rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--text-secondary);
-	}
+	.form-title { font-size: 14px; font-weight: 500; color: var(--text-primary); }
 
 	.form-row {
 		display: flex;
@@ -455,12 +446,7 @@
 		gap: 0.75rem;
 	}
 
-	.form-label {
-		font-size: 0.8rem;
-		font-weight: 600;
-		color: var(--text-secondary);
-		min-width: 80px;
-	}
+	.form-label { font-size: 14px; font-weight: 500; color: var(--text-primary); min-width: 80px; }
 
 	.form-textarea {
 		resize: vertical;
@@ -468,46 +454,11 @@
 		line-height: 1.4;
 	}
 
-	.form-hint {
-		font-size: 0.72rem;
-		font-weight: 400;
-		color: var(--text-tertiary);
-	}
+	.form-hint { font-size: 13px; font-weight: 400; line-height: 1.45; color: var(--text-secondary); }
 
-	.transport-toggle {
-		display: flex;
-		gap: 0.4rem;
-	}
+	.transport-toggle { display: flex; flex-wrap: wrap; gap: 16px; }
 
-	.transport-opt {
-		min-height: 44px;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.35rem;
-		padding: 0.25rem 0.65rem;
-		border-radius: var(--radius-sm);
-		border: 1px solid var(--border-light);
-		font-size: 0.8rem;
-		cursor: pointer;
-		background: var(--bg-primary);
-		color: var(--text-secondary);
-	}
-
-	.transport-opt input {
-		margin: 0;
-		accent-color: var(--accent);
-	}
-
-	.transport-opt:focus-within {
-		outline: 2px solid var(--accent);
-		outline-offset: 1px;
-	}
-
-	.transport-opt.active {
-		background: var(--accent);
-		color: var(--accent-contrast, #fff);
-		border-color: var(--accent);
-	}
+	.transport-opt { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 14px; color: var(--text-primary); cursor: pointer; }
 
 	.checkbox-row {
 		display: flex;
@@ -520,7 +471,7 @@
 
 	.form-error {
 		font-size: 0.8rem;
-		color: var(--danger, #e55);
+		color: var(--color-error);
 		margin: 0;
 	}
 
@@ -582,22 +533,6 @@
 		flex-shrink: 0;
 	}
 
-	.server-badge {
-		font-size: 0.65rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		padding: 0.1rem 0.4rem;
-		border-radius: var(--radius-sm);
-		background: var(--bg-tertiary);
-		color: var(--text-tertiary);
-	}
-
-	.server-badge.auth {
-		background: var(--accent-muted);
-		color: var(--accent);
-	}
-
 	.tool-card {
 		background: var(--bg-secondary);
 		border: 1px solid var(--border-light);
@@ -645,10 +580,6 @@
 			flex-direction: column;
 			align-items: stretch;
 			gap: 0.5rem;
-		}
-		.section-header {
-			flex-wrap: wrap;
-			gap: 0.75rem;
 		}
 	}
 </style>

@@ -3,7 +3,6 @@
 	import { t } from '$lib/i18n';
 	import { isTauri } from '$lib/services/platform/platform';
 	import { ttsStore } from '$lib/stores/tts.svelte';
-	import { sttStore } from '$lib/stores/stt.svelte';
 	import { displayStore } from '$lib/stores/display.svelte';
 	import { chatHintStore } from '$lib/stores/chat-hint.svelte';
 	import { queueFiles, imageMimeFromPath } from './attach-files';
@@ -43,10 +42,6 @@
 	// chose not to speak.
 	$effect(() => {
 		if (ttsStore.lastError) chatHintStore.showHint(ttsStore.lastError);
-	});
-
-	$effect(() => {
-		return () => chatHintStore.destroy();
 	});
 
 	// Drag-to-show: the whole window is a drop target. The active flag lives in
@@ -127,40 +122,6 @@
 	});
 </script>
 
-{#if sttStore.error}
-	<div
-		class="stt-error"
-		out:pop={{ base: 'translateX(-50%)', y: -10, duration: 200 }}
-		onclick={() => sttStore.clearError()}
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				sttStore.clearError();
-			}
-		}}
-		role="button"
-		tabindex="0"
-	>
-		<Icon name="alert" size={16} />
-		<span>{sttStore.error}</span>
-		<button type="button" class="dismiss-btn" aria-label={t('chat.dismiss')}>
-			<Icon name="x" size={14} />
-		</button>
-	</div>
-{/if}
-
-{#if chatHintStore.hint}
-	<div
-		class="vision-hint"
-		role="status"
-		aria-live="polite"
-		out:pop={{ base: 'translateX(-50%)', y: -10, duration: 200 }}
-	>
-		<Icon name="camera" size={16} />
-		<span>{chatHintStore.hint}</span>
-	</div>
-{/if}
-
 {#if chatHintStore.showPrivacy}
 	<div
 		class="privacy-notice"
@@ -171,7 +132,7 @@
 		<Icon name="camera" size={16} />
 		<span>
 			{#if providerIsLocal}
-				Photos you show her stay on your machine — they never leave this device.
+				Photos you show her stay on your machine. They never leave this device.
 			{:else}
 				Photos you show her are sent to {providerLabel} so she can see them. They're also saved on this
 				device; delete them anytime from the board.
@@ -223,28 +184,6 @@
 {/if}
 
 <style>
-	.vision-hint {
-		position: fixed;
-		top: calc(1.25rem + env(safe-area-inset-top, 0));
-		left: 50%;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.7rem 1rem;
-		max-width: min(420px, 90vw);
-		background: var(--accent);
-		color: #fff;
-		border-radius: var(--radius-lg);
-		font-size: 0.82rem;
-		font-weight: 600;
-		line-height: 1.35;
-		z-index: 50;
-		box-shadow: var(--shadow-lg);
-		animation: hintDrop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-	}
-	.vision-hint :global(svg) {
-		flex-shrink: 0;
-	}
 	@keyframes hintDrop {
 		from {
 			transform: translate(-50%, -16px) scale(0.96);
@@ -281,7 +220,6 @@
 		opacity: 0.65;
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.vision-hint,
 		.privacy-notice {
 			animation: none;
 		}
@@ -289,11 +227,11 @@
 	.privacy-ack {
 		flex-shrink: 0;
 		border: none;
-		border-radius: var(--radius-full);
+		border-radius: var(--control-radius);
 		padding: 0.35rem 0.85rem;
 		font-size: 0.78rem;
 		font-weight: 600;
-		color: #fff;
+		color: var(--accent-contrast);
 		background: var(--accent);
 		cursor: pointer;
 		transition: background 0.15s ease;
@@ -312,7 +250,7 @@
 		justify-content: center;
 		gap: 0.55rem;
 		min-height: 52px;
-		border-radius: var(--radius-full);
+		border-radius: var(--control-radius);
 		background: var(--accent-subtle);
 		border: 2px dashed var(--accent);
 		color: var(--accent);
@@ -407,78 +345,6 @@
 		color: var(--text-primary);
 	}
 
-	.stt-error {
-		position: fixed;
-		top: 4.5rem;
-		left: 50%;
-		transform: translateX(-50%);
-		display: flex;
-		align-items: flex-start;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		width: fit-content;
-		max-width: 600px;
-		background: var(--color-error);
-		border: 1px solid transparent;
-		border-radius: var(--radius-lg);
-		color: #fff;
-		font-size: 0.875rem;
-		cursor: pointer;
-		z-index: 50;
-		animation: slideDownShake 0.5s ease-out;
-		box-shadow: var(--shadow-lg);
-	}
-
-	@keyframes slideDownShake {
-		0% {
-			opacity: 0;
-			transform: translateX(-50%) translateY(-8px);
-		}
-		30% {
-			opacity: 1;
-			transform: translateX(-50%) translateY(0);
-		}
-		45% {
-			transform: translateX(calc(-50% + 6px)) translateY(0);
-		}
-		60% {
-			transform: translateX(calc(-50% - 5px)) translateY(0);
-		}
-		75% {
-			transform: translateX(calc(-50% + 3px)) translateY(0);
-		}
-		90% {
-			transform: translateX(calc(-50% - 2px)) translateY(0);
-		}
-		100% {
-			transform: translateX(-50%) translateY(0);
-		}
-	}
-
-	.stt-error span {
-		flex: 1;
-		word-wrap: break-word;
-	}
-
-	.dismiss-btn {
-		background: rgba(255, 255, 255, 0.2);
-		border: none;
-		padding: 0.25rem;
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		color: white;
-		opacity: 0.9;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.15s ease;
-	}
-
-	.dismiss-btn:hover {
-		opacity: 1;
-		background: rgba(255, 255, 255, 0.3);
-	}
-
 	/* Mic sits where send used to; Enter sends the message. */
 
 	@media (max-width: 640px) {
@@ -486,11 +352,6 @@
 			bottom: 1rem;
 			max-width: none;
 			padding: 0 0.75rem;
-		}
-
-		.stt-error {
-			width: fit-content;
-			max-width: calc(100vw - 1.5rem);
 		}
 	}
 </style>

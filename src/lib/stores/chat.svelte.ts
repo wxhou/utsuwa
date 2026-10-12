@@ -26,7 +26,6 @@ function createChatStore() {
 	let messages = $state<Message[]>([]);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
-	let errorTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	function addMessage(role: 'user' | 'assistant' | 'system', content: string, images?: ShownImage[]) {
 		const message: Message = {
@@ -51,22 +50,31 @@ function createChatStore() {
 
 	function setLoading(loading: boolean) {
 		isLoading = loading;
+		// A turn stopped or failed before any text leaves its placeholder reply behind
+		const last = messages[messages.length - 1];
+		if (!loading && last?.role === 'assistant' && !last.content && !last.images?.length) {
+			messages = messages.slice(0, -1);
+		}
+		if (!loading && remoteQueue.length) {
+			const queued = remoteQueue.splice(0);
+			for (const m of queued) addMessage(m.role, m.content);
+		}
+	}
+
+	// Turns from the other window (app or overlay). While a reply streams here
+	// they wait, or the streamed text would land on the wrong bubble.
+	const remoteQueue: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+	function addRemoteMessage(role: 'user' | 'assistant', content: string) {
+		if (isLoading) remoteQueue.push({ role, content });
+		else addMessage(role, content);
 	}
 
 	function setError(err: string | null) {
-		// Clear any existing timeout
-		if (errorTimeout) {
-			clearTimeout(errorTimeout);
-			errorTimeout = null;
-		}
 		error = err;
-		// Auto-dismiss after 5 seconds if error is set
-		if (err) {
-			errorTimeout = setTimeout(() => {
-				error = null;
-				errorTimeout = null;
-			}, 5000);
-		}
+	}
+
+	function removeMessage(id: string) {
+		messages = messages.filter((m) => m.id !== id);
 	}
 
 	function clearMessages() {
@@ -91,9 +99,11 @@ function createChatStore() {
 			return error;
 		},
 		addMessage,
+		addRemoteMessage,
 		updateLastMessage,
 		setLoading,
 		setError,
+		removeMessage,
 		clearMessages,
 		hydrate
 	};

@@ -10,7 +10,7 @@
 	import { type PreparedImage } from '$lib/services/storage/keepsakes';
 	import { chatDraftStore } from '$lib/stores/chat-draft.svelte';
 	import { deleteAllTurns } from '$lib/services/storage/memory';
-	import { resetWorkingMemoryTurns } from '$lib/engine/memory';
+	import { resetWorkingMemoryTurns } from '$lib/engine/memory-session';
 	import ChatInput from './ChatInput.svelte';
 	import CopyButton from '$lib/components/ui/CopyButton.svelte';
 	import { modulesStore } from '$lib/stores/modules.svelte';
@@ -105,6 +105,7 @@
 	class:pin-left={displayStore.sidebarPosition === 'left'}
 >
 	<div class="window-header">
+		<span class="chat-title">Conversation</span>
 		<button
 			class="clear-btn"
 			onclick={handleClearHistory}
@@ -201,13 +202,14 @@
 </div>
 
 <style>
+	.chat-title { flex: 1; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 	.chat-window {
 		position: absolute;
 		display: flex;
 		flex-direction: column;
-		background: color-mix(in srgb, var(--bg-primary), transparent 6%);
-		backdrop-filter: blur(14px);
-		-webkit-backdrop-filter: blur(14px);
+		background: var(--bg-page);
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
 		border: 1px solid var(--border-subtle);
 		border-radius: var(--radius-xl);
 		box-shadow: var(--shadow-lg);
@@ -247,7 +249,7 @@
 		height: 32px;
 		background: transparent;
 		border: none;
-		border-radius: var(--radius-full);
+		border-radius: var(--control-radius, var(--radius-md));
 		color: var(--text-tertiary);
 		cursor: pointer;
 	}
@@ -321,16 +323,16 @@
 		max-width: 85%;
 		padding: 0.5rem 0.75rem;
 		border-radius: var(--radius-lg);
-		font-size: 0.8125rem;
-		line-height: 1.5;
+		font-size: 0.875rem;
+		line-height: 1.6;
 		overflow-wrap: anywhere;
 		user-select: text;
 		-webkit-user-select: text;
 	}
 
 	.user .bubble {
-		background: var(--accent);
-		color: white;
+		background: var(--t3-message-surface);
+		color: var(--t3-message-foreground);
 		border-bottom-right-radius: var(--radius-sm);
 	}
 
@@ -340,9 +342,9 @@
 	}
 
 	.assistant .bubble {
-		background: var(--bg-secondary);
+		background: var(--control-bg);
 		color: var(--text-primary);
-		border: 1px solid var(--border-subtle);
+		border: 1px solid transparent;
 		border-bottom-left-radius: var(--radius-sm);
 	}
 
@@ -413,7 +415,7 @@
 		border-radius: calc(var(--radius-xl) - 4px);
 		background: var(--accent-subtle);
 		border: 2px dashed var(--accent);
-		color: var(--accent);
+		color: var(--accent-text);
 		font-size: 0.95rem;
 		font-weight: 600;
 		z-index: 4;

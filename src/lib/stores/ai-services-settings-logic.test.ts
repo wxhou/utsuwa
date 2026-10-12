@@ -4,10 +4,9 @@ import {
 	selectDefaultModel,
 	isProviderReadyForFetch,
 	createFetchSignature,
+	isLlmConfigured,
 	buildInstructions,
-	buildPresetInstructions,
-	parseInstructions,
-	DEFAULT_OMNI_VOICE_DESIGN
+	buildPresetInstructions
 } from './ai-services-settings-logic.ts';
 import type { ProviderMetadata } from '$lib/services/providers/registry';
 import type { ProviderConfig } from '$lib/types';
@@ -74,6 +73,33 @@ test('isProviderReadyForFetch requires base URL for custom endpoints', () => {
 	assert.equal(isProviderReadyForFetch(customProvider, { baseUrl: 'http://localhost/v1' }), true);
 });
 
+test('isLlmConfigured needs a provider', () => {
+	assert.equal(isLlmConfigured(undefined, {}, 'gpt-4o', []), false);
+});
+
+test('isLlmConfigured needs an API key for cloud providers, not a model', () => {
+	assert.equal(isLlmConfigured(cloudProvider, {}, 'gpt-4o', []), false);
+	assert.equal(isLlmConfigured(cloudProvider, { apiKey: 'key' }, undefined, []), true);
+});
+
+test('isLlmConfigured needs an installed model for local providers', () => {
+	const installed = [mockModel('llama3')];
+	assert.equal(isLlmConfigured(localProvider, {}, undefined, installed), false);
+	assert.equal(isLlmConfigured(localProvider, {}, 'gpt-4o', installed), false);
+	assert.equal(isLlmConfigured(localProvider, {}, 'llama3', installed), true);
+});
+
+test('isLlmConfigured needs a base URL and a typed model for custom endpoints', () => {
+	assert.equal(isLlmConfigured(customProvider, { baseUrl: 'http://x/v1' }, '', []), false);
+	assert.equal(isLlmConfigured(customProvider, {}, 'm', []), false);
+	assert.equal(isLlmConfigured(customProvider, { baseUrl: 'http://x/v1' }, 'm', []), true);
+});
+
+test('isLlmConfigured accepts keyless cloud providers as they are', () => {
+	const keyless = { ...cloudProvider, requiresApiKey: false } as ProviderMetadata;
+	assert.equal(isLlmConfigured(keyless, {}, undefined, []), true);
+});
+
 test('createFetchSignature is stable for same inputs', () => {
 	assert.equal(createFetchSignature('ollama', 'http://localhost:11434'), 'ollama:http://localhost:11434');
 	assert.equal(createFetchSignature('ollama', undefined), 'ollama:');
@@ -131,26 +157,4 @@ test('buildPresetInstructions omits accent for English when preset accent is neu
 		neutral: { gender: 'male', age: 'middle-aged', pitch: 'low', accent: 'neutral' }
 	};
 	assert.equal(buildPresetInstructions('neutral', 'en', presets), 'male, middle-aged, low pitch');
-});
-
-test('parseInstructions falls back to defaults for empty strings', () => {
-	assert.deepEqual(parseInstructions(''), DEFAULT_OMNI_VOICE_DESIGN);
-});
-
-test('parseInstructions extracts all design attributes', () => {
-	assert.deepEqual(parseInstructions('male, elderly, very low pitch, british accent'), {
-		gender: 'male',
-		age: 'elderly',
-		pitch: 'very low',
-		accent: 'british'
-	});
-});
-
-test('parseInstructions ignores unsupported accent values', () => {
-	assert.deepEqual(parseInstructions('female, young adult, high pitch, martian accent'), {
-		gender: 'female',
-		age: 'young adult',
-		pitch: 'high',
-		accent: DEFAULT_OMNI_VOICE_DESIGN.accent
-	});
 });

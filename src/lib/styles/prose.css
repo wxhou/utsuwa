@@ -1,124 +1,3 @@
-.docs .prose {
-	color: var(--docs-text);
-	line-height: 1.75;
-}
-
-.docs .prose h1 {
-	font-size: 2.25rem;
-	font-weight: 700;
-	margin-bottom: 0.75rem;
-	color: var(--docs-text);
-	text-shadow: 0 1px 0 var(--docs-inner-highlight);
-}
-
-.docs .prose h2 {
-	font-size: 1.5rem;
-	font-weight: 600;
-	margin-top: 2.5rem;
-	margin-bottom: 0.75rem;
-	color: var(--docs-text);
-	text-shadow: 0 1px 0 var(--docs-inner-highlight);
-}
-
-.docs .prose h3 {
-	font-size: 1.125rem;
-	font-weight: 600;
-	margin-top: 2rem;
-	margin-bottom: 0.5rem;
-	color: var(--docs-text);
-}
-
-.docs .prose p {
-	margin-bottom: 1rem;
-	color: var(--docs-text);
-}
-
-.docs .prose a {
-	color: var(--docs-accent);
-	text-decoration: none;
-	font-weight: 500;
-	transition: all 0.15s ease;
-	border-bottom: 1px solid transparent;
-}
-
-.docs .prose a:hover {
-	color: var(--docs-accent-hover);
-	border-bottom-color: var(--docs-accent);
-	text-shadow: 0 0 8px var(--docs-glow);
-}
-
-.docs .prose code {
-	background: var(--docs-glass-bg);
-	color: var(--docs-text);
-	padding: 0.2rem 0.45rem;
-	border-radius: 0.375rem;
-	font-size: 0.875em;
-	border: 1px solid var(--docs-border);
-	box-shadow: 0 1px 2px var(--docs-inner-shadow) inset;
-}
-
-.docs .prose pre {
-	background: var(--docs-glass-bg);
-	backdrop-filter: blur(8px);
-	-webkit-backdrop-filter: blur(8px);
-	padding: 1.25rem 1.5rem;
-	border-radius: 0.875rem;
-	overflow-x: auto;
-	margin: 1.5rem 0;
-	position: relative;
-	border: 1px solid var(--docs-glass-border);
-	box-shadow:
-		0 2px 4px var(--docs-inner-shadow) inset,
-		0 4px 16px rgba(0, 0, 0, 0.06);
-}
-
-.docs .prose pre:hover {
-	box-shadow:
-		0 2px 4px var(--docs-inner-shadow) inset,
-		0 0 12px var(--docs-glow),
-		0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
-.copy-btn {
-	position: absolute;
-	top: 0.75rem;
-	right: 0.75rem;
-	padding: 0.5rem;
-	background: var(--docs-surface);
-	border: 1px solid var(--docs-border);
-	border-radius: 0.5rem;
-	cursor: pointer;
-	opacity: 0;
-	transition: all 0.2s ease;
-	color: var(--docs-text-muted);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	box-shadow:
-		0 1px 0 var(--docs-inner-highlight) inset,
-		0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.docs .prose pre:hover .copy-btn {
-	opacity: 1;
-}
-
-.copy-btn:hover {
-	background: var(--docs-surface-solid);
-	color: var(--docs-accent);
-	border-color: var(--docs-accent);
-	box-shadow:
-		0 1px 0 var(--docs-inner-highlight) inset,
-		0 0 8px var(--docs-glow);
-}
-
-.docs .prose pre code {
-	background: none;
-	padding: 0;
-	border: none;
-	box-shadow: none;
-}
-
 /* Shiki dual theme support */
 .shiki {
 	background-color: transparent !important;
@@ -128,150 +7,365 @@
 	background-color: transparent !important;
 }
 
-[data-docs-theme='dark'] .shiki span {
+html.dark .shiki span {
 	color: var(--shiki-dark) !important;
 }
 
-@media (prefers-color-scheme: dark) {
-	html:not([data-docs-theme='light']) .shiki span {
-		color: var(--shiki-dark) !important;
+/* Docs pages (.docs-site wrapper, app tokens). Body copy runs at 15px, the one
+   place above the app's 14px, because these pages are long-form reading.
+   App border tokens are transparent, so dividers use neutral fills instead. */
+.docs-site .prose {
+	color: var(--text-primary);
+	font-size: 15px;
+	line-height: 1.7;
+	/* Long paths and env vars in inline code would otherwise push the page sideways on phones. */
+	overflow-wrap: break-word;
+}
+
+.docs-site .prose :is(h1, h2, h3, h4, h5, h6) {
+	color: var(--text-primary);
+	font-weight: 600;
+}
+
+.docs-site .prose h1 {
+	margin: 0 0 12px;
+	font-size: 28px;
+	line-height: 36px;
+	letter-spacing: -0.02em;
+}
+
+.docs-site .prose h1 + p {
+	color: var(--text-secondary);
+}
+
+.docs-site .prose h2 {
+	margin: 40px 0 12px;
+	font-size: 20px;
+	line-height: 28px;
+	letter-spacing: -0.01em;
+}
+
+.docs-site .prose h3 {
+	margin: 28px 0 8px;
+	font-size: 16px;
+	line-height: 24px;
+	letter-spacing: normal;
+}
+
+.docs-site .prose :is(h4, h5, h6) {
+	margin: 24px 0 8px;
+	font-size: 15px;
+	letter-spacing: normal;
+}
+
+.docs-site .prose p {
+	margin: 0 0 16px;
+}
+
+.docs-site .prose a:not(.btn) {
+	color: var(--accent-text);
+	text-decoration: none;
+	border-radius: 2px;
+}
+
+.docs-site .prose a:not(.btn):hover {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.docs-site .prose strong {
+	font-weight: 600;
+}
+
+.docs-site .prose code {
+	padding: 2px 5px;
+	border-radius: var(--radius-xs);
+	background: var(--control-bg);
+	color: var(--text-primary);
+	font-family: var(--font-mono);
+	font-size: 0.867em;
+}
+
+.docs-site .prose pre {
+	position: relative;
+	margin: 20px 0;
+	padding: 16px 20px;
+	overflow-x: auto;
+	border-radius: var(--control-radius);
+	background: var(--bg-secondary);
+	font-size: 13px;
+	line-height: 1.6;
+}
+
+.docs-site .prose pre.shiki {
+	background-color: var(--bg-secondary) !important;
+}
+
+.docs-site .prose pre code {
+	padding: 0;
+	background: none;
+	font-size: inherit;
+}
+
+.docs-site .prose pre:focus-visible {
+	outline: 2px solid var(--t3-focus);
+	outline-offset: 2px;
+}
+
+/* Inline code and code blocks sit on the same fill as tables and callouts, so step them up. */
+.docs-site .prose :is(td, th, blockquote, details) code:not(pre code) {
+	background: var(--bg-tertiary);
+}
+
+.docs-site .prose blockquote pre.shiki {
+	background-color: var(--bg-page) !important;
+}
+
+.docs-site .prose blockquote .copy-btn {
+	background: var(--bg-page);
+}
+
+.docs-site .prose kbd {
+	display: inline-block;
+	padding: 0 5px;
+	border-radius: var(--radius-xs);
+	background: var(--control-bg);
+	color: var(--text-primary);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 20px;
+}
+
+/* The copy button lives on a wrapper so it stays put while the code scrolls sideways. */
+.docs-site .prose .code-block {
+	position: relative;
+	margin: 20px 0;
+}
+
+.docs-site .prose .code-block > pre {
+	margin: 0;
+}
+
+.docs-site .prose .copy-btn {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--control-radius);
+	background: var(--bg-secondary);
+	color: var(--text-secondary);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 150ms, background 150ms, color 150ms;
+}
+
+.docs-site .prose .code-block:hover .copy-btn,
+.docs-site .prose .copy-btn:focus-visible {
+	opacity: 1;
+}
+
+.docs-site .prose .copy-btn:hover {
+	background: var(--control-hover);
+	color: var(--text-primary);
+}
+
+/* The button is always visible on touch, so leave room for it at the end of each line. */
+@media (hover: none) {
+	.docs-site .prose .copy-btn {
+		opacity: 1;
+	}
+
+	.docs-site .prose .code-block > pre {
+		padding-right: 48px;
 	}
 }
 
-.docs .prose ul,
-.docs .prose ol {
-	padding-left: 1.5rem;
-	margin-bottom: 1rem;
+@media (pointer: coarse) {
+	.docs-site .prose .copy-btn::after {
+		content: '';
+		position: absolute;
+		inset: -8px;
+	}
 }
 
-.docs .prose ul {
+.docs-site .prose :is(ul, ol) {
+	margin: 0 0 16px;
+	padding-left: 24px;
+}
+
+.docs-site .prose ul {
+	list-style: disc;
+}
+
+.docs-site .prose ol {
+	list-style: decimal;
+}
+
+.docs-site .prose ul ul {
+	list-style: circle;
+}
+
+.docs-site .prose ul ul ul {
+	list-style: square;
+}
+
+.docs-site .prose li {
+	margin-bottom: 6px;
+}
+
+.docs-site .prose li::marker {
+	color: var(--text-secondary);
+}
+
+.docs-site .prose li > :is(ul, ol) {
+	margin: 6px 0 0;
+}
+
+/* Loose list items wrap their text in paragraphs; keep steps closer than body paragraphs. */
+.docs-site .prose li > p {
+	margin-bottom: 8px;
+}
+
+.docs-site .prose li > :is(pre, .code-block) {
+	margin: 8px 0 12px;
+}
+
+.docs-site .prose .task-list-item {
 	list-style: none;
 }
 
-.docs .prose ul > li::before {
-	content: '\2022';
-	color: var(--docs-accent);
-	font-weight: 700;
-	display: inline-block;
-	width: 1em;
-	margin-left: -1em;
-	text-shadow: 0 0 6px var(--docs-glow);
+.docs-site .prose .task-list-item > input {
+	margin: 0 4px 0 -24px;
+	vertical-align: -2px;
 }
 
-.docs .prose ol {
+.docs-site .prose blockquote {
+	margin: 20px 0;
+	padding: 12px 16px;
+	border-left: 3px solid var(--accent);
+	border-radius: var(--control-radius);
+	background: var(--bg-secondary);
+}
+
+.docs-site .prose blockquote > :first-child {
+	margin-top: 0;
+}
+
+.docs-site .prose blockquote > :last-child {
+	margin-bottom: 0;
+}
+
+.docs-site .prose blockquote blockquote {
+	margin: 12px 0;
+}
+
+.docs-site .prose details {
+	margin: 20px 0;
+	padding: 0 16px;
+	border-radius: var(--control-radius);
+	background: var(--bg-primary);
+}
+
+.docs-site .prose summary {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 40px;
+	font-weight: 500;
 	list-style: none;
-	counter-reset: ol-counter;
+	cursor: pointer;
 }
 
-.docs .prose ol > li {
-	counter-increment: ol-counter;
+.docs-site .prose summary::-webkit-details-marker {
+	display: none;
 }
 
-.docs .prose ol > li::before {
-	content: counter(ol-counter) '.';
-	color: var(--docs-accent);
-	font-weight: 700;
-	display: inline-block;
-	width: 1.5em;
-	margin-left: -1.5em;
+.docs-site .prose summary::before {
+	content: '';
+	flex-shrink: 0;
+	width: 6px;
+	height: 6px;
+	margin: 0 3px;
+	border-right: 1.5px solid var(--text-secondary);
+	border-bottom: 1.5px solid var(--text-secondary);
+	transform: rotate(-45deg);
+	transition: transform 150ms;
 }
 
-.docs .prose li {
-	margin-bottom: 0.375rem;
+.docs-site .prose details[open] > summary::before {
+	transform: rotate(45deg);
 }
 
-.docs .prose img {
+.docs-site .prose details[open] {
+	padding-bottom: 12px;
+}
+
+.docs-site .prose details > :last-child {
+	margin-bottom: 0;
+}
+
+.docs-site .prose summary:focus-visible {
+	outline: 2px solid var(--t3-focus);
+	outline-offset: 2px;
+	border-radius: var(--control-radius);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.docs-site .prose summary::before {
+		transition: none;
+	}
+}
+
+.docs-site .prose img {
 	max-width: 100%;
 	height: auto;
-	border-radius: 0.875rem;
-	border: 1px solid var(--docs-glass-border);
-	margin: 1.5rem 0;
-	box-shadow:
-		0 4px 16px rgba(0, 0, 0, 0.08),
-		0 0 0 1px var(--docs-border);
-	transition: all 0.2s ease;
+	margin: 20px 0;
+	border-radius: var(--control-radius);
 }
 
-.docs .prose img:hover {
-	box-shadow:
-		0 0 20px var(--docs-glow),
-		0 8px 24px rgba(0, 0, 0, 0.12);
-	transform: scale(1.01);
+.docs-site .prose hr {
+	margin: 32px 0;
+	border: 0;
+	border-top: 1px solid var(--control-bg);
 }
 
-.docs .prose blockquote {
-	position: relative;
-	border: none;
-	padding: 1.25rem 1.5rem;
-	padding-left: 1.75rem;
-	color: var(--docs-text);
-	margin: 1.5rem 0;
-	background: var(--docs-glass-bg);
-	backdrop-filter: blur(8px);
-	-webkit-backdrop-filter: blur(8px);
-	border-radius: 0.75rem;
-	box-shadow:
-		0 1px 0 var(--docs-inner-highlight) inset,
-		0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.docs .prose blockquote::before {
-	content: '';
-	position: absolute;
-	left: 0;
-	top: 0;
-	bottom: 0;
-	width: 4px;
-	background: var(--docs-btn-gradient);
-	border-radius: 4px 0 0 4px;
-	box-shadow: 0 0 8px var(--docs-glow);
-}
-
-.docs .prose hr {
-	border: none;
-	height: 1px;
-	background: linear-gradient(90deg, transparent, var(--docs-accent), transparent);
-	margin: 2.5rem 0;
-	opacity: 0.5;
-}
-
-.docs .prose table {
+.docs-site .prose table {
 	display: block;
 	width: 100%;
+	max-width: max-content;
+	margin: 20px 0;
 	overflow-x: auto;
-	border-collapse: separate;
-	border-spacing: 0;
-	margin: 1.5rem 0;
-	white-space: nowrap;
-	background: var(--docs-glass-bg);
-	backdrop-filter: blur(8px);
-	-webkit-backdrop-filter: blur(8px);
-	border: 1px solid var(--docs-glass-border);
-	border-radius: 0.75rem;
-	box-shadow:
-		0 1px 0 var(--docs-inner-highlight) inset,
-		0 4px 12px rgba(0, 0, 0, 0.05);
+	border-collapse: collapse;
+	border-radius: var(--control-radius);
+	background: var(--bg-secondary);
+	font-size: 14px;
+	line-height: 20px;
 }
 
-.docs .prose th,
-.docs .prose td {
+.docs-site .prose :is(th, td) {
+	padding: 8px 12px;
 	text-align: left;
-	padding: 0.75rem 1rem;
-	border-bottom: 1px solid var(--docs-border);
-	font-size: 0.8125rem;
+	vertical-align: top;
+	border-bottom: 1px solid var(--bg-page);
 }
 
-.docs .prose th {
-	font-weight: 700;
-	background: var(--docs-surface);
-	color: var(--docs-text);
-	text-shadow: 0 1px 0 var(--docs-inner-highlight);
+.docs-site .prose th {
+	color: var(--text-secondary);
+	font-size: 13px;
+	font-weight: 500;
+	white-space: nowrap;
 }
 
-.docs .prose tr:last-child td {
-	border-bottom: none;
+.docs-site .prose tr:last-child td {
+	border-bottom: 0;
 }
 
-.docs .prose tr:hover td {
-	background: var(--docs-surface);
+.docs-site .prose tbody tr:hover td {
+	background: var(--control-hover);
 }

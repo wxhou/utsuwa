@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { STORAGE_INVENTORY } from '$lib/db/storage-inventory';
 import { db } from '$lib/db';
 import type { Reminder } from '$lib/types/memory';
 import {
@@ -15,7 +16,7 @@ const GRACE_MS = 15000;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 // Largest safe date for compound-index range queries.
 const MAX_DATE = new Date(8640000000000000);
-const BROADCAST_CHANNEL_NAME = 'utsuwa-reminders';
+const BROADCAST_CHANNEL_NAME = STORAGE_INVENTORY.broadcast.reminders;
 
 let upcoming = $state<Reminder[]>([]);
 let recentFired = $state<Reminder[]>([]);
@@ -239,10 +240,6 @@ export function addReminderFiredListener(callback: (reminder: Reminder) => void)
 	};
 }
 
-export function removeReminderFiredListener(callback: (reminder: Reminder) => void) {
-	onReminderFiredCallbacks.delete(callback);
-}
-
 export const reminderStore = {
 	get upcoming() {
 		return upcoming;
@@ -255,6 +252,5 @@ export const reminderStore = {
 	addReminder,
 	deleteReminder,
 	dismissRecentFired,
-	addReminderFiredListener,
-	removeReminderFiredListener
+	addReminderFiredListener
 };

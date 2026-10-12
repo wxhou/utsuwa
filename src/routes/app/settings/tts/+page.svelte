@@ -13,7 +13,5 @@
 		<p>{t('settings.tts.subtitle')}</p>
 	</header>
 
-	<section class="section">
-		<TtsSettings {state} />
-	</section>
+	<TtsSettings {state} />
 </div>

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openApp, waitForHydration } from './helpers';
+import { openApp, waitForHydration, selectOption, snap } from './helpers';
 
 test('brain shortcut opens the graph and empty memories lead to Facts', async ({ page }) => {
 	await openApp(page, { chatDisplayMode: 'sidebar' });
@@ -25,7 +25,7 @@ test('brain shortcut opens the graph and empty memories lead to Facts', async ({
 		'An unfinished memory'
 	);
 	await expect(page.locator('.memory-graph')).toHaveCount(0);
-	await page.getByRole('link', { name: 'Back', exact: true }).click();
+	await page.getByRole('link', { name: 'Utsuwa home', exact: true }).click();
 	await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue(
 		'Keep my draft'
 	);
@@ -77,9 +77,9 @@ for (const motion of ['reduce', 'no-preference'] as const) {
 		const canvas = page.locator('.graph-container canvas');
 		await expect(canvas).toBeVisible();
 		expect(
-			(await page.getByRole('combobox', { name: 'Inspect a memory', exact: true }).boundingBox())!
+			(await page.getByRole('button', { name: 'Inspect a memory', exact: true }).boundingBox())!
 				.height
-		).toBeGreaterThanOrEqual(44);
+		).toBeGreaterThanOrEqual(info.project.name === 'mobile' ? 44 : 32);
 		await canvas.scrollIntoViewIfNeeded();
 		// Click a real rendered node, not the graph library's callback.
 		let point: { x: number; y: number } | null = null;
@@ -124,10 +124,7 @@ for (const motion of ['reduce', 'no-preference'] as const) {
 				{ timeout: 15_000 }
 			)
 			.toBe(true);
-		await page.screenshot({
-			path: info.outputPath('memory-graph-overview.png'),
-			animations: 'disabled'
-		});
+		await snap(page, 'memory-graph-overview.png', { animations: 'disabled' });
 		if (info.project.name === 'mobile') {
 			await canvas.tap({ position: point! });
 		} else {
@@ -136,22 +133,17 @@ for (const motion of ['reduce', 'no-preference'] as const) {
 		const detail = page.getByRole('complementary', { name: 'Memory details' });
 		await expect(detail).toContainText('Our Friday tea ritual <b>stays plain text</b>');
 		await expect(detail.locator('b')).toHaveCount(0);
-		await expect(page.getByRole('combobox', { name: 'Inspect a memory', exact: true })).toHaveValue(
+		await expect(page.getByRole('button', { name: 'Inspect a memory', exact: true })).toHaveAttribute('data-value',
 			String(ids[1])
 		);
 		await page.getByRole('button', { name: 'Relationship', exact: true }).click();
 		await expect(detail).toHaveCount(0);
 		await expect(page.getByText('1 memory · 0 connections', { exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Relationship', exact: true }).click();
-		await page
-			.getByRole('combobox', { name: 'Inspect a memory', exact: true })
-			.selectOption(String(ids[0]));
+		await selectOption(page, page.getByRole('button', { name: 'Inspect a memory', exact: true }), String(ids[0]));
 		await expect(detail).toContainText('Tea after dinner');
 		await detail.scrollIntoViewIfNeeded();
-		await page.screenshot({
-			path: info.outputPath('memory-graph-details.png'),
-			animations: 'disabled'
-		});
+		await snap(page, 'memory-graph-details.png', { animations: 'disabled' });
 		const expand = page.getByRole('button', { name: 'Expand graph', exact: true });
 		await expand.click();
 		const dialog = page.getByRole('dialog', { name: 'Memory graph', exact: true });
@@ -162,15 +154,9 @@ for (const motion of ['reduce', 'no-preference'] as const) {
 		await expect
 			.poll(async () => (await dialog.locator('canvas').boundingBox())!.width)
 			.toBeGreaterThan(100);
-		await page.screenshot({
-			path: info.outputPath('memory-graph-expanded.png'),
-			animations: 'disabled'
-		});
+		await snap(page, 'memory-graph-expanded.png', { animations: 'disabled' });
 		await dialog.getByRole('complementary', { name: 'Memory details' }).scrollIntoViewIfNeeded();
-		await page.screenshot({
-			path: info.outputPath('memory-graph-expanded-details.png'),
-			animations: 'disabled'
-		});
+		await snap(page, 'memory-graph-expanded-details.png', { animations: 'disabled' });
 		await page.keyboard.press('Escape');
 		await expect(dialog).not.toBeVisible();
 		await expect(expand).toBeFocused();

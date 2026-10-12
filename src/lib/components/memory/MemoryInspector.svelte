@@ -1,12 +1,15 @@
 <script lang="ts">
+	import { rangeProgress } from '$lib/utils/range-progress';
+	import Select from '$lib/components/ui/Select.svelte';
+	import { t } from '$lib/i18n';
 	import { liveQuery } from 'dexie';
 	import { db } from '$lib/db';
-	import { memoryApi, getWorkingMemory } from '$lib/engine/memory';
+	import { memoryApi } from '$lib/engine/memory';
+	import { getWorkingMemory } from '$lib/engine/memory-session';
 	import { deleteFact } from '$lib/services/storage/memory';
 	import { characterStore } from '$lib/stores/character.svelte';
 	import type { Fact, FactCategory, SessionSummary, ConversationTurn } from '$lib/types/memory';
 	import { Button } from '$lib/components/ui';
-	import { t } from '$lib/i18n';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import MemoryFactSummary from './MemoryFactSummary.svelte';
 	import ParserTest from '$lib/components/memory/ParserTest.svelte';
@@ -30,9 +33,9 @@
 	} = $props();
 	const tab = $derived(view);
 	const categories: { value: FactCategory; label: string }[] = [
-		{ value: 'user', label: t('memory.catUser') },
-		{ value: 'relationship', label: t('stats.relationship') },
-		{ value: 'shared_experience', label: t('memory.catShared') }
+		{ value: 'user', label: 'About you' },
+		{ value: 'relationship', label: 'Relationship' },
+		{ value: 'shared_experience', label: 'Shared experience' }
 	];
 	const PAGE_SIZE = 25;
 	let query = $state('');
@@ -115,7 +118,7 @@
 					pageIndex = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
 			},
 			error: () => {
-				loadError = t('memory.loadFailed');
+				loadError = 'Could not load memories from this device.';
 				loading = false;
 			}
 		});
@@ -141,10 +144,10 @@
 			pageIndex = 0;
 			query = '';
 			category = 'all';
-			notice = t('memory.savedNotice');
+			notice = 'Memory saved.';
 			if (factId !== undefined) onShowAll?.();
 		} catch {
-			actionError = t('memory.saveFailed');
+			actionError = 'Could not save that memory. Your text is still here so you can try again.';
 		} finally {
 			busy = false;
 		}
@@ -157,52 +160,48 @@
 		try {
 			await deleteFact(id);
 			confirmId = undefined;
-			notice = t('memory.memoryDeleted');
+			notice = 'Memory deleted.';
 		} catch {
-			actionError = t('memory.deleteFailed');
+			actionError = 'Could not delete that memory. Please try again.';
 		} finally {
 			busy = false;
 		}
 	}
 	function date(value: Date | undefined) {
-		return value ? new Date(value).toLocaleString() : t('memory.notRecorded');
+		return value ? new Date(value).toLocaleString() : 'Not recorded';
 	}
 </script>
 
 <div class="memory-inspector">
 	{#if factId !== undefined && view === 'facts'}<div class="selection-notice">
-			<span>{t('memory.fromGraph')}</span><Button variant="secondary" size="sm" onclick={onShowAll}
-				>{t('memory.showAllFacts')}</Button
+			<span>Selected from the graph</span><Button variant="secondary" size="sm" onclick={onShowAll}
+				>Show all facts</Button
 			>
 		</div>{/if}
 	{#if view === 'facts'}
 		<SettingsSection
-			title={t('memory.rememberedFacts')}
-			description={t('memory.factsDesc')}
+			title="Remembered facts"
+			description="Stored on this device. Adding or deleting a fact affects future conversations."
 		>
 			<div class="filters">
 				<label
-					>{t('memory.searchMemories')}<input
+					>Search memories<input
 						class="settings-field"
 						type="search"
 						bind:value={query}
-						placeholder={t('memory.searchPlaceholder')}
+						placeholder="Find a memory"
 					/></label
 				>
 				<label
-					>{t('memory.category')}<select class="settings-field" bind:value={category}
-						><option value="all">{t('memory.allCategories')}</option>{#each categories as c}<option
-								value={c.value}>{c.label}</option
-							>{/each}</select
-					></label
+					>{t('memory.category')}<Select label={t('memory.category')} bind:value={category} options={[{ value: 'all', label: t('memory.allCategories') }, ...categories]} /></label
 				>
 			</div>
 			{#if !loading && !loadError && facts.length === 0}<p class="empty">
 					{query || category !== 'all'
-						? t('memory.noMatchFilters')
+						? 'No memories match these filters.'
 						: factId !== undefined
-							? t('memory.memoryGone')
-							: t('memory.noFactsYet')}
+							? 'This memory is no longer saved. Choose Show all facts to see your other memories.'
+							: 'No facts saved yet. Add one below or let them grow through conversation.'}
 				</p>{/if}
 			<ul class="records">
 				{#each facts as fact (fact.id)}
@@ -211,24 +210,24 @@
 						<div class="record-footer">
 							<time>{date(fact.createdAt)}</time>
 							{#if confirmId === fact.id}
-								<div class="confirm" role="group" aria-label={t('memory.confirmDeletion')}>
-									<span>{t('memory.deleteConfirm')}</span><Button
+								<div class="confirm" role="group" aria-label="Confirm memory deletion">
+									<span>Delete this memory?</span><Button
 										size="sm"
 										variant="secondary"
 										disabled={busy}
-										onclick={() => (confirmId = undefined)}>{t('common.cancel')}</Button
+										onclick={() => (confirmId = undefined)}>Cancel</Button
 									><Button
 										size="sm"
 										variant="danger"
 										disabled={busy}
-										onclick={() => removeMemory(fact.id!)}>{t('memory.deleteMemory')}</Button
+										onclick={() => removeMemory(fact.id!)}>Delete memory</Button
 									>
 								</div>
 							{:else}<Button
 									size="sm"
 									variant="ghost"
 									disabled={busy}
-									onclick={() => (confirmId = fact.id)}>{t('common.delete')}</Button
+									onclick={() => (confirmId = fact.id)}>Delete</Button
 								>{/if}
 						</div>
 					</li>
@@ -237,16 +236,16 @@
 		</SettingsSection>
 	{:else if view === 'session'}
 		<SettingsSection
-			title={t('memory.currentSession')}
-			description={t('memory.currentSessionHint')}
+			title="Current session"
+			description="Saved turns from this run, or the latest saved session after a reload."
 		>
 			{#if !loading && !turns.length}<p class="empty">
-					{t('memory.noSavedTurns')}
+					No saved turns in the current session.
 				</p>{/if}
 			<ul class="records">
 				{#each turns as turn (turn.id)}<li>
 						<p class="metadata">
-							{turn.role === 'user' ? t('memory.you') : characterStore.name} · {date(turn.createdAt)}
+							{turn.role === 'user' ? 'You' : characterStore.name} · {date(turn.createdAt)}
 						</p>
 						<p class="fact-content">{turn.content}</p>
 					</li>{/each}
@@ -254,86 +253,81 @@
 		</SettingsSection>
 	{:else if view === 'sessions'}
 		<SettingsSection
-			title={t('memory.savedSessions')}
-			description={t('memory.savedSessionsHint')}
+			title="Saved sessions"
+			description="Conversation summaries already recorded by the memory engine."
 		>
-			{#if !loading && !sessions.length}<p class="empty">{t('memory.noSessionsSaved')}</p>{/if}
+			{#if !loading && !sessions.length}<p class="empty">No sessions saved yet.</p>{/if}
 			<ul class="records">
 				{#each sessions as session (session.id)}<li>
 						<h4>{date(session.startedAt)}</h4>
-						<p class="fact-content">{session.summary || t('memory.noSummaryYet')}</p>
+						<p class="fact-content">{session.summary || 'No summary recorded yet.'}</p>
 						<p class="metadata">
-							{t('memory.messagesCount', { n: session.messageCount })} · {session.endedAt
-								? t('memory.lastTurn', { date: date(session.endedAt) })
-								: t('memory.noTurnsRecorded')}
+							{session.messageCount} messages · {session.endedAt
+								? `Last turn ${date(session.endedAt)}`
+								: 'No turns recorded'}
 						</p>
 						{#if session.keyTopics.length}<p class="metadata">
-								{t('memory.topics', { topics: session.keyTopics.join(', ') })}
+								Topics: {session.keyTopics.join(', ')}
 							</p>{/if}{#if session.emotionalArc}<p>{session.emotionalArc}</p>{/if}
 					</li>{/each}
 			</ul>
 		</SettingsSection>
 	{:else if view === 'state'}
 		<SettingsSection
-			title={t('memory.characterState')}
-			description={t('memory.stateHint')}
+			title="Character state"
+			description="A read-only view of your companion's current state."
 		>
 			<dl>
-				<dt>{t('memory.fieldName')}</dt>
+				<dt>Name</dt>
 				<dd>{charState.name}</dd>
-				<dt>{t('memory.fieldMode')}</dt>
-				<dd>{charState.appMode === 'companion' ? t('onboarding.companion') : t('onboarding.datingSim')}</dd>
-				<dt>{t('memory.fieldMood')}</dt>
+				<dt>Mode</dt>
+				<dd>{charState.appMode === 'companion' ? 'Companion' : 'Dating sim'}</dd>
+				<dt>Mood</dt>
 				<dd>{t(characterStore.moodInfo.nameKey)} · {charState.mood.intensity}%</dd>
-				<dt>{t('memory.fieldStage')}</dt>
+				<dt>Stage</dt>
 				<dd>{t(characterStore.stageInfo.nameKey)}</dd>
-				<dt>{t('stats.energy')}</dt>
+				<dt>Energy</dt>
 				<dd>{charState.energy}</dd>
-				<dt>{t('memory.fieldConversations')}</dt>
+				<dt>Conversations</dt>
 				<dd>{charState.totalInteractions}</dd>
-				{#if charState.appMode !== 'companion'}<dt>{t('stats.affection')}</dt>
+				{#if charState.appMode !== 'companion'}<dt>Affection</dt>
 					<dd>{charState.affection}</dd>
-					<dt>{t('stats.trust')}</dt>
+					<dt>Trust</dt>
 					<dd>{charState.trust}</dd>
-					<dt>{t('stats.intimacy')}</dt>
+					<dt>Intimacy</dt>
 					<dd>{charState.intimacy}</dd>
-					<dt>{t('stats.comfort')}</dt>
+					<dt>Comfort</dt>
 					<dd>{charState.comfort}</dd>
-					<dt>{t('stats.respect')}</dt>
+					<dt>Respect</dt>
 					<dd>{charState.respect}</dd>{/if}
 			</dl>
 		</SettingsSection>
 	{:else}<SettingsSection
-			title={t('memory.responseParser')}
-			description={t('memory.parserHint')}
+			title="Response parser"
+			description="Inspect the tags and state changes a sample response would produce."
 			><ParserTest /></SettingsSection
 		>{/if}
 	{#if !['state', 'test'].includes(tab)}
 		{#if loadError}<div role="alert" class="error">
 				{loadError}
-				<Button size="sm" variant="secondary" onclick={() => retry++}>{t('common.retry')}</Button>
+				<Button size="sm" variant="secondary" onclick={() => retry++}>Retry</Button>
 			</div>
-		{:else if loading}<p role="status">{t('memory.loadingMemories')}</p>
-		{:else}<nav class="pagination" aria-label={t('memory.pages')}>
+		{:else if loading}<p role="status">Loading memories...</p>
+		{:else}<nav class="pagination" aria-label="Memory pages">
 				<span
-					>{tab === 'facts'
-						? t('memory.unitFacts', { n: total })
-						: tab === 'sessions'
-							? t('memory.unitSessions', { n: total })
-							: t('memory.unitTurns', { n: total })} · {t('memory.pageOf', {
-						page: pageIndex + 1,
-						total: Math.max(1, Math.ceil(total / PAGE_SIZE))
-					})}</span
+					>{total}
+					{tab === 'facts' ? 'facts' : tab === 'sessions' ? 'sessions' : 'turns'} · Page {pageIndex +
+						1} of {Math.max(1, Math.ceil(total / PAGE_SIZE))}</span
 				><Button
 					variant="secondary"
 					size="sm"
 					disabled={pageIndex === 0}
-					onclick={() => pageIndex--}>{t('memory.prevPage')}</Button
+					onclick={() => pageIndex--}>Previous</Button
 				><Button
 					variant="secondary"
 					size="sm"
 					disabled={(pageIndex + 1) * PAGE_SIZE >= total}
-					onclick={() => pageIndex++}>{t('memory.nextPage')}</Button
+					onclick={() => pageIndex++}>Next</Button
 				>
 			</nav>{/if}
 	{/if}
@@ -341,29 +335,27 @@
 	{#if actionError}<p class="error" role="alert">{actionError}</p>{/if}
 	{#if tab === 'facts'}
 		<SettingsSection
-			title={t('memory.addMemory')}
-			description={t('memory.addMemoryDesc')}
+			title="Add a memory"
+			description="Save something you want your companion to know."
 		>
 			<form onsubmit={addMemory}>
 				<label
-					>{t('memory.memoryLabel')}<textarea
+					>Memory<textarea
 						class="settings-field"
 						bind:value={content}
 						required
 						maxlength={2000}
 						rows={3}
-						placeholder={t('memory.exampleFact')}
+						placeholder="For example, I prefer tea to coffee."
 						disabled={busy}></textarea></label
 				>
 				<div class="filters">
 					<label
-						>{t('memory.memoryCategory')}<select class="settings-field" bind:value={newCategory} disabled={busy}
-							>{#each categories as c}<option value={c.value}>{c.label}</option>{/each}</select
-						></label
+						>{t('memory.memoryCategory')}<Select label={t('memory.memoryCategory')} bind:value={newCategory} disabled={busy} options={categories} /></label
 					><label
-						>{t('memory.importance')} <span>{importance}</span><input
+						>Importance <span>{importance}</span><input
 							class="settings-range"
-							type="range"
+							type="range" use:rangeProgress={importance}
 							min={0}
 							max={100}
 							step={5}
@@ -373,7 +365,7 @@
 					>
 				</div>
 				<Button type="submit" disabled={busy || !content.trim()}
-					>{busy ? t('memory.saving') : t('memory.addMemoryButton')}</Button
+					>{busy ? 'Saving...' : 'Add memory'}</Button
 				>
 			</form>
 		</SettingsSection>

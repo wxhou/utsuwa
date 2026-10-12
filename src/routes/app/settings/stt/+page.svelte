@@ -10,7 +10,5 @@
 		<p>{t('settings.stt.pageSubtitle')}</p>
 	</header>
 
-	<section class="section">
-		<SttSettings />
-	</section>
+	<SttSettings />
 </div>

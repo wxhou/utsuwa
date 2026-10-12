@@ -22,6 +22,17 @@ interface LLMStateOutput {
 	new_memory?: string | null;
 	new_inside_joke?: string | null;
 	triggered_event?: string | null;
+	action?: string | null;
+	expression?: string | null;
+}
+
+// Animation ids the model may name in "action"; the library checks it exists
+const ACTION_ID = /^[a-z0-9_-]{1,64}$/i;
+
+function normalizeAction(value: unknown): string | undefined {
+	if (typeof value !== 'string') return undefined;
+	const id = value.trim().toLowerCase();
+	return ACTION_ID.test(id) ? id : undefined;
 }
 
 // Valid emotions for validation
@@ -60,7 +71,10 @@ const EMOTION_SYNONYMS: Record<string, Emotion> = {
 	lonely: 'melancholy', somber: 'melancholy', gloomy: 'melancholy',
 	unhappy: 'sad', hurt: 'sad', disappointed: 'sad', heartbroken: 'sad', sorrowful: 'sad',
 	embarrassed: 'flustered', shy: 'flustered', bashful: 'flustered', blushing: 'flustered',
-	fine: 'neutral', okay: 'neutral', indifferent: 'neutral'
+	fine: 'neutral', okay: 'neutral', indifferent: 'neutral',
+	surprised: 'curious', shocked: 'curious', amazed: 'excited', amused: 'playful',
+	laughing: 'happy', giggling: 'playful', smiling: 'happy', smile: 'happy', laugh: 'happy',
+	wink: 'playful', grin: 'playful', pout: 'flustered'
 };
 
 // Resolve a model's emotion string to one of our canonical emotions, taking the
@@ -258,14 +272,35 @@ function convertLLMOutput(output: LLMStateOutput): Partial<StateUpdates> {
 
 	// Pass through memory and event suggestions
 	if (output.new_memory && typeof output.new_memory === 'string') {
-		updates.newMemory = output.new_memory.trim();
+		const memory = sanitizeMemoryText(output.new_memory);
+		if (memory) updates.newMemory = memory;
 	}
 
 	if (output.triggered_event && typeof output.triggered_event === 'string') {
 		updates.triggeredEvent = output.triggered_event.trim();
 	}
 
+	const action = normalizeAction(output.action);
+	if (action) updates.action = action;
+	// neutral is no reaction at all, so it never flashes
+	const expression = typeof output.expression === 'string' ? normalizeEmotion(output.expression) : null;
+	if (expression && expression !== 'neutral') {
+		updates.expression = expression;
+	}
+
 	return updates;
+}
+
+export const MAX_MEMORY_LENGTH = 240;
+
+// Memories land verbatim in the system prompt's <memory> block, so a reply (or a
+// tool result it echoed) must not be able to write tags or a wall of text there.
+export function stripAngleBrackets(text: string): string {
+	return text.replace(/[<>]/g, '');
+}
+
+export function sanitizeMemoryText(text: string): string {
+	return stripAngleBrackets(text).replace(/\s+/g, ' ').trim().slice(0, MAX_MEMORY_LENGTH).trim();
 }
 
 // Clamp a delta value
@@ -321,7 +356,7 @@ function cleanDialogue(text: string, companionName?: string): string {
 	cleaned = stripTruncatedStateBlock(cleaned);
 
 	// Remove any leftover (closed) JSON-like content
-	cleaned = cleaned.replace(/\{[^}]*"(?:mood|delta|emotion)[^}]*\}/gi, '');
+	cleaned = cleaned.replace(/\{[^}]*"(?:mood|delta|emotion|action|expression)[^}]*\}/gi, '');
 
 	// Remove action asterisks (we want dialogue only)
 	cleaned = cleaned.replace(/\*[^*]+\*/g, '');
@@ -403,11 +438,26 @@ export function validateStateUpdates(updates: Partial<StateUpdates>): {
 
 	// Pass through strings
 	if (updates.newMemory) {
-		sanitized.newMemory = updates.newMemory;
+		const memory = sanitizeMemoryText(updates.newMemory);
+		if (memory) sanitized.newMemory = memory;
 	}
 
 	if (updates.triggeredEvent) {
 		sanitized.triggeredEvent = updates.triggeredEvent;
+	}
+
+	if (updates.action !== undefined) {
+		const action = normalizeAction(updates.action);
+		if (action) sanitized.action = action;
+		else warnings.push(`Invalid action: ${updates.action}`);
+	}
+
+	if (updates.expression !== undefined) {
+		if (VALID_EMOTIONS.includes(updates.expression)) {
+			sanitized.expression = updates.expression;
+		} else {
+			warnings.push(`Invalid expression: ${updates.expression}`);
+		}
 	}
 
 	return {

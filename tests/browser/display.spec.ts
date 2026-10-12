@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { openApp, waitForHydration } from './helpers';
+import { openApp, waitForHydration, snap } from './helpers';
 
 for (const side of ['left', 'right']) {
 	test(`docked ${side} reserves scene space and photo mode restores the full stage`, async ({
 		page
-	}, info) => {
+	}) => {
 		await openApp(page, {
 			chatDisplayMode: 'sidebar',
 			sidebarPosition: side
@@ -23,7 +23,7 @@ for (const side of ['left', 'right']) {
 		else expect(scene.x + scene.width).toBeLessThanOrEqual(box.x + 1);
 		expect(box.x).toBeGreaterThanOrEqual(0);
 		expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
-		await page.screenshot({ path: info.outputPath(`docked-${side}.png`) });
+		await snap(page, `docked-${side}.png`);
 		await page.evaluate(async () => {
 			const path = '/src/lib/stores/photomode.svelte.ts';
 			const { photomodeStore } = await import(/* @vite-ignore */ path);
@@ -35,8 +35,6 @@ for (const side of ['left', 'right']) {
 }
 
 test('camera pan persists and reset clears only the main profile', async ({ page }) => {
-	// Two avatar loads plus interactions exceed 45 seconds on CI software rendering.
-	test.setTimeout(90_000);
 	await openApp(page, { camera: { panX: 0.25 }, overlayCamera: { panX: -0.5 } });
 	await page.getByRole('button', { name: 'Controls', exact: true }).click();
 	await page.getByRole('button', { name: 'Camera settings', exact: true }).click();
@@ -77,7 +75,7 @@ test('overlay keeps its own camera controls and compact chat when the main layou
 	await expect(page.locator('.chat-window.docked')).toHaveCount(0);
 });
 
-test('pan shifts the loaded avatar inside the reserved scene', async ({ page }, info) => {
+test('pan shifts the loaded avatar inside the reserved scene', { tag: '@avatar' }, async ({ page }) => {
 	await openApp(page, { chatDisplayMode: 'sidebar' });
 	await expect
 		.poll(
@@ -103,7 +101,7 @@ test('pan shifts the loaded avatar inside the reserved scene', async ({ page }, 
 	for (let i = 0; i < 5; i++) await pan.press('ArrowRight');
 	await expect(pan).toHaveValue('0.25');
 	await expect.poll(headX).toBeLessThan(before - 3);
-	await page.screenshot({ path: info.outputPath('docked-avatar-pan.png') });
+	await snap(page, 'docked-avatar-pan.png');
 });
 
 for (const layout of [undefined, 'floating']) {
@@ -137,9 +135,7 @@ for (const layout of [undefined, 'floating']) {
 	});
 }
 
-test('old floating preferences cannot restore dragging or resizing', async ({ page }, info) => {
-	// Two avatar loads plus interactions exceed 45 seconds on CI software rendering.
-	test.setTimeout(90_000);
+test('old floating preferences cannot restore dragging or resizing', async ({ page }) => {
 	await openApp(page, { chatDisplayMode: 'sidebar', chatWindowLayout: 'floating' });
 	await page.evaluate(() =>
 		localStorage.setItem('utsuwa-chat-panel', JSON.stringify({ x: -900, y: -900, w: 20, h: 20 }))
@@ -172,7 +168,7 @@ test('old floating preferences cannot restore dragging or resizing', async ({ pa
 		chatStore.addMessage('assistant', 'Sure. What do you want to make time for?');
 	});
 	await expect(page.getByRole('button', { name: 'Copy message' })).toHaveCount(2);
-	await page.screenshot({ path: info.outputPath('native-docked-chat.png') });
+	await snap(page, 'native-docked-chat.png');
 });
 
 test('only settings switch between the persistent window and immersive bar', async ({ page }) => {
@@ -203,7 +199,7 @@ test('only settings switch between the persistent window and immersive bar', asy
 	const modes = page.getByRole('group', { name: 'Chat display mode' });
 	await expect(modes.getByRole('button')).toHaveCount(2);
 	await modes.getByRole('button', { name: 'Immersive', exact: true }).click();
-	await page.getByRole('link', { name: 'Back', exact: true }).click();
+	await page.getByRole('link', { name: 'Utsuwa home', exact: true }).click();
 	await expect(panel).not.toBeVisible();
 	await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue(
 		'Keep my draft'
@@ -212,7 +208,7 @@ test('only settings switch between the persistent window and immersive bar', asy
 	await page.getByRole('button', { name: 'Settings', exact: true }).click();
 	await page.getByRole('link', { name: 'Display', exact: true }).click();
 	await modes.getByRole('button', { name: 'Chat window', exact: true }).click();
-	await page.getByRole('link', { name: 'Back', exact: true }).click();
+	await page.getByRole('link', { name: 'Utsuwa home', exact: true }).click();
 	await expect(panel).toBeVisible();
 	const input = panel.getByRole('textbox', { name: 'Message', exact: true });
 	await expect(input).toHaveValue('Keep my draft');

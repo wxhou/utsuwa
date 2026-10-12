@@ -57,7 +57,9 @@
 - **AR Mode**: On WebXR-capable devices (Android Chrome, headset browsers), place your companion on your real floor, drag her around, and pinch to resize
 - **Photo Mode**: Pose her from a pose library, set her expression, pick a background, add a color filter, vignette, or frame, drop draggable stickers on the shot, and capture in high resolution with a quick snap or self-timer. Head tracking keeps her eyes on your camera while she holds the pose
 - **Touch Reactions**: Tap her and she reacts with an expression and a physics ripple through hair and clothes. Reactions depend on where you tap and how close the two of you are
-- **Scene Backgrounds**: Swap the backdrop behind her for pastel gradients or cute patterns (dots, hearts, sparkles, stripes, gingham) right from the Controls panel; your pick persists
+- **Mood Expressions**: Her face follows her tracked mood, from a soft smile when she's content to a frown when she's frustrated, scaled by how strongly she feels it, and she can flash a brief reaction when a moment calls for it, like smiling when you ask her to. Toggle in Settings > Display
+- **Animation Library**: Upload your own `.vrma` motions, describe them, and let her use them. She can trigger one gesture per reply when it fits, and the built-in emotes come described out of the box. Pick which idle motions she cycles through and give her a thinking motion for the wait before a reply
+- **Scene Backgrounds**: Swap the backdrop behind her for pastel gradients or cute patterns (dots, hearts, sparkles, stripes, gingham), or upload your own image, right from the Controls panel; your pick persists
 - **Physics Intensity**: A Movement slider from Subtle to Lively scales how much her hair and outfit respond to motion, respecting each model's own rig tuning
 - **Model-Centric UI**: Full-screen 3D model with unobtrusive overlay controls
 - **3D Speech Bubbles**: Chat responses appear as bubbles that track the model's head in 3D space, revealed word by word at a configurable speed
@@ -66,15 +68,15 @@
 - **Thinking Status**: A shimmer label narrates what she is actually doing (Remembering, Looking at your photo, Thinking), with a configurable delay and an optional soft audio ping
 - **Chat Interface**: Floating input bar (left, center, or right aligned) with streaming responses
 - **Voice Input**: Speech-to-text via a local Whisper server (Speaches, faster-whisper-server, whisper.cpp), Groq (Whisper), or the browser's Web Speech API, with real-time audio visualization
-- **Show Her Photos**: Show your companion an image via the attach (paperclip) button in the chat bar or drag-and-drop. Vision-capable models (GPT-4o, Claude, Gemini, or local ones like LLaVA) actually see it and can remember the moment, and kept photos live on a scrapbook-style board. Images stay on your device and only ever reach vision-capable models
+- **Show Her Photos**: Show your companion an image via the attach (paperclip) button in the chat bar or drag-and-drop. Vision-capable models (GPT-4o, Claude, Gemini, or local ones like LLaVA) actually see it and can remember the moment, and kept photos live on a scrapbook-style board. Images stay on your device and only ever reach vision-capable models. A text-only chat model can still react to photos through an optional separate vision model (cloud or local) that describes them
 - **LLM Integration**: Support for 8 LLM providers: OpenAI, Anthropic, Google, xAI, DeepSeek, Ollama, LM Studio, and any OpenAI-compatible endpoint (OpenRouter, Together, vLLM, ...)
 - **Local Model Discovery**: Ollama and LM Studio discover installed local models directly from your device
-- **MCP Tools**: Connect Model Context Protocol servers — Home Assistant's official MCP integration, web search via SearXNG, and more — and let the companion call their tools during chat. Per-server HTTP/stdio transports, bearer-token authentication, and an `MCP_ENABLED=server` gate for self-hosted web deployments (see [MCP Servers](https://docs.utsuwa.ai/docs/guides/mcp))
-- **Text-to-Speech**: Support for ElevenLabs and OpenAI TTS, local voices via any OpenAI-compatible server (Kokoro-FastAPI, openedai-speech), and local OmniVoice. OmniVoice streams: speech starts while the model is still writing, and foreign words can be spoken per word in their own language and voice. With OmniVoice + Alternative Voice, the model controls its spoken reply via native `speak_segment` / `pause_segment` / `gesture_segment` tool calls (when tool calling is enabled); otherwise the documented inline `speak()` / `pause()` / `gesture()` syntax is used
-- **Fully Local Option**: Run the whole stack offline — local LLM (Ollama/LM Studio), local TTS, and local Whisper STT — so nothing leaves your device
+- **MCP Tools**: Connect Model Context Protocol servers, such as Home Assistant's official MCP integration or web search via SearXNG, and let the companion call their tools during chat. Per-server HTTP/stdio transports, bearer-token authentication, and an `MCP_ENABLED=server` gate for self-hosted web deployments (see [MCP Servers](https://docs.utsuwa.ai/guides/mcp))
+- **Text-to-Speech**: Support for ElevenLabs, OpenAI TTS, and Fish Audio, local voices via any OpenAI-compatible server (Kokoro-FastAPI, openedai-speech), and local OmniVoice. OmniVoice streams: speech starts while the model is still writing, and foreign words can be spoken per word in their own language and voice. With OmniVoice + Alternative Voice, the model controls its spoken reply via native `speak_segment` / `pause_segment` / `gesture_segment` tool calls (when tool calling is enabled); otherwise the documented inline `speak()` / `pause()` / `gesture()` syntax is used
+- **Fully Local Option**: Run the whole stack offline: local LLM (Ollama/LM Studio), local TTS, and local Whisper STT, so nothing leaves your device
 - **Lip-sync**: Audio-driven mouth animation synced to TTS playback
 - **Animations**: VRMA-based idle and talking animations with automatic blinking
-- **Character Customization**: Customize your companion's name, personality, and system prompt
+- **Character Customization**: Customize your companion's name and personality, or replace the built-in system prompt framing with your own. `{{char}}` and `{{user}}` macros work in both
 - **Avatar Tasks & Timers**: Your companion can schedule reminders for itself, e.g. to check back with you later. Fired and missed timers appear in the reminder dropdown (bell icon) so you can see what happened and dismiss them. Reminders persist across browser reloads and stay in sync between the main app and the desktop overlay
 - **Companion System**: Multi-axis relationship tracking with mood, events, and semantic memory
 - **Semantic Memory**: Local AI-powered memory search using Transformers.js - finds memories by meaning, not just keywords
@@ -99,7 +101,7 @@ Build a meaningful relationship with your AI companion through a dating sim-insp
 - **Multi-axis Relationships**: Track affection, trust, intimacy, comfort, and respect separately
 - **8 Relationship Stages**: Progress from Stranger → Acquaintance → Friend → Close Friend → Romantic Interest → Dating → Committed → Soulmate
 - **Dynamic Mood**: Real-time emotions with causality tracking (she remembers *why* she feels a certain way)
-- **Visual Novel Events**: Milestone moments, romantic scenes, and choices that matter - with custom dialogue and branching responses
+- **Visual Novel Events**: Milestone moments, romantic scenes, and choices that matter - with custom dialogue and branching responses. With a chat provider configured, she writes each scene herself from what you have shared, in the language you write in; the built-in scenes are the fallback
 - **Semantic Memory**: Facts are indexed with vector embeddings for meaning-based retrieval - "outdoor activities" finds memories about hiking. Runs locally using Transformers.js, no API calls
 - **Natural Progression**: Hybrid system combining app heuristics + LLM suggestions for believable relationship growth
 - **Time-Aware**: Your companion notices when you've been away and reacts accordingly
@@ -148,16 +150,16 @@ The **Context Window** setting is available for every LLM provider. When enabled
 
 If the setting is left off, Utsuwa keeps the historical defaults (10 retrieved turns, 6 injected turns, 5 facts) and does not truncate history. This is useful when you want the provider to handle its own context management.
 
-### TTS Providers (4)
+### TTS Providers (5)
 
 | Category | Providers |
 |----------|-----------|
-| **Cloud** | ElevenLabs, OpenAI TTS |
+| **Cloud** | ElevenLabs, OpenAI TTS, Fish Audio |
 | **Local** | Local TTS (Kokoro-FastAPI, openedai-speech, any OpenAI-compatible server), OmniVoice |
 
-OmniVoice is a fully local text-to-speech option that runs on your own GPU or CPU. It supports both built-in synthetic voices and custom voice clones, covers many languages, and can switch between two voices **per word**: when you are learning a language, foreign words and phrases are spoken in their own language and dialect (with an optional second voice), while the surrounding explanation stays in the primary voice. Speech starts while the model is still writing — complete sentences are synthesised as soon as they arrive. See [OmniVoice Setup](https://docs.utsuwa.ai/docs/guides/omnivoice) for installation instructions.
+OmniVoice is a fully local text-to-speech option that runs on your own GPU or CPU. It supports both built-in synthetic voices and custom voice clones, covers many languages, and can switch between two voices **per word**: when you are learning a language, foreign words and phrases are spoken in their own language and dialect (with an optional second voice), while the surrounding explanation stays in the primary voice. Speech starts while the model is still writing: complete sentences are synthesised as soon as they arrive. See [OmniVoice Setup](https://docs.utsuwa.ai/guides/omnivoice) for installation instructions.
 
-With OmniVoice and **Alternative Voice** enabled, the speech layer mandates native tool calling: the model delivers its spoken reply as `speak_segment` tool calls (plus `pause_segment` for silent pauses and `gesture_segment` for small gestures). These calls arrive whole, so they cannot be broken up by streaming chunk boundaries. Tool calling is **on by default** and can be disabled in the speech settings; when it is disabled (or the provider does not support it), the model uses the inline `speak()` / `pause()` / `gesture()` syntax instead — that inline path remains the documented fallback and its output is sanitised defensively.
+With OmniVoice and **Alternative Voice** enabled, the speech layer mandates native tool calling: the model delivers its spoken reply as `speak_segment` tool calls (plus `pause_segment` for silent pauses and `gesture_segment` for small gestures). These calls arrive whole, so they cannot be broken up by streaming chunk boundaries. Tool calling is **on by default** and can be disabled in the speech settings; when it is disabled (or the provider does not support it), the model uses the inline `speak()` / `pause()` / `gesture()` syntax instead. That inline path remains the documented fallback and its output is sanitised defensively.
 
 Language switching has two layers. The model declares the language per segment via `speak_segment`; the speech orchestrator then validates and splits every segment against the session's language pair using the embedded language detector ([eld](https://www.npmjs.com/package/eld)), which is restricted to exactly the primary and the alternative language. Mixed sentences are additionally carved into language runs (anchored on articles, function words, diacritics and infinitive endings) so both halves keep their own voice. Every secondary language the proxy offers can be selected, but the signal tables are fleshed out for German, English and Spanish in every pair direction; other languages fall back to whole-segment detection only.
 
@@ -169,7 +171,7 @@ Language switching has two layers. The model declares the language per segment v
 | **Cloud** | Groq (Whisper), OpenAI (Whisper) |
 | **Browser** | Web Speech API (no API key required) |
 
-Voice input is accessed via the microphone button in the chat bar. Selection is automatic by priority: a configured local Whisper server wins, then Groq, then OpenAI, then the browser's Web Speech API. A local server or a cloud key works on any platform including desktop; Web Speech API works without an API key in Chrome, Edge, and Safari. See [Local STT Setup](https://docs.utsuwa.ai/docs/guides/local-stt-setup) to run a local Whisper server.
+Voice input is accessed via the microphone button in the chat bar. Selection is automatic by priority: a configured local Whisper server wins, then Groq, then OpenAI, then the browser's Web Speech API. A local server or a cloud key works on any platform including desktop; Web Speech API works without an API key in Chrome, Edge, and Safari. See [Local STT Setup](https://docs.utsuwa.ai/guides/local-stt-setup) to run a local Whisper server.
 
 ## Getting Started
 
@@ -220,6 +222,17 @@ pnpm dev
 ```
 
 The app will be available at `http://localhost:5173`
+
+#### Deploying
+
+Any host SvelteKit's `adapter-auto` supports works out of the box. For Cloudflare Workers, which is how utsuwa.ai is hosted, the repo ships a `wrangler.jsonc`:
+
+```bash
+WORKERS_CI=1 pnpm build   # Cloudflare Workers Builds sets WORKERS_CI for you
+pnpm cf:deploy            # or pnpm cf:preview for a preview version
+```
+
+MCP stdio servers need a Node host; Workers can't spawn processes.
 
 #### Running the Desktop App (Beta)
 
@@ -305,6 +318,7 @@ utsuwa/
 ```bash
 pnpm dev          # Start web development server
 pnpm test         # Run the test suite (node --test)
+pnpm test:browser # Playwright browser tests (tests/browser)
 pnpm build        # Build web app for production
 pnpm preview      # Preview production build
 pnpm lint         # Type-check the project (svelte-check)
@@ -321,7 +335,7 @@ pnpm tauri build  # Build desktop app installer
 - [x] VRM model loading and display with orbit controls
 - [x] 3D speech bubbles tracking model head position
 - [x] Multi-provider LLM support (8 providers)
-- [x] Multi-provider TTS support (4 providers)
+- [x] Multi-provider TTS support (5 providers)
 - [x] Audio-driven lip-sync
 - [x] VRMA-based animations (idle, talking, blinking)
 - [x] Companion system with multi-axis relationships
@@ -343,12 +357,14 @@ pnpm tauri build  # Build desktop app installer
 - [x] Reminders and timers with an alarm dropdown, multi-window aware
 - [x] Photo mode: poses, expressions, backgrounds, filters, frames, stickers, head tracking, high-res capture
 - [x] Relationship-staged touch reactions
-- [x] Persistent scene backgrounds (pastel gradients and patterns)
+- [x] Persistent scene backgrounds (pastel gradients, patterns, and your own image)
 - [x] Spring-bone physics intensity slider
 - [x] OmniVoice Local TTS - Self-hosted OmniVoice proxy support for local text-to-speech
 - [x] MCP Tool Calling - Connect Model Context Protocol servers (HTTP + stdio) and let the companion call their tools during chat, with per-server toggles and an `MCP_ENABLED=server` gate for self-hosted web deployments
-
-- [x] **Chat layouts** - Choose an immersive composer or a docked conversation window, with character stats available from either composer
+- [x] Chat layouts - Choose an immersive composer or a docked conversation window, with character stats available from either composer
+- [x] Mood expressions and brief reactions on request
+- [x] Animation library with custom VRMA uploads, idle pool, and thinking motion
+- [x] Personalized event moments written from shared memories
 
 ### In Progress / Planned
 
@@ -370,7 +386,6 @@ Utsuwa is built on the shoulders of these excellent projects:
 
 ### Inspiration
 
-- **[Airi](https://github.com/moeru-ai/airi)** - The original inspiration for this project. A beautiful AI companion with VRM avatar support.
 - **[Amica](https://github.com/semperai/amica)** - Open-source AI companion with VRM support and emotional expressions.
 - **[Riko Project](https://github.com/rayenfeng/riko_project)** by [JustRyan](https://www.youtube.com/@JustRayen) - AI waifu project showcasing VRM avatar interactions.
 
@@ -383,7 +398,7 @@ Utsuwa is built on the shoulders of these excellent projects:
 - **[SvelteKit](https://github.com/sveltejs/kit)** - Web application framework
 - **[Tauri](https://github.com/tauri-apps/tauri)** - Desktop application framework
 - **[Tailwind CSS](https://github.com/tailwindlabs/tailwindcss)** - Utility-first CSS framework
-- **[Transformers.js](https://github.com/xenova/transformers.js)** - In-browser ML for semantic memory embeddings
+- **[Transformers.js](https://github.com/huggingface/transformers.js)** - In-browser ML for semantic memory embeddings
 
 ### UI & Data
 

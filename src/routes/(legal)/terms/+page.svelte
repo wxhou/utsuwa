@@ -3,20 +3,25 @@
 </script>
 
 <svelte:head>
-	<title>Terms of Use — Utsuwa</title>
+	<title>Terms of Use - Utsuwa</title>
 	<meta
 		name="description"
 		content="The terms that govern the Utsuwa website, hosted web app, and desktop app."
 	/>
 	<link rel="canonical" href={`${SITE_URL}/terms`} />
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content="Terms of Use — Utsuwa" />
+	<meta property="og:title" content="Terms of Use - Utsuwa" />
 	<meta
 		property="og:description"
 		content="The terms that govern the Utsuwa website, hosted web app, and desktop app."
 	/>
 	<meta property="og:url" content={`${SITE_URL}/terms`} />
 	<meta property="og:site_name" content="Utsuwa" />
+	<meta property="og:image" content={`${SITE_URL}/brand-assets/og-image.jpg`} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:image" content={`${SITE_URL}/brand-assets/og-image.jpg`} />
 </svelte:head>
 
 <header class="legal-header">

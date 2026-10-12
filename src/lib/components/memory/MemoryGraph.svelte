@@ -1,10 +1,11 @@
 <script lang="ts">
+	import Select from '$lib/components/ui/Select.svelte';
+	import { t } from '$lib/i18n';
 	import { onMount, untrack } from 'svelte';
 	import type ForceGraph from 'force-graph';
 	import type { LinkObject } from 'force-graph';
 	import type { FactCategory } from '$lib/types/memory';
 	import { Button, Icon } from '$lib/components/ui';
-	import { t } from '$lib/i18n';
 	import MemoryFactSummary from './MemoryFactSummary.svelte';
 	import {
 		getFactsWithEmbeddings,
@@ -37,9 +38,9 @@
 	let dark = $state(false);
 	let reducedMotion = $state(false);
 	const categoryOptions: { value: FactCategory; label: string }[] = [
-		{ value: 'user', label: t('memory.catUser') },
-		{ value: 'relationship', label: t('stats.relationship') },
-		{ value: 'shared_experience', label: t('memory.catShared') }
+		{ value: 'user', label: 'About you' },
+		{ value: 'relationship', label: 'Relationship' },
+		{ value: 'shared_experience', label: 'Shared' }
 	];
 	const data = $derived(
 		filterGraph(fullData, { categories: new Set(categories), minSimilarity: 0.5 })
@@ -104,6 +105,7 @@
 		const isDark = dark;
 		const reduce = reducedMotion;
 		if (!current) return;
+		const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
 		const touches = (link: LinkObject<GraphNode>) =>
 			[link.source, link.target].some(
 				(node) => (typeof node === 'object' ? node.id : node) === active?.id
@@ -118,14 +120,14 @@
 			)
 			.linkColor((link) =>
 				active && touches(link)
-					? 'rgba(0, 178, 255, 0.8)'
+					? accent
 					: isDark
 						? `rgba(255,255,255,${active ? 0.05 : 0.2})`
 						: `rgba(0,0,0,${active ? 0.05 : 0.15})`
 			)
 			.linkWidth((link) => (active ? (touches(link) ? 2 : 0.5) : 1))
 			.linkDirectionalParticles(reduce ? 0 : 2)
-			.linkDirectionalParticleColor(() => (isDark ? '#00b2ff' : '#0099dd'))
+			.linkDirectionalParticleColor(() => accent)
 			.cooldownTicks(reduce ? 0 : 160);
 	});
 
@@ -207,7 +209,7 @@
 
 <div class="memory-graph" class:expanded>
 	<div class="controls">
-		<div class="category-toggles" role="group" aria-label={t('memory.graphCategories')}>
+		<div class="category-toggles" role="group" aria-label="Graph categories">
 			{#each categoryOptions as category}<Button
 					variant={categories.includes(category.value) ? 'secondary' : 'ghost'}
 					size="sm"
@@ -229,18 +231,7 @@
 	</div>
 	<label class="memory-picker"
 		>Inspect a memory
-		<select
-			class="settings-field"
-			value={selected?.id ?? ''}
-			onchange={(event) =>
-				(selectedId = event.currentTarget.value ? Number(event.currentTarget.value) : null)}
-			disabled={!data.nodes.length}
-		>
-			<option value="">{t('memory.selectMemory')}</option>
-			{#each data.nodes as node}<option value={node.id}
-					>{node.content.length > 90 ? `${node.content.slice(0, 90)}…` : node.content}</option
-				>{/each}
-		</select>
+		<Select label="Inspect a memory" value={selected ? String(selected.id) : ''} onchange={(value) => selectedId = value ? Number(value) : null} disabled={!data.nodes.length} options={[{ value: '', label: 'Select a memory' }, ...data.nodes.map(node => ({ value: String(node.id), label: node.content.length > 90 ? `${node.content.slice(0, 90)}…` : node.content }))]} />
 	</label>
 	<div class="graph-layout" class:has-selection={!!selected}>
 		<div class="graph-container" bind:this={container}>
@@ -251,7 +242,7 @@
 				</div>
 			{:else if !fullData.nodes.length}<div class="graph-message">
 					<Icon name="brain" size={28} />
-					<h3>{t('memory.noConnected')}</h3>
+					<h3>No connected memories yet</h3>
 					<p>
 						The graph shows memories once their connections are ready. You can still read and manage
 						all saved memories in Facts.
@@ -259,7 +250,7 @@
 					<Button variant="secondary" onclick={onOpenFacts}>View facts</Button>
 				</div>
 			{:else if !data.nodes.length}<div class="graph-message">
-					<p>{t('memory.noMatch')}</p>
+					<p>No memories match these categories.</p>
 					<Button
 						variant="secondary"
 						onclick={() => (categories = ['user', 'relationship', 'shared_experience'])}
@@ -267,13 +258,13 @@
 					>
 				</div>{/if}
 		</div>
-		{#if selected}<aside class="selected-detail" aria-label={t('memory.detailsAria')}>
+		{#if selected}<aside class="selected-detail" aria-label="Memory details">
 				<div class="detail-heading">
-					<h3>{t('memory.memoryDetails')}</h3>
+					<h3>Memory details</h3>
 					<Button
 						variant="ghost"
 						size="sm"
-						aria-label={t('memory.closeDetails')}
+						aria-label="Close memory details"
 						onclick={() => (selectedId = null)}><Icon name="x" size={14} /></Button
 					>
 				</div>

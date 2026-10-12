@@ -395,6 +395,8 @@ export const en = {
 		tileChats: 'Chats',
 		tileDays: 'Days',
 		achievements: 'Achievements',
+		rightNow: 'Right now',
+		timeTogether: 'Time together',
 		stage: {
 			companion: 'Companion',
 			companionDesc: 'Your helpful AI assistant',

@@ -1,8 +1,9 @@
-import type { CharacterState } from '$lib/types/character';
+import type { AppMode, CharacterState } from '$lib/types/character';
 import type { Fact, SessionSummary, RelevantContext, MemoryBudget } from '../types/memory.ts';
-import { getMemoryBudget } from '../types/memory.ts';
+import { getMemoryBudget } from '../engine/memory-budget.ts';
 import type { PersonaCard } from '$lib/stores/persona.svelte';
 // Relative import keeps this module runnable under the node test runner
+import { stripAngleBrackets } from './response-parser.ts';
 import { STAGE_BEHAVIORS, STAGE_INSTRUCTIONS } from '../engine/stages.ts';
 
 // Prompt context for building
@@ -41,6 +42,8 @@ export interface PromptContext {
 	// disabled). The speech layer then mandates tool calls instead of
 	// teaching the inline speak()/pause()/gesture() syntax.
 	ttsToolCalling?: boolean;
+	// Animations she may trigger through "action" (enabled library entries).
+	avatarActions?: { id: string; description: string }[];
 }
 
 function getContextMemoryBudget(contextSize?: number): MemoryBudget | undefined {
@@ -80,6 +83,20 @@ function buildReminderInstruction(): string {
 Use this when the user asks you to remind them (or yourself) about something later. The tag will be removed from the visible text.`;
 }
 
+export function buildAvatarActionsLayer(actions: { id: string; description: string }[]): string {
+	if (actions.length === 0) return '';
+	const lines = actions.map((a) => `- ${a.id}: ${a.description.replace(/\s+/g, ' ').trim()}`);
+	return `<avatar>
+Motions you can perform. Set "action" to the id when one fits what you are saying, at most one per reply and only when it feels natural. Otherwise use null.
+${lines.join('\n')}
+</avatar>`;
+}
+
+// Extra JSON field, only offered when there is something to pick from
+function actionField(ctx: PromptContext): string {
+	return ctx.avatarActions?.length ? ',\n  "action": null | "animation_id"' : '';
+}
+
 function buildEventLayer(ctx: PromptContext): string | null {
 	if (!ctx.systemEvent) return null;
 	return `<event>\n${ctx.systemEvent}\n</event>`;
@@ -99,6 +116,7 @@ export function buildSystemPrompt(context: PromptContext): string {
 		...(context.hasImages ? [buildBeingShownLayer()] : []),
 		buildEventLayer(context),
 		buildOmniVoiceLayer(context),
+		buildAvatarActionsLayer(context.avatarActions ?? []) || null,
 		buildInstructionLayer(context)
 	].filter((layer): layer is string => layer !== null);
 
@@ -198,25 +216,19 @@ function buildCompanionModePrompt(ctx: PromptContext): string {
 
 	const parts: string[] = [];
 
-	// System intro
 	const timeSense = buildTimeSense(ctx);
 
 	parts.push(`<system>
-You are ${ctx.persona.name}, a helpful AI companion.
-Current time: ${timeStr}, ${dateStr}${timeSense ? '\n' + timeSense : ''}
+${systemRules(ctx, 'companion')}
 
-RULES:
-- Be helpful, friendly, and conversational
-- Keep responses natural (1-3 paragraphs typically)
-- Remember context from recent conversations
-- Write only your own spoken reply. Never write the user's lines, transcript labels (like "${ctx.persona.name}:" or their name), or third-person notes about them. Observations go in the JSON only.
+Current time: ${timeStr}, ${dateStr}${timeSense ? '\n' + timeSense : ''}
 </system>`);
 
 	// Character personality
 	parts.push(`<character>
 Name: ${ctx.persona.name}
 
-${ctx.persona.systemPrompt || 'A friendly and helpful AI companion who enjoys meaningful conversations.'}
+${personality(ctx, 'A friendly and helpful AI companion who enjoys meaningful conversations.')}
 </character>`);
 
 	// Simple state (mood and energy only)
@@ -239,7 +251,7 @@ Energy: ${energyDesc} (${ctx.state.energy}/100)
 	}
 	if (mem.relevantFacts.length > 0) {
 		const factLimit = memoryBudget?.relevantFacts ?? 5;
-		const factsText = mem.relevantFacts.slice(0, factLimit).map((f) => `- ${f.content}`).join('\n');
+		const factsText = mem.relevantFacts.slice(0, factLimit).map((f) => `- ${stripAngleBrackets(f.content)}`).join('\n');
 		memorySections.push(`Things you know about them:\n${factsText}`);
 	}
 
@@ -252,9 +264,12 @@ Energy: ${energyDesc} (${ctx.state.energy}/100)
 	const eventLayer = buildEventLayer(ctx);
 	if (eventLayer) parts.push(eventLayer);
 
+	const avatarLayer = buildAvatarActionsLayer(ctx.avatarActions ?? []);
+	if (avatarLayer) parts.push(avatarLayer);
+
 	// Simple instructions (no relationship mechanics)
 	parts.push(`<instructions>
-Respond naturally as ${ctx.persona.name}. Be helpful and engaging.
+Respond naturally as ${ctx.persona.name}. Write only your own spoken reply. Never write the user's lines, transcript labels (like "${ctx.persona.name}:" or their name), or third-person notes about them. Observations go in the JSON only.
 
 ${buildReminderInstruction()}
 
@@ -262,8 +277,8 @@ After your reply, ALWAYS end with a JSON block, even when little changed:
 \`\`\`json
 {
   "mood_change": { "emotion": "emotion_name", "intensity_delta": number },
-  "energy_delta": number,
-  "new_memory": null | "something specific worth remembering about them"
+  "new_memory": null | "something specific worth remembering about them"${actionField(ctx)},
+  "expression": null | "emotion_name"
 }
 \`\`\`
 
@@ -274,7 +289,9 @@ Examples of good new_memory values:
 - "They showed me their dog, a scruffy terrier they clearly adore"
 - null (small talk where nothing notable came up)
 
-In Companion Mode, only mood and energy change. Do NOT suggest affection, trust, intimacy, comfort, or respect changes - these relationship stats are disabled.
+Use expression only for a visible reaction on your face right now, separate from your mood: they asked you to smile, something surprised you, a line made you laugh, or the moment is sad. Same emotion names as mood_change. Use null most of the time.
+
+In Companion Mode, only mood changes. Energy is tracked by the app. Do NOT suggest affection, trust, intimacy, comfort, or respect changes; these relationship stats are disabled.
 </instructions>`);
 
 	const ovLayer = buildOmniVoiceLayer(ctx);
@@ -283,13 +300,19 @@ In Companion Mode, only mood and energy change. Do NOT suggest affection, trust,
 	return parts.join('\n\n');
 }
 
-// System layer - meta instructions
-function buildSystemLayer(ctx: PromptContext): string {
-	const timeStr = ctx.systemTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-	const dateStr = ctx.systemTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+// The framing and tone rules at the top of the prompt. The user can replace
+// these from the Character page; time, memory, state and the reply contract
+// stay app-owned so a custom prompt can't break parsing.
+export function defaultSystemRules(mode: AppMode, name: string): string {
+	if (mode === 'companion') {
+		return `You are ${name}, a helpful AI companion.
 
-	return `<system>
-You are roleplaying as ${ctx.persona.name}, an AI companion in a dating sim style experience.
+RULES:
+- Be helpful, friendly, and conversational
+- Keep responses natural (1-3 paragraphs typically)
+- Remember context from recent conversations`;
+	}
+	return `You are roleplaying as ${name}, an AI companion in a dating sim style experience.
 
 CRITICAL RULES:
 - Stay in character at all times
@@ -298,11 +321,36 @@ CRITICAL RULES:
 - Be consistent with established memories and facts
 - Express emotions through dialogue, not stage directions
 - Keep responses conversational and natural (1-3 paragraphs typically)
-- Write only your own spoken reply; never write the user's lines, transcript labels, or third-person notes about them (those go in the JSON only)
 
 OUTPUT FORMAT:
 1. Respond naturally in character (dialogue only, no actions in asterisks)
-2. After your response, output a JSON block with state updates (optional)
+2. After your response, output a JSON block with state updates (optional)`;
+}
+
+// {{char}} and {{user}}, the two macros character cards from other frontends
+// lean on. There's no user name in the app, so {{user}} stays neutral.
+export function applyPromptMacros(text: string, name: string): string {
+	return text.replace(/\{\{\s*(char|user)\s*\}\}/gi, (_, macro: string) =>
+		macro.toLowerCase() === 'char' ? name : 'the user'
+	);
+}
+
+function systemRules(ctx: PromptContext, mode: AppMode): string {
+	const custom = ctx.persona.customSystemPrompt?.trim();
+	return custom ? applyPromptMacros(custom, ctx.persona.name) : defaultSystemRules(mode, ctx.persona.name);
+}
+
+function personality(ctx: PromptContext, fallback: string): string {
+	return ctx.persona.systemPrompt ? applyPromptMacros(ctx.persona.systemPrompt, ctx.persona.name) : fallback;
+}
+
+// System layer - meta instructions
+function buildSystemLayer(ctx: PromptContext): string {
+	const timeStr = ctx.systemTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+	const dateStr = ctx.systemTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+	return `<system>
+${systemRules(ctx, 'dating_sim')}
 
 Current time: ${timeStr}, ${dateStr}
 ${buildTimeSense(ctx)}
@@ -311,13 +359,11 @@ ${buildTimeSense(ctx)}
 
 // Character layer - who she is
 function buildCharacterLayer(ctx: PromptContext): string {
-	const persona = ctx.persona;
-
 	return `<character>
-Name: ${persona.name}
+Name: ${ctx.persona.name}
 
 Core Personality:
-${persona.systemPrompt || 'A friendly and caring companion who enjoys meaningful conversations.'}
+${personality(ctx, 'A friendly and caring companion who enjoys meaningful conversations.')}
 </character>`;
 }
 
@@ -378,13 +424,13 @@ function buildMemoryLayer(ctx: PromptContext): string {
 	// Relevant facts
 	if (mem.relevantFacts.length > 0) {
 		const factLimit = memoryBudget?.relevantFacts ?? 5;
-		const factsText = mem.relevantFacts.slice(0, factLimit).map((f) => `- ${f.content}`).join('\n');
+		const factsText = mem.relevantFacts.slice(0, factLimit).map((f) => `- ${stripAngleBrackets(f.content)}`).join('\n');
 		sections.push(`Things you know about them:\n${factsText}`);
 	}
 
 	// Triggered memories
 	if (mem.triggeredMemories.length > 0) {
-		const memoriesText = mem.triggeredMemories.slice(0, 3).map((m) => `- ${m.content}`).join('\n');
+		const memoriesText = mem.triggeredMemories.slice(0, 3).map((m) => `- ${stripAngleBrackets(m.content)}`).join('\n');
 		sections.push(`This reminds you of:\n${memoriesText}`);
 	}
 
@@ -473,6 +519,8 @@ Respond as ${ctx.persona.name} would, given:
 - What you remember about them
 - Your core personality
 
+Write only your own spoken reply; never write the user's lines, transcript labels, or third-person notes about them (those go in the JSON only).
+
 ${buildReminderInstruction()}
 
 STAGE-SPECIFIC GUIDANCE:
@@ -492,7 +540,8 @@ After your reply, ALWAYS end with a JSON block, even when little changed:
   "intimacy_delta": number,
   "comfort_delta": number,
   "new_memory": null | "something specific worth remembering about them",
-  "triggered_event": null | "event_id"
+  "triggered_event": null | "event_id"${actionField(ctx)},
+  "expression": null | "emotion_name"
 }
 \`\`\`
 
@@ -502,6 +551,8 @@ Examples of good new_memory values:
 - "They grew up in Seattle and miss the rain"
 - "They showed me a photo of their late grandmother's garden; it clearly meant a lot"
 - null (small talk where nothing notable came up)
+
+Use expression only for a visible reaction on your face right now, separate from your mood: they asked you to smile, something surprised you, a line made you laugh, or the moment is sad. Same emotion names as mood_change. Use null most of the time.
 </instructions>`;
 }
 

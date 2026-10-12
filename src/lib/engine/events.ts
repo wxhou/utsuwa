@@ -6,7 +6,6 @@ import { filterUnshownEvents, isReplayableOnMount, markEventShown, shownEventIds
 
 // Pure matching logic lives in event-matching.ts (no storage dependency, unit-tested).
 import { checkAllEvents } from './event-matching';
-export { checkCondition, checkEvent, checkAllEvents } from './event-matching';
 
 // Events API - uses IndexedDB storage directly
 export const eventsApi = {

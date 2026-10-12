@@ -16,7 +16,7 @@ export type LLMProvider =
 	| 'openai-compatible';
 
 // TTS Provider IDs
-export type TTSProvider = 'elevenlabs' | 'openai-tts' | 'local-tts' | 'omnivoice' | 'minimax' | 'siliconflow';
+export type TTSProvider = 'elevenlabs' | 'openai-tts' | 'fish-audio' | 'local-tts' | 'omnivoice' | 'minimax' | 'siliconflow';
 
 // Provider configuration (stored in settings)
 export interface ProviderConfig {
@@ -27,6 +27,10 @@ export interface ProviderConfig {
 	speed?: number;
 	pitch?: number;
 	volume?: number;
-	cachedModels?: Array<{ id: string; name: string }>;
+	cachedModels?: Array<{ id: string; name: string; vision?: boolean }>;
 	modelsFetchedAt?: number;
+	// User's answer to "can this model see images?", keyed by model id
+	visionOverrides?: Record<string, boolean>;
+	// Request timeout in ms; used by STT
+	timeoutMs?: number;
 }

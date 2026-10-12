@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
-	import { t } from '$lib/i18n';
 	import { onMount } from 'svelte';
-	import { pop, fadeFast } from '$lib/utils/motion';
+	import { Dialog } from 'bits-ui';
 	import { DOCS_URL } from '$lib/config/site';
 	import { isTauri } from '$lib/services/platform/platform';
 	import { updaterStore } from '$lib/stores/updater.svelte';
@@ -18,17 +17,17 @@
 	const updateStatusText = $derived.by(() => {
 		switch (updaterStore.status) {
 			case 'checking':
-				return t('updater.checking');
+				return 'Checking for updates…';
 			case 'uptodate':
-				return t('updater.uptodate');
+				return "You're on the latest version";
 			case 'available':
-				return t('updater.availableVersion', { version: updaterStore.availableVersion ?? '' });
+				return `Update available: Utsuwa ${updaterStore.availableVersion}`;
 			case 'downloading':
-				return t('updater.downloadingProgress', { progress: updaterStore.progress });
+				return `Downloading… ${updaterStore.progress}%`;
 			case 'ready':
-				return t('updater.installedRestarting');
+				return 'Update installed. Restarting…';
 			case 'error':
-				return updaterStore.errorMessage ?? t('updater.failed');
+				return updaterStore.errorMessage ?? 'Update check failed';
 			default:
 				return '';
 		}
@@ -38,34 +37,25 @@
 		updaterStore.status === 'checking' || updaterStore.status === 'downloading'
 	);
 
-	// System info — booleans only; labels are resolved through the dictionary so
-	// they follow locale switches.
-	let sttOk = $state<boolean | null>(null);
-	let webglOk = $state<boolean | null>(null);
-	let storageOk = $state<boolean | null>(null);
+	// System info
+	let sttSupport = $state('Checking...');
+	let webglSupport = $state('Checking...');
+	let storageStatus = $state('Checking...');
 
 	onMount(() => {
 		const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-		sttOk = Boolean(SpeechRecognition);
+		sttSupport = SpeechRecognition ? 'Supported' : 'Unsupported';
 
 		try {
 			const canvas = document.createElement('canvas');
 			const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-			webglOk = Boolean(gl);
+			webglSupport = gl ? 'Supported' : 'Unsupported';
 		} catch {
-			webglOk = false;
+			webglSupport = 'Unsupported';
 		}
 
-		storageOk = 'indexedDB' in window;
+		storageStatus = 'indexedDB' in window ? 'Available' : 'Unavailable';
 	});
-
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') onClose();
-	}
-
-	function handleOverlayClick(e: MouseEvent) {
-		if (e.target === e.currentTarget) onClose();
-	}
 
 	// Always open the docs subdomain; on desktop route it to the system browser.
 	function handleDocsClick(e: MouseEvent) {
@@ -76,30 +66,33 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="modal-overlay" transition:fadeFast={{ duration: 180 }} onclick={handleOverlayClick} onkeydown={handleKeydown} role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
-	<div class="modal-container" transition:pop={{ duration: 220, y: 14 }}>
-		<button class="close-btn" onclick={onClose} aria-label={t('common.close')}>
+<Dialog.Root open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+<Dialog.Portal>
+ <Dialog.Overlay class="ui-dialog-backdrop" />
+ <Dialog.Content>
+ {#snippet child({ props })}
+ <div {...props} class="modal-container ui-dialog">
+  <Dialog.Title class="sr-only">About Utsuwa</Dialog.Title>
+  <Dialog.Description class="sr-only">App information, documentation, and device support.</Dialog.Description>
+		<button class="close-btn btn btn-ghost btn-icon" onclick={onClose} aria-label="Close">
 			<Icon name="x" size={16} />
 		</button>
 
 		<!-- Hero -->
 		<div class="hero">
 			<span class="app-logo" role="img" aria-label="Utsuwa"></span>
-			<p id="modal-title" class="tagline">{t('info.tagline')}</p>
+			<p id="modal-title" class="tagline">Open-source AI companion</p>
 			<div class="hero-meta">
-				<span class="version-chip">{version}</span>
+				<span class="ui-badge">{version}</span>
 				{#if isTauri()}
 					<button
-						class="update-link"
+						class="btn btn-ghost btn-sm"
 						onclick={() =>
 							updaterStore.status === 'available' ? updaterStore.install() : updaterStore.check()}
 						disabled={updateBusy}
 					>
 						<Icon name={updaterStore.status === 'available' ? 'download' : 'refresh-cw'} size={12} />
-						<span>{updaterStore.status === 'available' ? t('info.installRestart') : t('info.checkUpdates')}</span>
+						<span>{updaterStore.status === 'available' ? 'Install & restart' : 'Check for updates'}</span>
 					</button>
 				{/if}
 			</div>
@@ -121,7 +114,7 @@
 						<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
 					</svg>
 				</span>
-				<span class="row-label">{t('info.github')}</span>
+				<span class="row-label">GitHub</span>
 				<span class="row-ext"><Icon name="external-link" size={14} /></span>
 			</a>
 			<a
@@ -132,81 +125,43 @@
 				class="link-row"
 			>
 				<span class="row-icon"><Icon name="file-text" size={18} /></span>
-				<span class="row-label">{t('info.documentation')}</span>
+				<span class="row-label">Documentation</span>
 				<span class="row-ext"><Icon name="external-link" size={14} /></span>
 			</a>
 		</nav>
 
 		<!-- System -->
-		<p class="sys-label">{t('info.system')}</p>
+		<p class="sys-label">System</p>
 		<div class="sys-list">
 			<div class="sys-row">
-				<span class="sys-name">{t('info.speechRecognition')}</span>
-				<span class="sys-val" class:ok={sttOk === true} class:bad={sttOk === false}>
-					<span class="dot"></span>{sttOk === null ? t('info.checking') : sttOk ? t('info.supported') : t('info.unsupported')}
+				<span class="sys-name">Speech recognition</span>
+				<span class="sys-val" class:ok={sttSupport === 'Supported'} class:bad={sttSupport === 'Unsupported'}>
+					<span class="dot"></span>{sttSupport}
 				</span>
 			</div>
 			<div class="sys-row">
-				<span class="sys-name">{t('info.graphics3d')}</span>
-				<span class="sys-val" class:ok={webglOk === true} class:bad={webglOk === false}>
-					<span class="dot"></span>{webglOk === null ? t('info.checking') : webglOk ? t('info.supported') : t('info.unsupported')}
+				<span class="sys-name">3D graphics</span>
+				<span class="sys-val" class:ok={webglSupport === 'Supported'} class:bad={webglSupport === 'Unsupported'}>
+					<span class="dot"></span>{webglSupport}
 				</span>
 			</div>
 			<div class="sys-row">
-				<span class="sys-name">{t('info.localStorage')}</span>
-				<span class="sys-val" class:ok={storageOk === true} class:bad={storageOk === false}>
-					<span class="dot"></span>{storageOk === null ? t('info.checking') : storageOk ? t('info.available') : t('info.unavailable')}
+				<span class="sys-name">Local storage</span>
+				<span class="sys-val" class:ok={storageStatus === 'Available'} class:bad={storageStatus === 'Unavailable'}>
+					<span class="dot"></span>{storageStatus}
 				</span>
 			</div>
 		</div>
 	</div>
-</div>
+ {/snippet}</Dialog.Content>
+</Dialog.Portal>
+</Dialog.Root>
 
 <style>
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(28, 43, 51, 0.28);
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		padding: 1.5rem;
-	}
 
-	.modal-container {
-		position: relative;
-		background: var(--bg-primary);
-		border-radius: var(--radius-xl);
-		max-width: 340px;
-		width: 100%;
-		padding: 1.5rem;
-		box-shadow: var(--shadow-xl);
-	}
+	.modal-container { --dialog-width: 340px; padding: 1.5rem; }
 
-	.close-btn {
-		position: absolute;
-		top: 0.85rem;
-		right: 0.85rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 30px;
-		height: 30px;
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-full);
-		color: var(--text-tertiary);
-		cursor: pointer;
-		transition: background 0.15s ease, color 0.15s ease;
-	}
-
-	.close-btn:hover {
-		background: var(--bg-secondary);
-		color: var(--text-primary);
-	}
+	.close-btn { position: absolute; top: 12px; right: 12px; }
 
 	/* Hero */
 	.hero {
@@ -241,40 +196,8 @@
 		justify-content: center;
 	}
 
-	.version-chip {
-		padding: 0.25rem 0.6rem;
-		background: var(--bg-tertiary);
-		border-radius: var(--radius-full);
-		font-size: 0.72rem;
-		font-weight: 600;
-		color: var(--text-secondary);
-	}
 
-	.update-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.35rem;
-		padding: 0.25rem 0.6rem;
-		border: none;
-		border-radius: var(--radius-full);
-		background: transparent;
-		font-size: 0.72rem;
-		font-weight: 500;
-		color: var(--accent);
-		cursor: pointer;
-		font-family: inherit;
-		transition: background 0.15s ease;
-	}
 
-	.update-link:hover:not(:disabled) {
-		background: var(--accent-muted);
-	}
-
-	.update-link:disabled {
-		opacity: 0.6;
-		cursor: default;
-		color: var(--text-tertiary);
-	}
 
 	.update-status {
 		font-size: 0.7rem;

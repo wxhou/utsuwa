@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { pop, fadeFast } from '$lib/utils/motion';
-	import { vrmStore } from '$lib/stores/vrm.svelte';
+	import { Dialog } from 'bits-ui';
+	import { vrmGalleryStore } from '$lib/stores/vrm-gallery.svelte';
 	import { Icon } from '$lib/components/ui';
 	import { t } from '$lib/i18n';
 	import VrmUploader from '$lib/components/vrm/VrmUploader.svelte';
@@ -9,23 +9,24 @@
 	let { page }: { page: PersonaPageState } = $props();
 </script>
 
+<Dialog.Root bind:open={page.uploadModalOpen}>
 <!-- Model Gallery (inline) -->
 <div class="model-gallery">
 	<div class="gallery-header">
 		<span class="settings-label">{t('settings.persona.avatar')}</span>
-		<button class="btn btn-secondary btn-sm" onclick={() => page.uploadModalOpen = true}>
+		<Dialog.Trigger class="btn btn-secondary btn-sm" onclick={(event) => event.currentTarget.focus()}>
 			<Icon name="upload" size={14} />
 			<span>{t('settings.persona.addCustom')}</span>
-		</button>
+		</Dialog.Trigger>
 	</div>
 
 	<div class="gallery-grid">
-		{#each vrmStore.models as model (model.id)}
+		{#each vrmGalleryStore.models as model (model.id)}
 			<button
 				class="model-card"
-				class:active={model.id === vrmStore.activeModelId}
-				aria-pressed={model.id === vrmStore.activeModelId}
-				onclick={() => vrmStore.setActiveModel(model.id)}
+				class:active={model.id === vrmGalleryStore.activeModelId}
+				aria-pressed={model.id === vrmGalleryStore.activeModelId}
+				onclick={() => vrmGalleryStore.setActiveModel(model.id)}
 			>
 				<div class="model-preview">
 					{#if model.previewUrl}
@@ -33,7 +34,7 @@
 					{:else}
 						<Icon name="user" size={24} />
 					{/if}
-					{#if model.id === vrmStore.activeModelId}
+					{#if model.id === vrmGalleryStore.activeModelId}
 						<div class="active-check">
 							<Icon name="check" size={12} strokeWidth={3} />
 						</div>
@@ -45,30 +46,22 @@
 	</div>
 </div>
 
-<!-- Upload Modal -->
-{#if page.uploadModalOpen}
-	<div
-		class="upload-modal"
-		transition:fadeFast={{ duration: 180 }}
-		role="button"
-		tabindex="0"
-		onclick={() => page.uploadModalOpen = false}
-		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); page.uploadModalOpen = false; } }}
-	>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="upload-content" transition:pop={{ duration: 220, y: 14 }} onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-			<div class="upload-header">
-				<h3>{t('settings.persona.uploadCustom')}</h3>
-				<button class="btn btn-secondary btn-sm" aria-label={t('settings.persona.closeUpload')} onclick={() => page.uploadModalOpen = false}>
-					<Icon name="x" size={20} />
-				</button>
-			</div>
-			<VrmUploader onUpload={page.handleUpload} />
-		</div>
-	</div>
-{/if}
+<Dialog.Portal>
+ <Dialog.Overlay class="ui-dialog-backdrop" />
+ <Dialog.Content class="ui-dialog upload-content">
+  <div class="upload-header">
+   <Dialog.Title class="upload-title">{t('settings.persona.uploadCustom')}</Dialog.Title>
+   <Dialog.Close class="btn btn-ghost btn-icon" aria-label="Close model upload"><Icon name="x" size={16} /></Dialog.Close>
+  </div>
+  <Dialog.Description class="sr-only">Choose a VRM avatar file from your device.</Dialog.Description>
+  <VrmUploader onUpload={page.handleUpload} />
+ </Dialog.Content>
+</Dialog.Portal>
+</Dialog.Root>
 
 <style>
+	:global(.upload-content) { --dialog-width: 400px; }
+	:global(.upload-title) { margin: 0; font-size: 16px; font-weight: 500; color: var(--text-primary); }
 	/* Model Gallery */
 	.model-gallery {
 		display: flex;
@@ -82,9 +75,6 @@
 		justify-content: space-between;
 	}
 
-
-
-
 	.gallery-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -97,27 +87,28 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.75rem;
-		background: var(--bg-primary);
+		background: var(--control-bg);
 		border-radius: var(--radius-lg);
 		cursor: pointer;
 		transition: background 0.15s ease, box-shadow 0.15s ease;
-		box-shadow: var(--shadow-xs);
+		border: 1px solid var(--border-light);
 	}
 
 	.model-card:hover {
-		box-shadow: var(--shadow-sm);
+		background: var(--control-hover);
 	}
 
 	.model-card.active {
-		background: var(--accent-muted);
+		background: var(--control-selected);
+		border-color: transparent;
 	}
 
 	.model-card.active .model-name {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 
 	.model-card.active .model-preview {
-		background: var(--bg-primary);
+		background: var(--control-bg);
 		color: var(--accent);
 	}
 
@@ -125,7 +116,7 @@
 		position: relative;
 		width: 100%;
 		aspect-ratio: 1;
-		background: var(--bg-secondary);
+		background: var(--control-selected);
 		border-radius: var(--radius-md);
 		overflow: hidden;
 		display: flex;
@@ -150,7 +141,7 @@
 		align-items: center;
 		justify-content: center;
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-contrast);
 		border-radius: var(--radius-full);
 		box-shadow: var(--shadow-sm);
 	}
@@ -166,27 +157,6 @@
 	}
 
 	/* Upload Modal */
-	.upload-modal {
-		position: fixed;
-		inset: 0;
-		background: rgba(28, 43, 51, 0.28);
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 100;
-		padding: 2rem;
-	}
-
-	.upload-content {
-		background: var(--bg-primary);
-		border-radius: var(--radius-xl);
-		max-width: 400px;
-		width: 100%;
-		overflow: hidden;
-		box-shadow: var(--shadow-xl);
-	}
 
 	.upload-header {
 		display: flex;
@@ -196,16 +166,7 @@
 		border-bottom: 1px solid var(--border-light);
 	}
 
-	.upload-header h3 {
-		margin: 0;
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--text-primary);
-	}
-
-
-
-	.upload-content :global(.uploader) {
+	:global(.upload-content .uploader) {
 		margin: 1rem;
 		aspect-ratio: auto;
 		min-height: 200px;

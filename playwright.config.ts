@@ -5,7 +5,9 @@ export default defineConfig({
 	fullyParallel: false,
 	workers: 1,
 	reporter: 'list',
-	timeout: 45_000,
+	// Hosted software rendering can stall DOM reads while compositing a frame.
+	timeout: process.env.CI ? 90_000 : 45_000,
+	expect: { timeout: process.env.CI ? 20_000 : 5_000 },
 	//基线端口 5188；被外部进程占用时用 BW_PORT 指到空闲端口，避免改配置
 	use: {
 		baseURL: `http://127.0.0.1:${process.env.BW_PORT ?? 5188}`,

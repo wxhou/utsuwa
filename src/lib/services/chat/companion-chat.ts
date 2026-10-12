@@ -6,23 +6,20 @@
 // a small set of hooks to sync their own reactive state.
 import { characterStore } from '$lib/stores/character.svelte';
 import type { ThinkingPhase } from './chat-phase';
-import { chatStore } from '$lib/stores/chat.svelte';
+import { chatStore, type Message } from '$lib/stores/chat.svelte';
+import { chatDraftStore } from '$lib/stores/chat-draft.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import { modulesStore } from '$lib/stores/modules.svelte';
 import { ttsStore } from '$lib/stores/tts.svelte';
 import { personaStore } from '$lib/stores/persona.svelte';
 import { vrmStore } from '$lib/stores/vrm.svelte';
-import { STATE_FENCE_OPEN } from '$lib/ai/response-parser';
-import { getLLMProvider, getTTSProvider } from '$lib/services/providers/registry';
-import { type TTSOptions } from '$lib/services/tts';
-import {
-	cleanSpeechMarkers,
-	cutAtStateFence,
-	hasIncompleteTrailingMarkup,
-	stripThinkingBlocks,
-	StreamingDisplayCleaner
-} from '$lib/services/tts/chat-text';
-import { streamChatDirect } from '$lib/services/chat/client-chat';
+import { animationLibraryStore } from '$lib/stores/animation-library.svelte';
+import { getTTSProvider } from '$lib/services/providers/registry';
+import { buildTTSOptions } from '$lib/services/tts/tts-options';
+import { cleanSpeechMarkers, stripThinkingBlocks } from '$lib/services/tts/chat-text';
+import { streamChat } from '$lib/services/llm/transport';
+import { RETRY_DELAYS_MS } from '$lib/services/llm/retry';
+import { missingLLMMessage, resolveActiveLLM, resolveVisionLLM, visionModelEnabled } from '$lib/services/llm/active-llm';
 
 import { processCompanionTurn } from '$lib/services/chat/companion-turn';
 import { markEventShown } from '$lib/engine/event-replay';
@@ -31,21 +28,23 @@ import { buildSystemPrompt, buildMcpSecurityInstructions, truncateChatHistory, t
 import { keepImage, type PreparedImage } from '$lib/services/storage/keepsakes';
 import { extractReminderTags, tryExtractReminderFromUserMessage } from '$lib/utils/reminders';
 import { reminderStore } from '$lib/stores/reminders.svelte';
-import { getWorkingMemory, ensureSession } from '$lib/engine/memory';
-import { toOpenAIContent, type ContentPart } from '$lib/services/chat/content';
+import { getWorkingMemory, ensureSession } from '$lib/engine/memory-session';
+import { buildAdvancedParams, buildMessages, describeImagesRequest, type ChatLoopMessage } from '$lib/services/chat/turn-context';
+import { TurnStream } from '$lib/services/chat/turn-stream';
 import { pseudoCallFromTool } from '$lib/services/tts/speech-compiler';
-import { shouldUseSpeechTools } from '$lib/services/tts/tool-definitions';
-import { isTauri } from '$lib/services/platform';
+import { buildSpeechTools, shouldUseSpeechTools } from '$lib/services/tts/tool-definitions';
 import { env as publicEnv } from '$env/dynamic/public';
-import { parseToolNameList } from '$lib/services/mcp/protocol';
+import { isMcpHardeningEnabled, parseToolNameList } from '$lib/services/mcp/protocol';
 import { mcpStore } from '$lib/stores/mcp.svelte';
+import { chatHintStore } from '$lib/stores/chat-hint.svelte';
 import { callTool } from '$lib/services/mcp/capability';
 import {
 	MCP_MAX_ROUNDS,
-	MAX_TOOL_CALLS_PER_ROUND,
 	buildAssistantToolMessage,
+	buildSendTools,
 	buildToolResultMessages,
 	capToolResult,
+	collectToolResults,
 	ensureToolPairs,
 	findMcpTool,
 	mcpCallsOnly,
@@ -53,20 +52,11 @@ import {
 	speechToolAck,
 	stripFromStateFence,
 	toOpenAiTool,
-	type OpenAiToolCall
+	type ToolResultEntry
 } from '$lib/services/mcp/loop';
-import type { McpCollectedToolCall } from '$lib/types/mcp';
-import type { LLMProvider, TTSProvider } from '$lib/types';
+import type { McpCollectedToolCall, McpTool } from '$lib/types/mcp';
+import type { TTSProvider } from '$lib/types';
 import type { EventDefinition } from '$lib/types/events';
-
-/** Message shape used by the chat loop; extends the plain history with the
- *  tool-role entries the MCP loop appends between rounds. */
-interface ChatLoopMessage {
-	role: 'user' | 'assistant' | 'tool';
-	content: string | ContentPart[];
-	tool_calls?: OpenAiToolCall[];
-	tool_call_id?: string;
-}
 
 export interface CompanionChatHooks {
 	/** Toggle the typing indicator. */
@@ -107,92 +97,20 @@ async function buildCompanionPrompt(
 		pendingReminders: reminderStore.upcoming.map((r) => ({ triggerAt: r.triggerAt, content: r.content })),
 		sessionStartedAt: workingMemory.sessionStartedAt,
 		systemEvent,
-		ttsProvider: speechEnabled ? (speechSettings.activeProvider as string | undefined) : undefined,
-		ttsLanguage: (speechSettings.activeLanguage as string) || undefined,
-		ttsAltLanguage: (speechSettings.altLanguage as string) || undefined,
-		ttsAltEnabled: (speechSettings.enableAltLanguage as boolean) ?? false,
+		ttsProvider: speechEnabled ? speechSettings.activeProvider : undefined,
+		ttsLanguage: speechSettings.activeLanguage || undefined,
+		ttsAltLanguage: speechSettings.altLanguage || undefined,
+		ttsAltEnabled: speechSettings.enableAltLanguage,
 		// Same gate as the ttsTools injection in sendCompanionMessage: the
 		// speech layer must mandate tool calls exactly when the tools are sent.
-		ttsToolCalling: shouldUseSpeechTools(llmProvider, speechEnabled, speechSettings)
+		ttsToolCalling: shouldUseSpeechTools(llmProvider, speechEnabled, speechSettings),
+		// An undescribed upload still gets its name, so the id means something
+		avatarActions: animationLibraryStore.enabledForLlm.map((a) => ({
+			id: a.id,
+			description: a.description.trim() || a.name
+		}))
 	};
 	return buildSystemPrompt(context);
-}
-
-// Assemble the message history for the provider. The current turn carries the
-// image bytes; prior turns stay text. Empty messages are dropped (the assistant
-// placeholder, and any stray blank turn) so we never send an empty message.
-function buildMessages(images: PreparedImage[]) {
-	const history = chatStore.messages.slice(0, -1).filter((m) => m.content || m.images?.length);
-	return history.map((m, idx) => {
-		const isCurrentTurn = idx === history.length - 1 && images.length > 0;
-		if (!isCurrentTurn) {
-			return { role: m.role as 'user' | 'assistant', content: m.content };
-		}
-		const parts: ContentPart[] = [];
-		if (m.content) parts.push({ type: 'text', text: m.content });
-		for (const img of images) {
-			parts.push({ type: 'image', mimeType: img.mimeType, data: img.base64 });
-		}
-		return { role: m.role as 'user' | 'assistant', content: parts };
-	});
-}
-
-// Buffer partial lines from the server's text, tool-call and error events.
-// Always release the reader lock, including when an error event arrives.
-async function streamServerRoute(
-	body: unknown,
-	onDelta: (fullContent: string) => void,
-	onToolCall?: (name: string, args: Record<string, unknown>, id?: string) => void
-): Promise<string> {
-	const response = await fetch('/api/chat', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body)
-	});
-
-	if (!response.ok) {
-		const errBody = await response.json().catch(() => null);
-		throw new Error(errBody?.error || 'Failed to get response');
-	}
-
-	const reader = response.body?.getReader();
-	if (!reader) throw new Error('No response body');
-
-	const decoder = new TextDecoder();
-	let fullContent = '';
-	const processLine = (line: string) => {
-		if (line.startsWith('0:')) {
-			fullContent += JSON.parse(line.slice(2));
-			onDelta(fullContent);
-		} else if (line.startsWith('t:')) {
-			const { id, name, args } = JSON.parse(line.slice(2)) as {
-				id?: string;
-				name: string;
-				args: Record<string, unknown>;
-			};
-			onToolCall?.(name, args, id);
-		} else if (line.startsWith('e:')) {
-			throw new Error(JSON.parse(line.slice(2)).error);
-		}
-	};
-
-	try {
-		let buffer = '';
-		for (;;) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			buffer += decoder.decode(value, { stream: true });
-			const lines = buffer.split('\n');
-			buffer = lines.pop() || '';
-			for (const line of lines) processLine(line);
-		}
-		buffer += decoder.decode();
-		if (buffer) processLine(buffer);
-	} finally {
-		reader.releaseLock();
-	}
-
-	return fullContent;
 }
 
 /**
@@ -204,6 +122,17 @@ async function streamServerRoute(
 export interface SendCompanionMessageOptions {
 	/** When true, the message is delivered as a system event instead of a user turn. */
 	systemEvent?: boolean;
+	/** Give up when the model sends nothing for this long. */
+	stallTimeoutMs?: number;
+	/** Hard cap on the whole turn. */
+	turnTimeoutMs?: number;
+}
+
+let activeTurn: AbortController | null = null;
+
+/** Stop the reply in flight, if any. */
+export function cancelActiveTurn() {
+	activeTurn?.abort(new Error('Stopped'));
 }
 
 export async function sendCompanionMessage(
@@ -212,18 +141,19 @@ export async function sendCompanionMessage(
 	hooks: CompanionChatHooks,
 	options: SendCompanionMessageOptions = {}
 ): Promise<void> {
-	const { systemEvent = false } = options;
+	const { systemEvent = false, stallTimeoutMs = 90_000, turnTimeoutMs = 600_000 } = options;
 	if ((!content.trim() && images.length === 0) || chatStore.isLoading) return;
 
 	if (!modulesStore.isModuleEnabled('consciousness')) {
-		chatStore.setError('Chat is disabled. Enable it in Settings > Character > AI Services.');
+		chatStore.setError('Chat is disabled. Enable it in Settings > LLM Model.');
 		return;
 	}
 
 	const shown = images.map((img) => ({ id: img.id, url: URL.createObjectURL(img.blob) }));
 
+	let sent: Message | undefined;
 	if (!systemEvent) {
-		chatStore.addMessage('user', content, shown.length ? shown : undefined);
+		sent = chatStore.addMessage('user', content, shown.length ? shown : undefined);
 		hooks.onShownImages?.(shown);
 	}
 
@@ -233,7 +163,11 @@ export async function sendCompanionMessage(
 
 	chatStore.setLoading(true);
 	chatStore.setError(null);
+
+	const guard = startTurnGuard(stallTimeoutMs, turnTimeoutMs);
+	const { signal, untilAborted, bumpStall } = guard;
 	hooks.setTyping(true);
+	vrmStore.setThinking(true);
 	hooks.setLatestResponse('');
 	hooks.setPhase?.('remembering');
 	hooks.beforeStream?.();
@@ -252,35 +186,57 @@ export async function sendCompanionMessage(
 
 	try {
 		const consciousnessSettings = modulesStore.getModuleSettings('consciousness');
-		const provider = consciousnessSettings.activeProvider as string;
-		const model = consciousnessSettings.activeModel as string;
-		if (!provider) {
-			throw new Error('Please configure a provider in Settings > Modules > Consciousness');
-		}
+		const llm = resolveActiveLLM();
+		if (!llm) throw new Error(missingLLMMessage());
+		const { provider } = llm;
 
-		const contextSize = (consciousnessSettings.contextSize as number | undefined) || undefined;
-		const providerConfig = settingsStore.getProviderConfig(provider);
-		const apiKey = providerConfig.apiKey;
-		const providerMeta = getLLMProvider(provider);
-		if (providerMeta?.requiresApiKey && !apiKey) {
-			throw new Error(`Please configure API key for ${providerMeta.name} in Settings > Providers`);
-		}
+		const contextSize = consciousnessSettings.contextSize || undefined;
 
-		let systemPrompt = await buildCompanionPrompt(
+		let systemPrompt = await untilAborted(buildCompanionPrompt(
 			content,
 			images.length > 0,
 			provider,
 			contextSize,
 			systemEvent ? content : undefined
-		);
+		));
 
 		// Prompt building (memory retrieval) is done; the model call starts now
 		hooks.setPhase?.(images.length > 0 ? 'seeing' : 'thinking');
 
+		// A separate vision model looks first, and the chat model gets its
+		// description instead of the image bytes.
+		let imageDescription: string | undefined;
+		if (images.length > 0 && visionModelEnabled()) {
+			const vision = resolveVisionLLM();
+			if (!vision) {
+				throw new Error('Pick a vision model in Settings > LLM Model, or turn off the separate vision model.');
+			}
+			const request = describeImagesRequest(content, images);
+			bumpStall();
+			try {
+				imageDescription = await untilAborted(streamChat(
+					{
+						...vision,
+						messages: [{ role: 'user', content: request.content }],
+						systemPrompt: request.system,
+						// Small local vision models (moondream, llava) drift into gibberish
+						// at their default temperature. Cloud reasoning models reject
+						// anything but the default, so only local ones get pinned.
+						...(vision.isLocal && { temperature: 0 }),
+						signal
+					},
+					() => bumpStall()
+				));
+			} catch (err) {
+				if (signal.aborted) throw err;
+				throw new Error(`Vision model: ${err instanceof Error ? err.message : 'request failed'}`);
+			}
+			guard.pauseStall();
+			if (!stripThinkingBlocks(imageDescription).trim()) throw new Error('Vision model: the reply was empty');
+		}
+
 		chatStore.addMessage('assistant', '');
-		const selectedModel = model || providerMeta?.models?.[0]?.id || '';
-		const baseURL = providerConfig.baseUrl || providerMeta?.defaultBaseUrl;
-		let messages: ChatLoopMessage[] = buildMessages(images);
+		let messages: ChatLoopMessage[] = buildMessages(chatStore.messages.slice(0, -1), images, imageDescription);
 		const currentQuestion = [...messages].reverse().find((message) => message.role === 'user');
 
 		// Snapshot speech settings at turn start so mid-stream changes cannot
@@ -293,245 +249,51 @@ export async function sendCompanionMessage(
 
 		const ttsConfig = settingsStore.getProviderConfig(displayTtsProvider);
 		const ttsMeta = getTTSProvider(displayTtsProvider);
-		const baseTtsOptions: TTSOptions = {
-			provider: displayTtsProvider,
-			apiKey: ttsConfig.apiKey,
-			voiceId: (displaySpeechSettings.activeVoiceId as string) || undefined,
-			model: (displaySpeechSettings.activeModel as string) || ttsConfig.modelId,
-			baseUrl: ttsConfig.baseUrl || ttsMeta?.defaultBaseUrl,
-			speed: (displaySpeechSettings.speed as number) ?? 1,
-			volume: (displaySpeechSettings.volume as number) ?? undefined,
-			// Leave unset when the user hasn't picked one; the orchestrator
-			// infers the primary language from the first segment instead.
-			language: (displaySpeechSettings.activeLanguage as string) || undefined,
-			altLanguage: (displaySpeechSettings.altLanguage as string) || undefined,
-			altVoiceId: (displaySpeechSettings.altVoiceId as string) || undefined,
-			enableAltLanguage: (displaySpeechSettings.enableAltLanguage as boolean) ?? false,
-			altSpeed: (displaySpeechSettings.altSpeed as number) ?? undefined
-		};
-
-		const ttsOptions: TTSOptions =
-			displayTtsProvider === 'omnivoice'
-				? {
-						...baseTtsOptions,
-						instructions: (displaySpeechSettings.instructions as string) || undefined,
-						altInstructions: (displaySpeechSettings.altInstructions as string) || undefined,
-						numStep: (displaySpeechSettings.numStep as number) ?? undefined,
-						altNumStep: (displaySpeechSettings.altNumStep as number) ?? undefined,
-						positionTemperature: (displaySpeechSettings.positionTemperature as number) ?? undefined,
-classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefined,
-					altPositionTemperature:
-						(displaySpeechSettings.altPositionTemperature as number) ?? undefined,
-					altClassTemperature:
-						(displaySpeechSettings.altClassTemperature as number) ?? undefined
-			  }
-			: baseTtsOptions;
+		const ttsOptions = buildTTSOptions(displaySpeechSettings, displayTtsProvider, ttsConfig, ttsMeta);
 
 		streamingTTS =
 			speechState?.enabled && displayTtsProvider === 'omnivoice'
 				? await ttsStore.beginStreaming(ttsOptions)
 				: false;
-		let roundTextLen = 0;
-		let roundText = '';
-		let assembledContent = '';
-		let ttsFedUntil = 0;
-		const displayCleaner = new StreamingDisplayCleaner();
-		let pendingRaw = '';
-		let displayCapped = false;
+		const stream = new TurnStream(displayTtsProvider === 'omnivoice', {
+			show: (text) => chatStore.updateLastMessage(text),
+			speak: streamingTTS ? (chunk) => ttsStore.feedStreaming(chunk) : undefined
+		});
 
-		const onDelta = (roundFull: string) => {
-			if (displayTtsProvider !== 'omnivoice') {
-				// Across MCP rounds the message shows everything produced so far.
-				chatStore.updateLastMessage(assembledContent + roundFull);
-				roundTextLen = roundFull.length;
-				return;
-			}
-
-			const delta = roundFull.slice(roundTextLen);
-
-			// Feed the live display only until the ```json state fence appears:
-			// what follows the fence is the model's post-state repeat, and the
-			// final parser cut replaces the message anyway. Without the cap the
-			// repeat visibly built the message up twice.
-			if (!displayCapped) {
-				pendingRaw += delta;
-
-				const cut = cutAtStateFence(pendingRaw);
-				if (cut.capped) {
-					// Show what precedes the fence, unless it ends mid-markup —
-					// that incomplete tail would flash raw fragments.
-					if (cut.visible && !hasIncompleteTrailingMarkup(cut.visible)) {
-						displayCleaner.push(cut.visible);
-					}
-					pendingRaw = '';
-					displayCapped = true;
-				} else if (!hasIncompleteTrailingMarkup(pendingRaw)) {
-					// No fence yet: flush only when no incomplete
-					// speak/pause/gesture call, language tag or code fence is
-					// dangling at the end. This keeps the incremental cleanup
-					// O(1) per chunk, and the cleaner reconstructs boundary
-					// whitespace the per-fragment trim would otherwise eat.
-					displayCleaner.push(pendingRaw);
-					pendingRaw = '';
-				}
-			}
-
-			chatStore.updateLastMessage(displayCleaner.text);
-
-			if (streamingTTS && roundFull.length > roundTextLen) {
-				// Reasoning blocks (<thinking>…) and the trailing JSON state
-				// block are instructions, not speech — never feed them to TTS.
-				// These cuts mirror parseResponse so chat, display and speech
-				// agree; they also stop repeated text after the state block
-				// from being spoken twice.
-				const speechSource = stripThinkingBlocks(roundFull);
-				const fenceIndex = speechSource.match(STATE_FENCE_OPEN)?.index ?? -1;
-				const speechEnd = fenceIndex === -1 ? speechSource.length : fenceIndex;
-				if (ttsFedUntil < speechEnd) {
-					ttsStore.feedStreaming(speechSource.slice(ttsFedUntil, speechEnd));
-				}
-				ttsFedUntil = speechEnd;
-			}
-			roundTextLen = roundFull.length;
+		const onRetry = (attempt: number, delayMs: number) => {
+			bumpStall();
+			const wait = delayMs >= 1000 ? ` in ${Math.round(delayMs / 1000)}s` : '';
+			chatHintStore.showHint(`The model is busy, retrying${wait} (${attempt}/${RETRY_DELAYS_MS.length})`);
 		};
 
-		// MCP tools for this turn (client-side loop). Without configured servers
-		// the whole path is skipped — no probe, no request fields, so users who
-		// never touch MCP see the exact same chat behavior as before.
-		// Anthropic requests carry no tool definitions at all, so MCP stays out
-		// of that path.
-		const mcpConfigured = mcpStore.servers.some((s) => s.enabled);
-		if (mcpConfigured) {
-			try {
-				await mcpStore.ensureTools();
-			} catch {
-				// Tool discovery must never break the chat turn — MCP stays off.
-			}
-		}
-		// Snapshot only tools whose server is still enabled: a server disabled
-		// while tools were cached must not stay callable in this turn.
-		const enabledServerIds = new Set(
-			mcpStore.servers.filter((s) => s.enabled).map((s) => s.id)
-		);
-		const mcpTools =
-			mcpConfigured && provider !== 'anthropic' && mcpStore.hasActiveTools
-				? mcpStore.tools.filter((tool) => enabledServerIds.has(tool.serverId))
-				: [];
-		const mcpToolNames = new Set(mcpTools.map((tool) => tool.name));
-		const useMcpLoop = mcpTools.length > 0;
+		const onDelta = (roundFull: string) => {
+			if (signal.aborted) return;
+			bumpStall();
+			if (roundFull) vrmStore.setThinking(false);
+			stream.delta(roundFull);
+		};
 
-		// Optional env-gated hardening (default off): tool results are untrusted
-		// data and state-changing actions need an explicit user request. Added
-		// before truncation so the layer counts against the context budget.
-		const confirmToolNames = new Set(parseToolNameList(publicEnv.PUBLIC_MCP_CONFIRM_TOOLS));
-		const hardeningEnabled =
-			publicEnv.PUBLIC_MCP_PROMPT_HARDENING === 'true' || publicEnv.PUBLIC_MCP_PROMPT_HARDENING === '1';
-		if (mcpTools.length > 0) {
-			const security = buildMcpSecurityInstructions({
-				mcpActive: true,
-				hardeningEnabled,
-				confirmTools: [...confirmToolNames]
-			});
-			if (security) systemPrompt += '\n\n' + security;
-		}
+		const { mcpTools, mcpToolNames, confirmToolNames, security } = await prepareMcpTurn(provider);
+		const useMcpLoop = mcpTools.length > 0;
+		// Added before truncation so the layer counts against the context budget.
+		if (security) systemPrompt += '\n\n' + security;
 
 		// Tool schemas are sent with every round; count them against the context
 		// budget so large MCP schemas cannot silently overflow the window.
 		const toolSchemaContext =
 			mcpTools.length > 0 ? JSON.stringify(mcpTools.map(toOpenAiTool)) : undefined;
 
-		// Advanced parameters are only supported for OpenAI-compatible endpoints.
-		const advancedParams = providerMeta?.custom
-			? {
-					temperature: (consciousnessSettings.temperature as number) ?? 0.7,
-					topP: (consciousnessSettings.topP as number) ?? 1.0,
-					maxTokens: (consciousnessSettings.maxTokens as number) || undefined,
-					presencePenalty: (consciousnessSettings.presencePenalty as number) ?? 0,
-					frequencyPenalty: (consciousnessSettings.frequencyPenalty as number) ?? 0
-				}
-			: {};
+		const advancedParams = buildAdvancedParams(llm.custom, consciousnessSettings);
 
-		let fullContent = '';
-
-		// Tool definitions for OmniVoice speech segments.
-		// When the LLM supports function calling, speak_segment provides
-		// structured language tags instead of pseudo-calls in the text.
-		// Build the language enum from the configured primary + alternative
-		// languages so the tool only ever suggests what the user has set up.
-		const primaryLang = (displaySpeechSettings.activeLanguage as string)?.toLowerCase() || 'en';
-		const altLang = (displaySpeechSettings.altLanguage as string)?.toLowerCase();
-		const toolLanguages = Array.from(new Set([primaryLang, altLang].filter(Boolean))) as string[];
-
-		const ttsTools = shouldUseSpeechTools(provider, speechState?.enabled === true, displaySpeechSettings)
-			? [
-					{
-						type: 'function' as const,
-						function: {
-							name: 'speak_segment',
-							description: 'Speak exactly ONE short phrase. Call separately for each phrase. language is REQUIRED.',
-							parameters: {
-								type: 'object',
-								properties: {
-									text: { type: 'string', description: 'One short phrase to speak. Max 1 sentence.' },
-									language: { type: 'string', enum: toolLanguages,
-										description: 'Language of the text. REQUIRED.' }
-								},
-								required: ['text', 'language']
-							}
-						}
-					},
-					{
-						type: 'function' as const,
-						function: {
-							name: 'pause_segment',
-							description: 'Insert a short silent pause between spoken phrases.',
-							parameters: {
-								type: 'object',
-								properties: {
-									ms: { type: 'integer', description: 'Pause length in milliseconds (100-5000).' }
-								},
-								required: ['ms']
-							}
-						}
-					},
-					{
-						type: 'function' as const,
-						function: {
-							name: 'gesture_segment',
-							description: 'Show a small non-verbal gesture before or with the next phrase.',
-							parameters: {
-								type: 'object',
-								properties: {
-									type: {
-										type: 'string',
-										enum: ['smile', 'laugh', 'surprise', 'nod', 'shake_head', 'wave'],
-										description: 'The gesture to show.'
-									}
-								},
-								required: ['type']
-							}
-						}
-					}
-				]
-			: undefined;
-
-		// Speech tools and MCP tools share one OpenAI-shaped tool list.
-		const chatTools = [...(ttsTools ?? []), ...mcpTools.map(toOpenAiTool)];
-		const sendTools = chatTools.length > 0 ? chatTools : undefined;
-
-		// Tool calls are delivered separately from text and can arrive after the
-		// state fence. Speech tools become pseudo-calls; MCP calls are executed
-		// after the round and fed back to the model.
-		let nativeContent = '';
+		const sendTools = buildSendTools(
+			buildSpeechTools(provider, speechState?.enabled === true, displaySpeechSettings),
+			mcpTools
+		);
 
 		const maxRounds = useMcpLoop ? MCP_MAX_ROUNDS : 1;
 
 		for (let round = 0; round < maxRounds; round++) {
-			roundText = '';
-			roundTextLen = 0;
-			ttsFedUntil = 0;
-			pendingRaw = '';
-			displayCapped = false;
+			stream.startRound();
 			const roundCalls: McpCollectedToolCall[] = [];
 
 			// Re-budget before every round: tool results from earlier rounds grow
@@ -545,15 +307,13 @@ classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefine
 			}
 
 			const onToolCall = (name: string, args: Record<string, unknown>, id?: string) => {
+				if (signal.aborted) return;
+				bumpStall();
 				roundCalls.push({ id: id ?? `call_${round}_${roundCalls.length}`, name, args });
 				// An MCP tool that happens to be named like a speech tool must not
 				// be treated as one.
 				const pseudo = mcpToolNames.has(name) ? null : pseudoCallFromTool(name, args);
-				if (!pseudo) return;
-				nativeContent += pseudo + '\n';
-				displayCleaner.push(pseudo + '\n');
-				chatStore.updateLastMessage(displayCleaner.text);
-				if (streamingTTS) ttsStore.feedStreaming(pseudo);
+				if (pseudo) stream.toolCall(pseudo);
 			};
 
 			const isFinalRound = round === maxRounds - 1;
@@ -568,61 +328,20 @@ classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefine
 				});
 			}
 
-			if (isTauri() || providerMeta?.isLocal) {
-				// Desktop and local providers call the provider API directly.
-				await new Promise<void>((resolve, reject) => {
-					streamChatDirect(
-						{
-							messages,
-							provider: provider as LLMProvider,
-							model: selectedModel,
-							apiKey: apiKey || undefined,
-							baseURL,
-							systemPrompt,
-							tools: sendTools,
-							...advancedParams
-						},
-						(text) => {
-							roundText += text;
-							onDelta(roundText);
-						},
-						(error) => reject(new Error(error)),
-						() => resolve(),
-						onToolCall
-					);
-				});
-			} else {
-				// Cloud providers on web go through the SvelteKit server route.
-				roundText = await streamServerRoute(
-					{
-						messages: messages.map((m) => ({
-							role: m.role,
-							content: toOpenAIContent(m.content),
-							...(m.tool_calls?.length ? { tool_calls: m.tool_calls } : {}),
-							...(m.tool_call_id && { tool_call_id: m.tool_call_id })
-						})),
-						provider,
-						model: selectedModel,
-						apiKey: apiKey || (providerMeta?.custom ? undefined : 'not-needed'),
-						baseURL,
-						systemPrompt,
-						tools: sendTools,
-						...advancedParams
-					},
+			bumpStall();
+			const roundText = await untilAborted(
+				streamChat(
+					{ ...llm, messages, systemPrompt, tools: sendTools, signal, onRetry, ...advancedParams },
 					onDelta,
 					onToolCall
-				);
-			}
+				)
+			);
+			guard.pauseStall();
 
-			const mcpCalls = mcpCallsOnly(roundCalls, mcpTools);
 			// Final round: no MCP calls left, or the round budget is spent.
-			if (mcpCalls.length === 0 || round === maxRounds - 1) {
-				assembledContent += roundText;
-				break;
-			}
-			// Intermediate round: drop a premature state fence so the final
-			// round's block stays the one that gets parsed.
-			assembledContent += stripFromStateFence(roundText);
+			const final = mcpCallsOnly(roundCalls, mcpTools).length === 0 || round === maxRounds - 1;
+			stream.endRound(roundText, final);
+			if (final) break;
 
 			// Feed the results back and let the model continue. Every call gets
 			// a result — the OpenAI protocol requires it — including speech
@@ -633,67 +352,18 @@ classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefine
 			const { run, skipped } = splitToolCalls(roundCalls);
 			// allSettled: one unexpected failure must not abort the whole turn —
 			// the model gets an error result and can still answer.
-			const settled = await Promise.allSettled(
-				run.map(async (call) => {
-					if (!mcpToolNames.has(call.name)) {
-						// Speech tools (speak/pause/gesture) are acknowledged; a
-						// name that is neither speech nor MCP is hallucinated.
-						return pseudoCallFromTool(call.name, call.args) !== null
-							? { call, content: speechToolAck(call.args) }
-							: { call, content: `Error: unknown tool "${call.name}"` };
-					}
-					if (confirmToolNames.has(call.name)) {
-						return {
-							call,
-							content: `Tool "${call.name}" requires manual user confirmation and was NOT executed. Ask the user how to proceed.`
-						};
-					}
-					const tool = findMcpTool(mcpTools, call.name);
-					const server = tool
-						? mcpStore.servers.find((s) => s.id === tool.serverId && s.enabled)
-						: undefined;
-					if (!server) {
-						return {
-							call,
-							content: `Error: no enabled MCP server configured for tool "${call.name}"`
-						};
-					}
-					const result = await callTool(server, call.name, call.args);
-					const content = result.isError ? `Error: ${result.content}` : result.content;
-					return { call, content: capToolResult(content), injectAsUser: server.injectResultsAsUser };
-				})
-			);
-			const results = [
-				...settled.map((entry, index) =>
-					entry.status === 'fulfilled'
-						? entry.value
-						: {
-								call: run[index],
-								content: `Error: ${
-									entry.reason instanceof Error ? entry.reason.message : String(entry.reason)
-								}`
-							}
-				),
-				...skipped.map((call) => ({
-					call,
-					content: `Error: too many tool calls in one round (limit ${MAX_TOOL_CALLS_PER_ROUND}) — this call was not executed.`
-				}))
-			];
-			messages.push(...buildToolResultMessages(results));
+			const settled = await untilAborted(Promise.allSettled(
+				run.map((call) => runToolCall(call, mcpTools, mcpToolNames, confirmToolNames))
+			));
+			messages.push(...buildToolResultMessages(collectToolResults(settled, run, skipped)));
 		}
 
-		fullContent = assembledContent;
-
-		// Keep native dialogue before the state fence in the saved response.
-		// Only transport text goes through onDelta; replaying this assembled
-		// response there would synthesize the native calls a second time.
-		if (nativeContent) {
-			const fenceIndex = fullContent.search(STATE_FENCE_OPEN);
-			const insertAt = fenceIndex === -1 ? fullContent.length : fenceIndex;
-			fullContent = fullContent.slice(0, insertAt) + '\n' + nativeContent + fullContent.slice(insertAt);
-		}
+		// Native dialogue is kept in the saved response here, not replayed
+		// through onDelta, which would synthesize the native calls a second time.
+		const fullContent = stream.content;
 
 		hooks.setTyping(false);
+		vrmStore.setThinking(false);
 
 		if (streamingTTS) {
 			// Intentionally fire-and-forget: endStreaming flushes the buffer and
@@ -703,11 +373,8 @@ classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefine
 		}
 
 		// For OmniVoice the raw response contains speak({...}) / gesture({...})
-		// pseudo-tool-calls (or a JSON state block when native tools are used).
-		// Strip them before memory/fact extraction so the data layer only sees
-		// clean dialogue.
-		// Strip speak()/gesture syntax and non-verbal markers, but keep the
-		// ```json state fence: parseResponse() extracts the state updates from
+		// pseudo-tool-calls. Strip them and non-verbal markers before
+		// memory/fact extraction, but keep the ```json state fence: parseResponse() extracts the state updates from
 		// it and cuts the dialogue there — models sometimes repeat their
 		// whole reply after the block, and without the fence that repeat
 		// would survive in the dialogue and duplicate the chat message.
@@ -716,42 +383,15 @@ classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefine
 				? cleanSpeechMarkers(fullContent, { keepStateFences: true })
 				: fullContent;
 
-		const turn = await processCompanionTurn({
+		const turn = await untilAborted(processCompanionTurn({
 			userMessage: content,
 			companionResponse: cleanedCompanionResponse,
-			llm: {
-				provider,
-				model: selectedModel,
-				apiKey: apiKey || undefined,
-				baseURL,
-				hasImages: images.length > 0
-			},
+			llm: { ...llm, hasImages: images.length > 0 },
 			systemEvent,
 			debug: import.meta.env.DEV
-		});
+		}));
 
-		// Schedule a direct fallback only when the LLM did not emit any reminder
-		// tag itself. This prevents duplicate reminders when the model correctly
-		// schedules one via [reminder:...].
-		if (directReminder) {
-			const { reminders: llmReminders } = extractReminderTags(fullContent);
-			if (llmReminders.length === 0) {
-				// ensureSession creates a session on demand, so a reminder phrased right
-				// after a reload still gets scheduled without resuming stale sessions.
-				const sessionId = await ensureSession();
-				if (sessionId) {
-					try {
-						await reminderStore.addReminder(
-							directReminder.content,
-							directReminder.triggerAt,
-							sessionId
-						);
-					} catch (e) {
-						console.error('[Reminder] Direct scheduling failed:', e);
-					}
-				}
-			}
-		}
+		if (directReminder) await scheduleReminderFallback(directReminder, fullContent);
 
 		hooks.onNewMemory?.(turn.newMemory);
 		if (turn.triggeredEvent) {
@@ -759,15 +399,6 @@ classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefine
 			// event through; mark it so the scene is shown once per session.
 			markEventShown(turn.triggeredEvent.id);
 			hooks.setActiveEvent(turn.triggeredEvent);
-		}
-
-		// She's seen the images and responded; keep them as local keepsakes.
-		if (images.length > 0) {
-			await Promise.all(
-				images.map((img) =>
-					keepImage(img.id, img.blob, { mimeType: img.mimeType, note: turn.newMemory })
-				)
-			);
 		}
 
 		// turn.dialogue is already clean for OmniVoice because companionResponse
@@ -785,15 +416,190 @@ classTemperature: (displaySpeechSettings.classTemperature as number) ?? undefine
 				vrmStore.startTalking(displayDialogue);
 			}
 
-if (speechState?.enabled && !streamingTTS) {
+			if (speechState?.enabled && !streamingTTS) {
 				ttsStore.speak(turn.dialogue, ttsOptions);
 			}
 		}
+
+		await keepShownImages(images, turn.newMemory);
 	} catch (err) {
 		if (streamingTTS) ttsStore.cancelStreaming();
-		chatStore.setError(err instanceof Error ? err.message : 'Unknown error');
+		if (signal.aborted) {
+			chatHintStore.showHint(signal.reason instanceof Error ? signal.reason.message : 'Stopped');
+		} else {
+			chatStore.setError(err instanceof Error ? err.message : 'Unknown error');
+			if (sent) bounceBack(sent, images);
+		}
 		hooks.setTyping(false);
+		vrmStore.setThinking(false);
 	} finally {
+		guard.dispose();
 		chatStore.setLoading(false);
+	}
+}
+
+// Stop, stall and the hard cap all abort the same controller. Awaits that
+// may hang are raced against it, so the turn always settles promptly.
+function startTurnGuard(stallTimeoutMs: number, turnTimeoutMs: number) {
+	const controller = new AbortController();
+	activeTurn = controller;
+	const { signal } = controller;
+	const timeOut = () => controller.abort(new Error('Reply timed out'));
+	const aborted = new Promise<never>((_, reject) =>
+		signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+	);
+	aborted.catch(() => {});
+	const turnTimer = setTimeout(timeOut, turnTimeoutMs);
+	let stallTimer: ReturnType<typeof setTimeout> | undefined;
+	return {
+		signal,
+		untilAborted: <T>(work: Promise<T>) => Promise.race([work, aborted]),
+		// ponytail: counts visible text and tool calls only, so a reasoning model that
+		// thinks silently past the stall limit gets cut off; bump on raw bytes if that bites.
+		bumpStall: () => {
+			clearTimeout(stallTimer);
+			stallTimer = setTimeout(timeOut, stallTimeoutMs);
+		},
+		pauseStall: () => clearTimeout(stallTimer),
+		dispose: () => {
+			clearTimeout(turnTimer);
+			clearTimeout(stallTimer);
+			if (activeTurn === controller) activeTurn = null;
+		}
+	};
+}
+
+// MCP tools for this turn (client-side loop). Without configured servers
+// the whole path is skipped: no probe, no request fields, so users who
+// never touch MCP see the exact same chat behavior as before.
+// Anthropic requests carry no tool definitions at all, so MCP stays out
+// of that path.
+async function prepareMcpTurn(provider: string) {
+	const mcpConfigured = mcpStore.servers.some((s) => s.enabled);
+	if (mcpConfigured) {
+		try {
+			await mcpStore.ensureTools();
+		} catch {
+			// Tool discovery must never break the chat turn; MCP stays off.
+		}
+	}
+	// Snapshot only tools whose server is still enabled: a server disabled
+	// while tools were cached must not stay callable in this turn.
+	const enabledServerIds = new Set(
+		mcpStore.servers.filter((s) => s.enabled).map((s) => s.id)
+	);
+	const mcpTools =
+		mcpConfigured && provider !== 'anthropic' && mcpStore.hasActiveTools
+			? mcpStore.tools.filter((tool) => enabledServerIds.has(tool.serverId))
+			: [];
+	// Hardening is on unless opted out: tool results are untrusted data and
+	// state-changing actions need an explicit user request.
+	const confirmToolNames = new Set(parseToolNameList(publicEnv.PUBLIC_MCP_CONFIRM_TOOLS));
+	const security =
+		mcpTools.length > 0
+			? buildMcpSecurityInstructions({
+					mcpActive: true,
+					hardeningEnabled: isMcpHardeningEnabled(publicEnv.PUBLIC_MCP_PROMPT_HARDENING),
+					confirmTools: [...confirmToolNames]
+				})
+			: '';
+	return { mcpTools, mcpToolNames: new Set(mcpTools.map((tool) => tool.name)), confirmToolNames, security };
+}
+
+async function runToolCall(
+	call: McpCollectedToolCall,
+	mcpTools: McpTool[],
+	mcpToolNames: Set<string>,
+	confirmToolNames: Set<string>
+): Promise<ToolResultEntry> {
+	if (!mcpToolNames.has(call.name)) {
+		// Speech tools (speak/pause/gesture) are acknowledged; a
+		// name that is neither speech nor MCP is hallucinated.
+		return pseudoCallFromTool(call.name, call.args) !== null
+			? { call, content: speechToolAck(call.args) }
+			: { call, content: `Error: unknown tool "${call.name}"` };
+	}
+	if (confirmToolNames.has(call.name)) {
+		return {
+			call,
+			content: `Tool "${call.name}" requires manual user confirmation and was NOT executed. Ask the user how to proceed.`
+		};
+	}
+	const tool = findMcpTool(mcpTools, call.name);
+	const server = tool
+		? mcpStore.servers.find((s) => s.id === tool.serverId && s.enabled)
+		: undefined;
+	if (!server) {
+		return {
+			call,
+			content: `Error: no enabled MCP server configured for tool "${call.name}"`
+		};
+	}
+	if (
+		server.askBeforeRun !== false &&
+		!(await mcpStore.confirmToolCall({ serverName: server.name, toolName: call.name, args: call.args }))
+	) {
+		return {
+			call,
+			content: `The user declined to run tool "${call.name}"; it was NOT executed. Do not retry it unless the user asks.`
+		};
+	}
+	const result = await callTool(server, call.name, call.args);
+	const content = result.isError ? `Error: ${result.content}` : result.content;
+	return { call, content: capToolResult(content), injectAsUser: server.injectResultsAsUser };
+}
+
+// Schedule the direct fallback only when the LLM did not emit any reminder
+// tag itself. This prevents duplicate reminders when the model correctly
+// schedules one via [reminder:...].
+async function scheduleReminderFallback(
+	directReminder: NonNullable<ReturnType<typeof tryExtractReminderFromUserMessage>>,
+	fullContent: string
+) {
+	const { reminders: llmReminders } = extractReminderTags(fullContent);
+	if (llmReminders.length === 0) {
+		// ensureSession creates a session on demand, so a reminder phrased right
+		// after a reload still gets scheduled without resuming stale sessions.
+		const sessionId = await ensureSession();
+		if (sessionId) {
+			try {
+				await reminderStore.addReminder(
+					directReminder.content,
+					directReminder.triggerAt,
+					sessionId
+				);
+			} catch (e) {
+				console.error('[Reminder] Direct scheduling failed:', e);
+			}
+		}
+	}
+}
+
+// A turn that failed before she said anything goes back into the composer, so
+// the user can just resend and the history doesn't end up with the question twice.
+function bounceBack(sent: Message, images: PreparedImage[]) {
+	// at() rather than slice(-2) destructuring: with one message, the pair
+	// shifts and the sent message lands in `before`.
+	const last = chatStore.messages.at(-1);
+	const before = chatStore.messages.at(-2);
+	const unanswered =
+		last?.id === sent.id || (before?.id === sent.id && last?.role === 'assistant' && !last.content);
+	if (!unanswered || chatDraftStore.draft.trim() || chatDraftStore.pending.length) return;
+	chatStore.removeMessage(sent.id);
+	chatDraftStore.draft = sent.content;
+	for (const image of images) chatDraftStore.addPending(image, URL.createObjectURL(image.blob));
+}
+
+// She's seen the images and responded; keep them as local keepsakes.
+// A failed save (quota, decode) must not fail a turn that already landed.
+async function keepShownImages(images: PreparedImage[], note: string | undefined) {
+	if (images.length === 0) return;
+	try {
+		await Promise.all(
+			images.map((img) => keepImage(img.id, img.blob, { mimeType: img.mimeType, note }))
+		);
+	} catch (e) {
+		console.debug('[Keepsake] save failed:', e);
+		chatHintStore.showHint("Couldn't save that photo to the board.");
 	}
 }

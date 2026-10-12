@@ -1,34 +1,25 @@
 import { characterStore } from '$lib/stores/character.svelte';
+import { vrmStore } from '$lib/stores/vrm.svelte';
 import { parseResponse, validateStateUpdates, extractPotentialFacts } from '$lib/ai/response-parser';
 import { buildExtractionSystemPrompt } from '$lib/ai/prompt-builder';
 import { calculateBaselineUpdates, analyzeMessage } from '$lib/engine/heuristics';
 import { mergeUpdates, checkAndApplyStageTransition } from '$lib/engine/state-updates';
-import {
-	recordTurn,
-	memoryApi,
-	determineFactCategory,
-	calculateFactImportance
-} from '$lib/engine/memory';
-import { checkAllEvents, checkEvent, eventsApi } from '$lib/engine/events';
+import { memoryApi, determineFactCategory, calculateFactImportance } from '$lib/engine/memory';
+import { recordTurn, ensureSession } from '$lib/engine/memory-session';
+import { checkAllEvents, checkEvent } from '$lib/engine/event-matching';
+import { eventsApi } from '$lib/engine/events';
 import { filterUnshownEvents, shownEventIds } from '$lib/engine/event-replay';
 import { allEvents, relationshipStrainEvent } from '$lib/data/events';
-import { extractStateUpdates } from './client-chat';
+import { completeJson, type LLMTarget } from '$lib/services/llm/transport';
 import { extractReminderTags } from '$lib/utils/reminders';
 import { reminderStore } from '$lib/stores/reminders.svelte';
-import { ensureSession } from '$lib/engine/memory';
-import type { LLMProvider } from '$lib/types';
+import { requestAvatarAction } from '$lib/services/animation-actions';
 import type { EventDefinition } from '$lib/types/events';
 
 export interface CompanionTurnInput {
 	userMessage: string;
 	companionResponse: string;
-	llm: {
-		provider: string;
-		model: string;
-		apiKey?: string;
-		baseURL?: string;
-		hasImages: boolean;
-	};
+	llm: LLMTarget & { hasImages: boolean };
 	// When true, the turn is a system event (e.g. a fired reminder). Skip user-
 	// specific side effects like sentiment analysis, baseline stat updates,
 	// streak/interaction counting and fact extraction from the trigger text.
@@ -91,14 +82,11 @@ export async function processCompanionTurn(input: CompanionTurnInput): Promise<C
 	// Decoupled fallback: the model skipped the inline JSON, so ask a dedicated
 	// forced-JSON call to extract mood + memory from the exchange.
 	if (!llmUpdates) {
-		const extracted = await extractStateUpdates({
-			provider: llm.provider as LLMProvider,
-			model: llm.model,
-			apiKey: llm.apiKey,
-			baseURL: llm.baseURL,
+		const extracted = await completeJson({
+			...llm,
 			system: buildExtractionSystemPrompt(llm.hasImages),
-			userMessage,
-			reply: dialogue
+			user: `User: ${userMessage}\nCompanion: ${dialogue}\n\nReturn the JSON.`,
+			maxTokens: 400
 		});
 		if (extracted) {
 			// parseResponse handles both bare JSON (OpenAI json_object) and a
@@ -125,6 +113,8 @@ export async function processCompanionTurn(input: CompanionTurnInput): Promise<C
 				trustLLMDeltas: userAnalysis?.nonLatinDominant ?? false
 			});
 	characterStore.applyUpdates(finalUpdates, { countInteraction: !systemEvent });
+	if (finalUpdates.action) requestAvatarAction(finalUpdates.action);
+	if (finalUpdates.expression) vrmStore.requestFlash(finalUpdates.expression);
 
 	// Save the model's memory observation
 	if (finalUpdates.newMemory) {

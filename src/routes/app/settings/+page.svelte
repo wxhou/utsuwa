@@ -19,6 +19,6 @@
 		align-items: center;
 		justify-content: center;
 		height: 100%;
-		color: var(--color-neutral-500);
+		color: var(--text-secondary);
 	}
 </style>

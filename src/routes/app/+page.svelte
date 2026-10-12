@@ -1,10 +1,11 @@
 <script lang="ts">
 	import WakeLockIndicator from '$lib/components/display/WakeLockIndicator.svelte';
-	import { t } from '$lib/i18n';
 	import VrmScene from '$lib/components/vrm/VrmScene.svelte';
 	import FloatingStatIndicators from '$lib/components/ui/FloatingStatIndicators.svelte';
 	import { TopRightButtons, TopLeftButtons, InfoModal } from '$lib/components/ui';
+	import Toasts from '$lib/components/ui/Toasts.svelte';
 	import BottomChatBar from '$lib/components/chat/BottomChatBar.svelte';
+	import McpConfirmDialog from '$lib/components/mcp/McpConfirmDialog.svelte';
 	import PhotoModeDock from '$lib/components/photomode/PhotoModeDock.svelte';
 	import PhotoStickerLayer from '$lib/components/photomode/PhotoStickerLayer.svelte';
 	import PhotoFramePreview from '$lib/components/photomode/PhotoFramePreview.svelte';
@@ -37,43 +38,30 @@
 	import { goto } from '$app/navigation';
 	import { localPath } from '$lib/config/links';
 	import { vrmStore } from '$lib/stores/vrm.svelte';
+	import { vrmGalleryStore } from '$lib/stores/vrm-gallery.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { modulesStore } from '$lib/stores/modules.svelte';
 	import { characterStore } from '$lib/stores/character.svelte';
 	import { personaStore } from '$lib/stores/persona.svelte';
 	import { displayStore } from '$lib/stores/display.svelte';
 	import { startWaitTone, stopWaitTone, destroyWaitTone } from '$lib/utils/wait-tone';
-	import { debugEventsStore } from '$lib/stores/debugEvents.svelte';
-	import { getLLMProvider, providerSupportsVision } from '$lib/services/providers/registry';
+	import { getLLMProvider } from '$lib/services/providers/registry';
 	import { isLocalLLMProvider } from '$lib/services/providers/local-endpoints';
-	import { canShowImages } from '$lib/services/providers/vision';
-	import { onDestroy } from 'svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { sendCompanionMessage, type SendCompanionMessageOptions } from '$lib/services/chat/companion-chat';
-	import { createReminderFiredHandler } from '$lib/services/chat/reminder-chat';
 	import { reminderStore } from '$lib/stores/reminders.svelte';
 	import { type PreparedImage } from '$lib/services/storage/keepsakes';
 	import { isTauri } from '$lib/services/platform';
 	import { browser } from '$app/environment';
-	import type { StateUpdates } from '$lib/types/character';
-	import type { EventDefinition } from '$lib/types/events';
-	import { pop, fadeFast } from '$lib/utils/motion';
-
-	// V2 companion system imports
-	import {
-		hydrateWorkingMemory,
-		getWorkingMemory,
-		backfillEmbeddings,
-		getEmbeddingBackfillStatus
-	} from '$lib/engine/memory';
-	import { initEmbeddingModel } from '$lib/services/embeddings';
-	import { eventsApi, findReplayableEvent } from '$lib/engine/events';
-	import { getMemoryBudget } from '$lib/types/memory';
-	import { completionMarkers } from '$lib/engine/event-completion';
+	import { fadeFast } from '$lib/utils/motion';
+	import { startCompanionSession } from '$lib/services/session/companion-session';
+	import { createEventSession } from '$lib/services/session/event-session.svelte';
+	import { findReplayableEvent } from '$lib/engine/events';
 
 	let canvasRef: HTMLCanvasElement | null = null;
 
-	// Event scene state
-	let activeEvent = $state<EventDefinition | null>(null);
+	const events = createEventSession();
 
 	// Info modal state
 	let showInfoModal = $state(false);
@@ -127,73 +115,26 @@
 	// Images she's currently being shown, floated above her head while she thinks
 	let thinkingImages = $state<{ id: string; url: string }[]>([]);
 
-	// Can the active LLM actually see images? Gates the "show" affordance.
+	// Photos go to the separate vision model when it's on, else the chat model
+	const imageModule = $derived(modulesStore.isModuleEnabled('vision') ? 'vision' : 'consciousness');
+
+	// Can the model that gets photos see them? Gates the "show" affordance. A
+	// separate vision model that isn't set up yet stays enabled, so the send
+	// fails with a pointer to settings instead of silently hiding.
 	const visionCapable = $derived.by(() => {
-		const cs = modulesStore.getModuleSettings('consciousness');
-		const provider = cs.activeProvider as string;
-		const model = cs.activeModel as string;
-		if (!provider) return false;
-		return canShowImages(providerSupportsVision(provider), isLocalLLMProvider(provider), model);
+		const { activeProvider, activeModel } = modulesStore.getModuleSettings(imageModule);
+		if (imageModule === 'vision' && (!activeProvider || !activeModel)) return true;
+		if (!activeProvider) return false;
+		return settingsStore.resolveModelVision(activeProvider, activeModel).capable;
 	});
 
 	// Provider info for the one-time "where do photos go" disclosure.
 	const imageProvider = $derived.by(() => {
-		const provider = modulesStore.getModuleSettings('consciousness').activeProvider as string;
+		const provider = modulesStore.getModuleSettings(imageModule).activeProvider;
 		return {
 			label: getLLMProvider(provider)?.name ?? 'your AI provider',
 			isLocal: provider ? isLocalLLMProvider(provider) : false
 		};
-	});
-
-	// Hydrate working memory on start, then mirror the persisted history into
-	// the chat window (which is in-memory only). Guarded so a mid-session
-	// remount never wipes messages the user is looking at.
-	$effect(() => {
-		(async () => {
-			try {
-				await hydrateWorkingMemory();
-				if (chatStore.messages.length === 0) {
-					// Mirror what she'd actually remember: the injection path caps
-					// recent turns at the context-window budget (10 when unset), so
-					// showing all 20 cached turns would display history she forgot.
-					const contextSize =
-						(modulesStore.getModuleSettings('consciousness').contextSize as number | undefined) ||
-						undefined;
-					const turnLimit = contextSize
-						? getMemoryBudget(contextSize).workingMemoryTurns
-						: 10;
-					chatStore.hydrate(getWorkingMemory().turns.slice(-turnLimit));
-				}
-			} catch (e) {
-				console.error('Failed to hydrate working memory:', e);
-			}
-		})();
-	});
-
-	// Re-show an event abandoned in a previous session, once per session.
-	$effect(() => {
-		(async () => {
-			try {
-				const pending = await findReplayableEvent();
-				if (pending) activeEvent = pending;
-			} catch (e) {
-				console.debug('Event replay check failed:', e);
-			}
-		})();
-	});
-
-	// Initialize embedding model and backfill any facts without embeddings
-	$effect(() => {
-		initEmbeddingModel().then(async (ready) => {
-			if (ready) {
-				const status = await getEmbeddingBackfillStatus();
-				if (status.withoutEmbeddings > 0) {
-					await backfillEmbeddings();
-				}
-			}
-		}).catch((e) => {
-			console.error('Failed to initialize embedding model:', e);
-		});
 	});
 
 	// Check for first-run (onboarding). ?onboarding=1 force-opens it for testing
@@ -202,30 +143,29 @@
 		if (characterStore.isReady && !onboardingDismissed) {
 			const forced = browser && new URLSearchParams(window.location.search).has('onboarding');
 			const { lastInteraction, totalInteractions } = characterStore.state;
-			showOnboarding = forced || (lastInteraction === null && totalInteractions === 0);
+			// Completion updates state before its save resolves. Let onComplete
+			// close setup only after that save has finished.
+			if (forced || (lastInteraction === null && totalInteractions === 0)) showOnboarding = true;
 		}
 	});
 
-	// Check for debug events (from developer tools)
-	$effect(() => {
-		const debugEvent = debugEventsStore.consume();
-		if (debugEvent) {
-			activeEvent = debugEvent;
-		}
-	});
+	onMount(() =>
+		startCompanionSession({
+			send: (content, options) => handleSend(content, [], options),
+			onEvent: events.open
+		})
+	);
 
-	// Start reminder polling and react to fired reminders by sending them back
-	// through the companion pipeline. This lets the LLM decide the action
-	// (speech, web search, etc.) instead of showing a passive toast.
+	// Re-show an event abandoned in a previous session, once per session.
 	$effect(() => {
-		const unsubscribeReminder = reminderStore.addReminderFiredListener(
-			createReminderFiredHandler((content, options) => handleSend(content, [], options))
-		);
-		reminderStore.startPolling();
-		return () => {
-			reminderStore.stopPolling();
-			unsubscribeReminder();
-		};
+		(async () => {
+			try {
+				const pending = await findReplayableEvent();
+				if (pending) events.open(pending);
+			} catch (e) {
+				console.debug('Event replay check failed:', e);
+			}
+		})();
 	});
 
 	// Shown-image previews are blob: URLs (shared between the chat history and the
@@ -250,7 +190,7 @@
 		await sendCompanionMessage(content, images, {
 			setTyping: (v) => (isTyping = v),
 			setLatestResponse: (v) => (latestResponse = v),
-			setActiveEvent: (e) => (activeEvent = e),
+			setActiveEvent: events.open,
 			setPhase: (p) => (thinkingPhase = p),
 			onShownImages: (shown) => (thinkingImages = shown),
 			onNewMemory: (m) => (lastNewMemory = m)
@@ -261,45 +201,11 @@
 	function handleBubbleHide() {
 		latestResponse = '';
 	}
-
-	// Handle event completion
-	function handleEventComplete(choiceIndex?: number, stateChanges?: Partial<StateUpdates>) {
-		if (!activeEvent) return;
-
-		const event = $state.snapshot(activeEvent);
-
-		if (stateChanges) {
-			characterStore.applyUpdates(stateChanges as StateUpdates);
-		} else if (event.stateChanges) {
-			characterStore.applyUpdates(event.stateChanges);
-		}
-
-		// Apply the gating markers first and synchronously — the event id plus the
-		// chosen outcome marker (e.g. confession_accepted) drive stage progression
-		// and are persisted via the character store. Doing this before the DB write
-		// means a failed write can't silently strand a hard-won stage unlock.
-		for (const marker of completionMarkers(event, choiceIndex)) {
-			characterStore.markEventCompleted(marker);
-		}
-
-		// Then record the durable history entry (also carries cooldown timestamps).
-		eventsApi
-			.recordCompletedEvent(
-				event,
-				choiceIndex,
-				choiceIndex !== undefined ? `Choice ${choiceIndex + 1}` : undefined
-			)
-			.catch((e) => {
-				console.error('Failed to record event completion:', e);
-			});
-
-		activeEvent = null;
-	}
-
-	function handleEventClose() {
-		activeEvent = null;
-	}
 </script>
+
+<svelte:head>
+	<meta name="description" content="Chat with your AI companion: a 3D VRM avatar with voice, memory, and moods, running in your browser." />
+</svelte:head>
 
 <div class="app-container">
 	<div class="wake-status"><WakeLockIndicator /></div>
@@ -316,6 +222,7 @@
 	{#if showInfoModal}
 		<InfoModal onClose={() => showInfoModal = false} />
 	{/if}
+	<McpConfirmDialog />
 	{#if showBoard}
 		<Photoboard onClose={() => showBoard = false} />
 	{/if}
@@ -326,25 +233,11 @@
 		<div class="character-frame" aria-hidden="true" bind:clientWidth={frameWidth} bind:clientHeight={frameHeight}></div>
 		<!-- VRM Stage (Full Background) -->
 		<div class="stage-container">
-			{#if vrmStore.isLoading || !vrmStore.modelUrl}
+			{#if vrmStore.isLoading || !vrmGalleryStore.modelUrl}
 				<div class="loading-dots" out:fadeFast={{ duration: 300 }}>
 					<span class="dot"></span>
 					<span class="dot"></span>
 					<span class="dot"></span>
-				</div>
-			{/if}
-
-			{#if vrmStore.error}
-				<div
-					class="error-toast"
-					out:pop={{ base: 'translateX(-50%)' }}
-					role="button"
-					tabindex="0"
-					onclick={() => vrmStore.setError(null)}
-					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); vrmStore.setError(null); } }}
-				>
-					<span>{vrmStore.error}</span>
-					<button type="button" class="toast-dismiss" aria-label={t('chat.dismiss')}>✕</button>
 				</div>
 			{/if}
 
@@ -355,14 +248,14 @@
 				<div
 					class="photo-bg-layer"
 					style:filter={photoFilterCss}
-					style:background={backgroundToCss(effectiveBackdrop)}
+					style:background={backgroundToCss(effectiveBackdrop, displayStore.activeBackgroundImage?.url)}
 				></div>
 			{/if}
 
 			<!-- The avatar resolves into focus once the model is ready -->
 			<div
 				class="vrm-stage"
-				class:is-loading={vrmStore.isLoading || !vrmStore.modelUrl}
+				class:is-loading={vrmStore.isLoading || !vrmGalleryStore.modelUrl}
 				style:filter={photoFilterCss}
 			>
 				<VrmScene framing={{ width: frameWidth, height: frameHeight, left: displayStore.sidebarPosition === 'left' }} />
@@ -429,30 +322,18 @@
 			<PhotoModeDock />
 		{/if}
 
-		<!-- Error toast for chat errors -->
-		{#if chatStore.error}
-			<div
-				class="chat-error-toast"
-				out:pop={{ base: 'translateX(-50%)' }}
-				role="button"
-				tabindex="0"
-				onclick={() => chatStore.setError(null)}
-				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chatStore.setError(null); } }}
-			>
-				<span>{chatStore.error}</span>
-				<button type="button" class="toast-dismiss" aria-label={t('chat.dismiss')}>✕</button>
-			</div>
-		{/if}
+		<Toasts />
 
 		<!-- Event Scene Overlay (deferred while posing; renders on exit) -->
-		{#if activeEvent?.scene && !photomodeStore.active}
+		{#if events.activeEvent?.scene && !photomodeStore.active}
 			<EventScene
-				scene={activeEvent?.scene}
-				eventName={activeEvent?.name}
-				eventType={activeEvent?.type}
+				scene={events.generatedScene ?? events.activeEvent.scene}
+				pending={events.pending}
+				eventName={events.activeEvent.name}
+				eventType={events.activeEvent.type}
 				companionName={personaStore.activeCard.name}
-				onComplete={handleEventComplete}
-				onClose={handleEventClose}
+				onComplete={events.complete}
+				onClose={events.close}
 			/>
 		{/if}
 	</main>
@@ -572,94 +453,6 @@
 		40% {
 			opacity: 1;
 			transform: scale(1);
-		}
-	}
-
-	.error-toast,
-	.chat-error-toast {
-		position: fixed;
-		top: 4.5rem;
-		left: 50%;
-		transform: translateX(-50%);
-		display: flex;
-		align-items: flex-start;
-		gap: 0.5rem;
-		width: fit-content;
-		max-width: 600px;
-		padding: 0.75rem 1rem;
-		background: var(--color-error);
-		border: 1px solid transparent;
-		border-radius: var(--radius-lg);
-		color: #fff;
-		font-size: 0.875rem;
-		cursor: pointer;
-		z-index: 50;
-		animation: errorSlideDownShake 0.5s ease-out;
-		box-shadow: var(--shadow-lg);
-	}
-
-	.error-toast span,
-	.chat-error-toast span {
-		flex: 1;
-		word-wrap: break-word;
-	}
-
-	.toast-dismiss {
-		background: rgba(255, 255, 255, 0.2);
-		border: none;
-		padding: 0.25rem;
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		color: white;
-		opacity: 0.9;
-		font-size: 0.875rem;
-		line-height: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.15s ease;
-	}
-
-	.toast-dismiss:hover {
-		opacity: 1;
-		background: rgba(255, 255, 255, 0.3);
-	}
-
-	@keyframes errorSlideDownShake {
-		0% {
-			opacity: 0;
-			transform: translateX(-50%) translateY(-8px);
-		}
-		30% {
-			opacity: 1;
-			transform: translateX(-50%) translateY(0);
-		}
-		45% {
-			transform: translateX(calc(-50% + 6px)) translateY(0);
-		}
-		60% {
-			transform: translateX(calc(-50% - 5px)) translateY(0);
-		}
-		75% {
-			transform: translateX(calc(-50% + 3px)) translateY(0);
-		}
-		90% {
-			transform: translateX(calc(-50% - 2px)) translateY(0);
-		}
-		100% {
-			transform: translateX(-50%) translateY(0);
-		}
-	}
-
-	.chat-error-toast {
-		top: 5.5rem;
-	}
-
-	@media (max-width: 640px) {
-		.error-toast,
-		.chat-error-toast {
-			width: fit-content;
-			max-width: calc(100vw - 1.5rem);
 		}
 	}
 

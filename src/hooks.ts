@@ -1,4 +1,5 @@
 import type { Reroute } from '@sveltejs/kit';
+import { deLocalizeUrl } from '$lib/paraglide/runtime';
 
 // Subdomain → internal route prefix. On docs.utsuwa.ai a request for
 // `/overview/introduction` is routed to `/docs/overview/introduction`, and
@@ -7,16 +8,24 @@ import type { Reroute } from '@sveltejs/kit';
 // "Prepend only if missing" keeps already-prefixed paths working as a safety net.
 export const reroute: Reroute = ({ url }) => {
 	const host = url.hostname;
+	// Localized marketing URLs (/ja) resolve to their English route first.
+	// Paraglide throws on an opaque ("null") origin, which tauri:// URLs can
+	// have, and the desktop app has no localized pages anyway.
+	const pathname = url.origin === 'null' ? url.pathname : deLocalizeUrl(url).pathname;
 
+	// /_app is SvelteKit's own namespace (immutable assets are static, but
+	// /_app/env.js is served by the app itself); prefixing it 404s the module
+	// and the page never hydrates.
+	const passthrough = pathname.startsWith('/api') || pathname.startsWith('/_app');
 	if (host.startsWith('docs.')) {
-		if (!url.pathname.startsWith('/docs') && !url.pathname.startsWith('/api')) {
-			return url.pathname === '/' ? '/docs' : `/docs${url.pathname}`;
+		if (!pathname.startsWith('/docs') && !passthrough) {
+			return pathname === '/' ? '/docs' : `/docs${pathname}`;
 		}
 	} else if (host.startsWith('app.')) {
-		if (!url.pathname.startsWith('/app') && !url.pathname.startsWith('/api')) {
-			return url.pathname === '/' ? '/app' : `/app${url.pathname}`;
+		if (!pathname.startsWith('/app') && !passthrough) {
+			return pathname === '/' ? '/app' : `/app${pathname}`;
 		}
 	}
 
-	// Main domain / localhost: leave the path untouched.
+	return pathname;
 };

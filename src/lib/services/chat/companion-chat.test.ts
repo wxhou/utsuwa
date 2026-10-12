@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
-import { createDefaultCharacterState } from '../../types/character.ts';
+import { createDefaultCharacterState } from '../../engine/character-defaults.ts';
 import { parseResponse } from '../../ai/response-parser.ts';
 import { StreamingSpeechBuffer } from '../tts/streaming-speech-buffer.ts';
 import type { SpeechSegment } from '../voice-orchestrator.ts';
@@ -20,12 +20,26 @@ test('companion chat preserves native speech across direct and hosted state bloc
 	let spoken: SpeechSegment[] = [];
 	const turns: ReturnType<typeof parseResponse>[] = [];
 	let latest = '';
+	const thinking: boolean[] = [];
 	let speechEnabled = true;
+	let visionEnabled = false;
+	const visionSettings: { activeProvider: string; activeModel?: string } = { activeProvider: 'openai-compatible', activeModel: 'vision-model' };
 	let speechStarted = false;
-	const messages: { role: string; content: string }[] = [];
+	const hints: string[] = [];
+	const said: string[] = [];
+	let cancels = 0;
+	const messages: { id: string; role: string; content: string }[] = [];
 	const chatStore = {
 		messages, isLoading: false, error: null as string | null,
-		addMessage: (role: string, content: string) => messages.push({ role, content }),
+		addMessage: (role: string, content: string) => {
+			const message = { id: crypto.randomUUID(), role, content };
+			messages.push(message);
+			return message;
+		},
+		removeMessage: (id: string) => {
+			const index = messages.findIndex((m) => m.id === id);
+			if (index >= 0) messages.splice(index, 1);
+		},
 		updateLastMessage: (content: string) => { messages[messages.length - 1].content = content; },
 		setLoading: (value: boolean) => { chatStore.isLoading = value; },
 		setError: (value: string | null) => { chatStore.error = value; }
@@ -36,11 +50,13 @@ test('companion chat preserves native speech across direct and hosted state bloc
 		personaStore: { activeCard: { id: 'test', name: 'Utsuwa', systemPrompt: 'Friendly', extensions: {} } },
 		settingsStore: { getProviderConfig: () => ({ apiKey: 'test-key', baseUrl: 'https://provider.invalid/v1/' }) },
 		modulesStore: {
-			isModuleEnabled: () => true,
+			isModuleEnabled: (id: string) => id !== 'vision' || visionEnabled,
 			getModuleState: () => ({ enabled: speechEnabled }),
-			getModuleSettings: (id: string) => id === 'speech' ? speech : { activeProvider: llmProvider, activeModel: 'test-model', contextSize }
+			getModuleSettings: (id: string) =>
+				id === 'speech' ? speech : id === 'vision' ? visionSettings : { activeProvider: llmProvider, activeModel: 'test-model', contextSize }
 		},
-		vrmStore: { startTalking: () => {} },
+		vrmStore: { startTalking: () => {}, setThinking: (value: boolean) => { thinking.push(value); } },
+		animationLibraryStore: { enabledForLlm: [] },
 		reminderStore: { upcoming: [] },
 		ttsStore: {
 			beginStreaming: async () => {
@@ -50,13 +66,27 @@ test('companion chat preserves native speech across direct and hosted state bloc
 			},
 			feedStreaming: (chunk: string) => buffer?.feed(chunk),
 			endStreaming: async () => { buffer?.flush(); },
-			cancelStreaming: () => buffer?.reset()
+			cancelStreaming: () => { cancels++; buffer?.reset(); },
+			speak: (text: string) => { said.push(text); }
 		},
+		chatHintStore: { showHint: (hint: string) => { hints.push(hint); } },
+		chatDraftStore: {
+			draft: '',
+			pending: [] as unknown[],
+			addPending: (image: unknown, url: string) => { fixtures.chatDraftStore.pending.push({ image, url }); }
+		},
+		keepImage: async () => {},
 		mcpStore: {
 			ensureTools: async () => {},
 			hasActiveTools: false,
 			tools: [],
-			servers: []
+			servers: [],
+			confirmations: [] as Array<{ serverName: string; toolName: string; args: Record<string, unknown> }>,
+			confirmAnswer: true,
+			async confirmToolCall(request: { serverName: string; toolName: string; args: Record<string, unknown> }) {
+				fixtures.mcpStore.confirmations.push(request);
+				return fixtures.mcpStore.confirmAnswer;
+			}
 		},
 		publicEnv: {} as Record<string, string>,
 		privateEnv: {} as Record<string, string>,
@@ -72,15 +102,17 @@ test('companion chat preserves native speech across direct and hosted state bloc
 	const replacements: Record<string, string> = {
 		'$env/dynamic/private': 'export const env = globalThis.__utsuwaChatIntegration.privateEnv;',
 		'$env/dynamic/public': 'export const env = globalThis.__utsuwaChatIntegration.publicEnv;',
-		'src/lib/engine/memory': `export const retrieveRelevantContext = async () => ({ recentTurns: [], relevantFacts: [], triggeredMemories: [], recentSessions: [] });
-			export const getWorkingMemory = () => ({}); export const ensureSession = async () => null;`,
-		'src/lib/services/storage/keepsakes': 'export const keepImage = async () => {};',
+		'src/lib/engine/memory': 'export const retrieveRelevantContext = async () => ({ recentTurns: [], relevantFacts: [], triggeredMemories: [], recentSessions: [] });',
+		'src/lib/engine/memory-session': 'export const getWorkingMemory = () => ({}); export const ensureSession = async () => null;',
+		'src/lib/services/storage/keepsakes': 'export const keepImage = (...args) => globalThis.__utsuwaChatIntegration.keepImage(...args);',
 		'src/lib/services/platform': 'export const isTauri = () => globalThis.__utsuwaChatIntegration.isTauri();',
-		'src/lib/services/chat/companion-turn': 'export const processCompanionTurn = (...args) => globalThis.__utsuwaChatIntegration.processCompanionTurn(...args);'
+		'src/lib/services/chat/companion-turn': 'export const processCompanionTurn = (...args) => globalThis.__utsuwaChatIntegration.processCompanionTurn(...args);',
+		// The chat route's SSRF guard resolves the provider host; keep it offline.
+		'node:dns/promises': "export const lookup = async () => [{ address: '203.0.113.10', family: 4 }];"
 	};
 	for (const [path, name] of Object.entries({
 		chat: 'chatStore', character: 'characterStore', persona: 'personaStore', settings: 'settingsStore',
-		modules: 'modulesStore', vrm: 'vrmStore', reminders: 'reminderStore', tts: 'ttsStore', mcp: 'mcpStore'
+		modules: 'modulesStore', vrm: 'vrmStore', 'animation-library': 'animationLibraryStore', reminders: 'reminderStore', tts: 'ttsStore', mcp: 'mcpStore', 'chat-hint': 'chatHintStore', 'chat-draft': 'chatDraftStore'
 	})) replacements[`src/lib/stores/${path}.svelte`] = `export const ${name} = globalThis.__utsuwaChatIntegration.${name};`;
 	const server = await createServer({
 		root, configFile: false, server: { middlewareMode: true }, appType: 'custom',
@@ -102,7 +134,8 @@ test('companion chat preserves native speech across direct and hosted state bloc
 		}]
 	});
 	try {
-		const { sendCompanionMessage } = await server.ssrLoadModule('/src/lib/services/chat/companion-chat.ts');
+		const { sendCompanionMessage, cancelActiveTurn } = await server.ssrLoadModule('/src/lib/services/chat/companion-chat.ts');
+		const { streamChat } = await server.ssrLoadModule('/src/lib/services/llm/transport.ts');
 		const { POST } = await server.ssrLoadModule('/src/routes/api/chat/+server.ts');
 		const state = '\n```json\n{"mood_change":{"emotion":"happy","intensity_delta":2},"new_memory":"They are learning Spanish"}\n```\nDuplicate text must stay hidden.';
 		const hooks = { setTyping: () => {}, setLatestResponse: (text: string) => { latest = text; }, setActiveEvent: () => {} };
@@ -110,7 +143,7 @@ test('companion chat preserves native speech across direct and hosted state bloc
 			for (const stateFirst of [true, false]) {
 				await t.test(`${transport}, state ${stateFirst ? 'before' : 'after'} native calls`, async (t) => {
 					direct = transport === 'direct';
-					messages.length = 0; spoken = []; turns.length = 0;
+					messages.length = 0; spoken = []; turns.length = 0; thinking.length = 0;
 					const textEvents = [...state].map((content) => ({ choices: [{ delta: { content } }] }));
 					const toolEvents = ['Let me know how your interview goes.', 'Hola, buenos días.'].flatMap((text, index) => {
 						const args = JSON.stringify({ text, language: index ? 'es' : 'en' });
@@ -124,6 +157,7 @@ test('companion chat preserves native speech across direct and hosted state bloc
 					t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
 						if (url === '/api/chat') return POST({ request: new Request('http://localhost/api/chat', init) });
 						assert.equal(String(url), 'https://provider.invalid/v1/chat/completions');
+						if (!direct) assert.equal(init.redirect, 'manual');
 						return new Response(new ReadableStream({ start(controller) {
 							// Split both SSE lines and UTF-8 characters across network chunks.
 							const bytes = new TextEncoder().encode(wire);
@@ -133,6 +167,9 @@ test('companion chat preserves native speech across direct and hosted state bloc
 					});
 					await sendCompanionMessage('Hello', [], hooks);
 					assert.equal(chatStore.error, null);
+					// Thinking covers the wait for the first text, then clears
+					assert.equal(thinking[0], true);
+					assert.equal(thinking.at(-1), false);
 					assert.deepEqual(spoken.map((s) => [s.text, s.language]), [
 						['Let me know how your interview goes.', 'en'], ['Hola, buenos días.', 'es']
 					]);
@@ -524,6 +561,27 @@ test('companion chat preserves native speech across direct and hosted state bloc
 			assert.equal(providerRound, 2, 'the model runs again after the mixed tool round');
 			mcp.hasActiveTools = false; mcp.tools = []; mcp.servers = [];
 		});
+		await t.test('a command-line allowlist rejects node -e even though node is listed', async () => {
+			fixtures.privateEnv.MCP_ENABLED = 'server';
+			fixtures.privateEnv.MCP_STDIO_ALLOWED_COMMANDS = 'node ./.e2e-tmp/echo-server.mjs';
+			const { POST: callPOST } = await server.ssrLoadModule('/src/routes/api/mcp/call/+server.ts');
+			const response = await callPOST({
+				request: new Request('http://localhost/api/mcp/call', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						server: { id: 'x', name: 'X', transport: 'stdio', command: 'node', args: ['-e', 'process.exit(0)'], enabled: true },
+						toolName: 'echo',
+						args: {}
+					})
+				})
+			});
+			assert.equal(response.status, 403);
+			const body = (await response.json()) as { error?: string };
+			assert.match(body.error ?? '', /not allowed/);
+			delete fixtures.privateEnv.MCP_ENABLED;
+			delete fixtures.privateEnv.MCP_STDIO_ALLOWED_COMMANDS;
+		});
 		await t.test('the MCP call route disables stdio without an allowlist', async () => {
 			fixtures.privateEnv.MCP_ENABLED = 'server';
 			const { POST: callPOST } = await server.ssrLoadModule('/src/routes/api/mcp/call/+server.ts');
@@ -613,6 +671,68 @@ test('companion chat preserves native speech across direct and hosted state bloc
 			assert.equal(mcpCalls, 0, 'a disabled server is never contacted');
 			mcp.hasActiveTools = false; mcp.tools = []; mcp.servers = [];
 		});
+		for (const [label, server, answer] of [
+			['a declined confirmation skips the tool', {}, false],
+			['an approved confirmation runs the tool', {}, true],
+			['a server with ask-before-run off never prompts', { askBeforeRun: false }, false]
+		] as const) {
+			await t.test(label, async (t) => {
+				direct = false; llmProvider = 'openai-compatible';
+				speechEnabled = false; messages.length = 0; spoken = []; turns.length = 0;
+				const mcp = fixtures.mcpStore;
+				mcp.confirmations.length = 0;
+				mcp.confirmAnswer = answer;
+				(mcp as { hasActiveTools: boolean }).hasActiveTools = true;
+				(mcp as { tools: unknown[] }).tools = [{
+					serverId: 'ha', serverName: 'Home Assistant', name: 'unlock_door',
+					description: 'Unlock a door', inputSchema: { type: 'object' }
+				}];
+				(mcp as { servers: unknown[] }).servers = [{
+					id: 'ha', name: 'Home Assistant', transport: 'http', url: 'http://ha.local/api/mcp', enabled: true, ...server
+				}];
+
+				const prompts = !('askBeforeRun' in server);
+				const runs = !prompts || answer;
+				let providerRound = 0;
+				let mcpCalls = 0;
+				let toolResult = '';
+				const toolCallWire = `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: 'unlock_door', arguments: '{"door":"front"}' } }] } }] })}\n\n` + 'data: [DONE]\n\n';
+				const answerWire = `data: ${JSON.stringify({ choices: [{ delta: { content: 'Done.' } }] })}\n\n` + 'data: [DONE]\n\n';
+
+				t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+					if (url === '/api/mcp/call') {
+						mcpCalls++;
+						return new Response(JSON.stringify({ toolName: 'unlock_door', content: 'unlocked', isError: false }), {
+							headers: { 'Content-Type': 'application/json' }
+						});
+					}
+					if (url === '/api/chat') {
+						if (providerRound === 1) {
+							const body = JSON.parse(String(init.body));
+							toolResult = body.messages.find((m: { role: string }) => m.role === 'tool')?.content ?? '';
+						}
+						return POST({ request: new Request('http://localhost/api/chat', init) });
+					}
+					const wire = providerRound === 0 ? toolCallWire : answerWire;
+					providerRound++;
+					return new Response(new TextEncoder().encode(wire), { headers: { 'Content-Type': 'text/event-stream' } });
+				});
+
+				await sendCompanionMessage('Open the front door', [], hooks);
+				assert.equal(chatStore.error, null);
+				assert.deepEqual(
+					mcp.confirmations,
+					prompts ? [{ serverName: 'Home Assistant', toolName: 'unlock_door', args: { door: 'front' } }] : []
+				);
+				assert.equal(mcpCalls, runs ? 1 : 0);
+				assert.match(toolResult, runs ? /unlocked/ : /declined.*NOT executed/);
+				assert.equal(providerRound, 2, 'the model answers after the tool round');
+				mcp.confirmAnswer = true;
+				(mcp as { hasActiveTools: boolean }).hasActiveTools = false;
+				(mcp as { tools: unknown[] }).tools = [];
+				(mcp as { servers: unknown[] }).servers = [];
+			});
+		}
 		await t.test('tool errors are prefixed for the model', async (t) => {
 			direct = false; llmProvider = 'openai-compatible';
 			speechEnabled = false; messages.length = 0; spoken = []; turns.length = 0;
@@ -702,6 +822,280 @@ test('companion chat preserves native speech across direct and hosted state bloc
 			await sendCompanionMessage('How warm is it?', [], hooks);
 			assert.equal(chatStore.error, null);
 			mcp.hasActiveTools = false; mcp.tools = []; mcp.servers = [];
+		});
+
+		const sse = (text: string) => `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`;
+		// A stream that sends one chunk (if any) and then stalls, erroring only on abort like real fetch.
+		const hangingStream = (signal: AbortSignal | null | undefined, first?: string) =>
+			new Response(new ReadableStream({ start(controller) {
+				if (first) controller.enqueue(new TextEncoder().encode(first));
+				signal?.addEventListener('abort', () => controller.error(signal.reason));
+			} }), { headers: { 'Content-Type': 'text/event-stream' } });
+		const resetTurn = () => {
+			messages.length = 0; spoken = []; turns.length = 0; thinking.length = 0;
+			hints.length = 0; said.length = 0; cancels = 0; chatStore.error = null;
+			fixtures.chatDraftStore.draft = ''; fixtures.chatDraftStore.pending.length = 0;
+		};
+
+		await t.test('the direct transport rejects instead of resolving silently when the key is missing', async () => {
+			direct = true;
+			await assert.rejects(
+				streamChat({ messages: [], provider: 'openai', model: 'm', systemPrompt: '' }, () => {}),
+				/API key required/
+			);
+		});
+		await t.test('a transport that throws before streaming still settles the turn', { timeout: 5000 }, async () => {
+			direct = true; llmProvider = 'openai-compatible'; speechEnabled = true; resetTurn();
+			const settings = fixtures.settingsStore;
+			const original = settings.getProviderConfig;
+			// A corrupted base URL makes the direct transport throw before it fetches.
+			settings.getProviderConfig = () => ({ apiKey: 'test-key', baseUrl: 42 as unknown as string });
+			try {
+				await sendCompanionMessage('Hello', [], hooks);
+			} finally {
+				settings.getProviderConfig = original;
+			}
+			assert.equal(chatStore.isLoading, false);
+			assert.ok(chatStore.error, 'the failure is surfaced');
+			assert.equal(thinking.at(-1), false);
+		});
+		for (const transport of ['direct', 'hosted']) {
+			await t.test(`${transport}: cancelActiveTurn stops the reply mid-stream`, { timeout: 5000 }, async (t) => {
+				direct = transport === 'direct'; llmProvider = 'openai-compatible'; speechEnabled = true; resetTurn();
+				let typing = true;
+				let firstChunk!: () => void;
+				const gotChunk = new Promise<void>((resolve) => (firstChunk = resolve));
+				t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+					const first = direct ? sse('Hello the') : `0:${JSON.stringify('Hello the')}\n`;
+					setTimeout(firstChunk, 10);
+					return hangingStream(init.signal, first);
+				});
+				const turn = sendCompanionMessage('Hello', [], { ...hooks, setTyping: (v: boolean) => { typing = v; } });
+				await gotChunk;
+				assert.equal(chatStore.isLoading, true);
+				cancelActiveTurn();
+				await turn;
+				assert.equal(chatStore.isLoading, false);
+				assert.equal(chatStore.error, null);
+				assert.deepEqual(hints, ['Stopped']);
+				assert.equal(typing, false);
+				assert.equal(thinking.at(-1), false);
+				assert.equal(cancels, 1, 'streaming speech is cancelled');
+				assert.equal(turns.length, 0, 'the stopped turn is not processed');
+				assert.deepEqual(said, []);
+			});
+		}
+		await t.test('a stalled reply times out on its own', { timeout: 5000 }, async (t) => {
+			direct = false; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+			t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => hangingStream(init.signal));
+			await sendCompanionMessage('Hello', [], hooks, { stallTimeoutMs: 30 });
+			assert.equal(chatStore.isLoading, false);
+			assert.deepEqual(hints, ['Reply timed out']);
+			// The next turn is not locked out
+			t.mock.method(globalThis, 'fetch', async () => new Response(sse('Back again.') + 'data: [DONE]\n\n'));
+			direct = true;
+			await sendCompanionMessage('Hello?', [], hooks);
+			assert.equal(latest, 'Back again.');
+		});
+		await t.test('a failed keepsake write still finalizes and speaks the reply', { timeout: 5000 }, async (t) => {
+			direct = true; llmProvider = 'openai-compatible'; speechEnabled = true; resetTurn();
+			const provider = speech.activeProvider;
+			speech.activeProvider = 'elevenlabs';
+			fixtures.keepImage = async () => { throw new Error('QuotaExceededError'); };
+			t.mock.method(console, 'debug', () => {});
+			t.mock.method(globalThis, 'fetch', async () => new Response(sse('What a view.') + 'data: [DONE]\n\n'));
+			const image = { id: 'img-1', mimeType: 'image/png', base64: 'eA==', blob: new Blob(['x'], { type: 'image/png' }) };
+			try {
+				await sendCompanionMessage('Look', [image], hooks);
+			} finally {
+				speech.activeProvider = provider;
+				fixtures.keepImage = async () => {};
+			}
+			assert.equal(chatStore.error, null);
+			assert.equal(messages.at(-1)?.content, 'What a view.');
+			assert.equal(latest, 'What a view.');
+			assert.deepEqual(said, ['What a view.']);
+			assert.equal(hints.length, 1);
+		});
+		for (const transport of ['direct', 'hosted']) {
+			await t.test(`${transport}: a busy provider is retried and the reply still lands`, { timeout: 5000 }, async (t) => {
+				direct = transport === 'direct'; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+				let upstream = 0;
+				t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+					if (url === '/api/chat') return POST({ request: new Request('http://localhost/api/chat', init) });
+					// Retry-After: 0 keeps the test instant and proves the header is honored
+					if (upstream++ === 0) {
+						return new Response(JSON.stringify({ error: { message: 'Rate limit exceeded' } }), {
+							status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '0' }
+						});
+					}
+					return new Response(sse('Sorry, I was busy.') + 'data: [DONE]\n\n', { headers: { 'Content-Type': 'text/event-stream' } });
+				});
+				await sendCompanionMessage('Hello', [], hooks);
+				assert.equal(upstream, 2);
+				assert.equal(chatStore.error, null);
+				assert.equal(latest, 'Sorry, I was busy.');
+				assert.equal(hints.length, 1);
+				assert.match(hints[0], /retrying/i);
+			});
+			await t.test(`${transport}: a rejected key fails once and the message bounces back to the composer`, { timeout: 5000 }, async (t) => {
+				direct = transport === 'direct'; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+				let upstream = 0;
+				t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+					if (url === '/api/chat') return POST({ request: new Request('http://localhost/api/chat', init) });
+					upstream++;
+					return new Response(JSON.stringify({ error: { message: 'Invalid API key' } }), {
+						status: 401, headers: { 'Content-Type': 'application/json' }
+					});
+				});
+				const image = { id: 'img-1', mimeType: 'image/png', base64: 'eA==', blob: new Blob(['x'], { type: 'image/png' }) };
+				await sendCompanionMessage('Remember this long message?', [image], hooks);
+				assert.equal(upstream, 1);
+				// Same readable message on both paths, not xsai's raw "Remote sent 401 response: {...}"
+				assert.equal(chatStore.error, 'Invalid API key');
+				assert.equal(messages.some((m) => m.role === 'user'), false, 'the failed bubble is taken back');
+				assert.equal(fixtures.chatDraftStore.draft, 'Remember this long message?');
+				assert.equal(fixtures.chatDraftStore.pending.length, 1);
+			});
+		}
+		for (const transport of ['direct', 'hosted']) {
+			const image = { id: 'img-v', mimeType: 'image/png', base64: 'eA==', blob: new Blob(['x'], { type: 'image/png' }) };
+			// Every upstream body, in order, whichever transport carried it
+			const upstreamBodies = (t: { mock: { method: (o: object, m: string, f: (...args: never[]) => unknown) => unknown } }, reply: (body: { model: string; messages: { role: string; content: unknown }[] }) => Response) => {
+				const bodies: { model: string; messages: { role: string; content: unknown }[] }[] = [];
+				t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+					if (url === '/api/chat') return POST({ request: new Request('http://localhost/api/chat', init) });
+					const body = JSON.parse(String(init.body));
+					bodies.push(body);
+					return reply(body);
+				});
+				return bodies;
+			};
+			await t.test(`${transport}: a separate vision model describes the photo and the chat model gets text`, { timeout: 5000 }, async (t) => {
+				direct = transport === 'direct'; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+				visionEnabled = true;
+				let kept = 0;
+				fixtures.keepImage = async () => { kept++; };
+				const bodies = upstreamBodies(t, (body) => new Response(
+					sse(body.model === 'vision-model' ? 'A grey cat on a windowsill.' : 'What a sweet cat!') + 'data: [DONE]\n\n',
+					{ headers: { 'Content-Type': 'text/event-stream' } }
+				));
+				try {
+					await sendCompanionMessage('Meet Miso', [image], hooks);
+				} finally {
+					visionEnabled = false;
+					fixtures.keepImage = async () => {};
+				}
+				assert.equal(chatStore.error, null);
+				assert.deepEqual(bodies.map((b) => b.model), ['vision-model', 'test-model']);
+				const visionTurn = JSON.stringify(bodies[0].messages.at(-1));
+				assert.match(visionTurn, /data:image\/png;base64,eA==/);
+				assert.match(visionTurn, /Meet Miso/);
+				const chatTurn = bodies[1].messages.at(-1);
+				assert.equal(chatTurn?.content, 'Meet Miso\n\n[They showed you an image. What it shows: A grey cat on a windowsill.]');
+				assert.doesNotMatch(JSON.stringify(bodies[1]), /base64/);
+				assert.match(String(bodies[1].messages[0].content), /<being_shown>/);
+				assert.equal(latest, 'What a sweet cat!');
+				assert.equal(messages.at(-1)?.content, 'What a sweet cat!');
+				assert.equal(kept, 1, 'the photo is still kept on the board');
+			});
+			await t.test(`${transport}: a failing vision model stops the turn and returns the photo`, { timeout: 5000 }, async (t) => {
+				direct = transport === 'direct'; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+				visionEnabled = true;
+				const bodies = upstreamBodies(t, () => new Response(JSON.stringify({ error: { message: 'Invalid API key' } }), {
+					status: 401, headers: { 'Content-Type': 'application/json' }
+				}));
+				try {
+					await sendCompanionMessage('Meet Miso', [image], hooks);
+				} finally {
+					visionEnabled = false;
+				}
+				assert.deepEqual(bodies.map((b) => b.model), ['vision-model'], 'the chat model is never asked');
+				assert.equal(chatStore.error, 'Vision model: Invalid API key');
+				assert.equal(messages.length, 0);
+				assert.equal(fixtures.chatDraftStore.draft, 'Meet Miso');
+				assert.equal(fixtures.chatDraftStore.pending.length, 1);
+			});
+		}
+		await t.test('a vision model with nothing picked never falls back to the chat model', { timeout: 5000 }, async (t) => {
+			direct = true; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+			visionEnabled = true;
+			const model = visionSettings.activeModel;
+			visionSettings.activeModel = '';
+			let calls = 0;
+			t.mock.method(globalThis, 'fetch', async () => { calls++; return new Response(''); });
+			const image = { id: 'img-v', mimeType: 'image/png', base64: 'eA==', blob: new Blob(['x'], { type: 'image/png' }) };
+			try {
+				await sendCompanionMessage('Look', [image], hooks);
+			} finally {
+				visionEnabled = false;
+				visionSettings.activeModel = model;
+			}
+			assert.equal(calls, 0);
+			assert.match(chatStore.error ?? '', /Pick a vision model/);
+			assert.equal(fixtures.chatDraftStore.pending.length, 1);
+		});
+		await t.test('text-only turns skip the vision model', { timeout: 5000 }, async (t) => {
+			direct = true; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+			visionEnabled = true;
+			const models: string[] = [];
+			t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+				models.push(JSON.parse(String(init.body)).model);
+				return new Response(sse('Hi!') + 'data: [DONE]\n\n');
+			});
+			try {
+				await sendCompanionMessage('Hello', [], hooks);
+			} finally {
+				visionEnabled = false;
+			}
+			assert.deepEqual(models, ['test-model']);
+		});
+		await t.test('route errors without a transient flag are not retried; bare gateway errors are', { timeout: 5000 }, async (t) => {
+			direct = false; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+			let calls = 0;
+			t.mock.method(globalThis, 'fetch', async () => {
+				calls++;
+				return new Response('{"error":"Model is required"}', { status: 500, headers: { 'Content-Type': 'application/json' } });
+			});
+			await sendCompanionMessage('Hello', [], hooks);
+			assert.equal(calls, 1, 'our own route errors are final');
+			assert.equal(chatStore.error, 'Model is required');
+
+			resetTurn(); calls = 0;
+			t.mock.method(globalThis, 'fetch', async () => {
+				if (calls++ === 0) return new Response('<html>502 Bad Gateway</html>', { status: 502, headers: { 'Retry-After': '0' } });
+				return new Response('0:"Back."\n', { headers: { 'Content-Type': 'text/event-stream' } });
+			});
+			await sendCompanionMessage('Hello', [], hooks);
+			assert.equal(calls, 2, 'a gateway page is retried');
+			assert.equal(chatStore.error, null);
+		});
+		await t.test('a reply that drops mid-stream is not retried and stays on screen', { timeout: 5000 }, async (t) => {
+			direct = false; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+			t.mock.method(console, 'error', () => {});
+			let upstream = 0;
+			t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+				if (url === '/api/chat') return POST({ request: new Request('http://localhost/api/chat', init) });
+				upstream++;
+				return new Response(new ReadableStream({ start(controller) {
+					controller.enqueue(new TextEncoder().encode(sse('Half a thou')));
+					// Drop the connection after the text has reached the client
+					setTimeout(() => controller.error(new TypeError('terminated')), 50);
+				} }), { headers: { 'Content-Type': 'text/event-stream' } });
+			});
+			await sendCompanionMessage('Hello', [], hooks);
+			assert.equal(upstream, 1);
+			assert.ok(chatStore.error);
+			assert.equal(messages[0]?.content, 'Hello', 'the answered question stays put');
+			assert.equal(fixtures.chatDraftStore.draft, '');
+		});
+		await t.test('a draft typed during the failed turn is not overwritten', { timeout: 5000 }, async (t) => {
+			direct = true; llmProvider = 'openai-compatible'; speechEnabled = false; resetTurn();
+			t.mock.method(globalThis, 'fetch', async () => new Response('{}', { status: 400 }));
+			fixtures.chatDraftStore.draft = 'my next thought';
+			await sendCompanionMessage('Hello', [], hooks);
+			assert.equal(fixtures.chatDraftStore.draft, 'my next thought');
+			assert.equal(messages[0]?.content, 'Hello');
 		});
 	} finally {
 		buffer?.reset();

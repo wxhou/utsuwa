@@ -1,14 +1,18 @@
 <script lang="ts">
+	import { rangeProgress } from '$lib/utils/range-progress';
+	import Select from '$lib/components/ui/Select.svelte';
 	import { onDestroy } from 'svelte';
 	import { vrmStore } from '$lib/stores/vrm.svelte';
+	import { vrmGalleryStore } from '$lib/stores/vrm-gallery.svelte';
 	import VrmScene from '$lib/components/vrm/VrmScene.svelte';
 	import { Icon } from '$lib/components/ui';
 	import * as THREE from 'three';
 	import localforage from 'localforage';
-	import { debugEventsStore, testEvents } from '$lib/stores/debugEvents.svelte';
+	import { STORAGE_INVENTORY } from '$lib/db/storage-inventory';
+	import { debugEventsStore, testEvents } from '$lib/stores/debug-events.svelte';
 	import { goto } from '$app/navigation';
 	import { localPath } from '$lib/config/links';
-	import { t } from '$lib/i18n';
+	import { quickTestFace, type QuickTest } from '$lib/engine/expression-compose';
 
 	// Material debug modes from @pixiv/three-vrm-materials-mtoon
 	const materialDebugModes = [
@@ -121,97 +125,36 @@
 		return category.filter((name) => availableExpressions.includes(name));
 	}
 
-	// Set expression value
+	// Held through the manual layer so the mood, blink, and lip-sync layers
+	// don't overwrite it on the next frame. Zero hands it back to them.
 	function setExpression(name: string, value: number) {
 		expressionValues[name] = value;
-		const vrm = vrmStore.vrm;
-		if (vrm?.expressionManager) {
-			try {
-				vrm.expressionManager.setValue(name, value);
-				vrm.expressionManager.update();
-			} catch {
-				// Expression doesn't exist
-			}
-		}
+		if (value > 0) vrmStore.manualExpressions.set(name, value);
+		else vrmStore.manualExpressions.delete(name);
+		vrmStore.vrm?.expressionManager?.setValue(name, value);
 	}
 
-	// Reset all expressions
 	function resetAll() {
-		const vrm = vrmStore.vrm;
-		if (vrm?.expressionManager) {
-			for (const name of availableExpressions) {
-				vrm.expressionManager.setValue(name, 0);
-				expressionValues[name] = 0;
-			}
-			vrm.expressionManager.update();
-		}
+		for (const name of availableExpressions) setExpression(name, 0);
+		// A restored temp model can leave names the current one doesn't have
+		vrmStore.manualExpressions.clear();
 	}
 
-	// Test blink
-	function testBlink() {
-		setExpression('eyeBlinkLeft', 1);
-		setExpression('eyeBlinkRight', 1);
+	function runQuickTest(test: QuickTest, ms: number) {
+		const face = quickTestFace(test, availableExpressions);
+		for (const [name, value] of Object.entries(face)) setExpression(name, value);
 		setTimeout(() => {
-			setExpression('eyeBlinkLeft', 0);
-			setExpression('eyeBlinkRight', 0);
-		}, 150);
+			for (const name of Object.keys(face)) setExpression(name, 0);
+		}, ms);
 	}
 
-	// Test smile
-	function testSmile() {
-		setExpression('mouthSmileLeft', 0.8);
-		setExpression('mouthSmileRight', 0.8);
-		setExpression('cheekSquintLeft', 0.3);
-		setExpression('cheekSquintRight', 0.3);
-		setTimeout(() => {
-			setExpression('mouthSmileLeft', 0);
-			setExpression('mouthSmileRight', 0);
-			setExpression('cheekSquintLeft', 0);
-			setExpression('cheekSquintRight', 0);
-		}, 1000);
-	}
-
-	// Test surprised
-	function testSurprised() {
-		setExpression('eyeWideLeft', 0.8);
-		setExpression('eyeWideRight', 0.8);
-		setExpression('browInnerUp', 0.7);
-		setExpression('browOuterUpLeft', 0.5);
-		setExpression('browOuterUpRight', 0.5);
-		setExpression('jawOpen', 0.4);
-		setTimeout(() => {
-			setExpression('eyeWideLeft', 0);
-			setExpression('eyeWideRight', 0);
-			setExpression('browInnerUp', 0);
-			setExpression('browOuterUpLeft', 0);
-			setExpression('browOuterUpRight', 0);
-			setExpression('jawOpen', 0);
-		}, 1000);
-	}
-
-	// Test sad
-	function testSad() {
-		setExpression('browInnerUp', 0.6);
-		setExpression('browDownLeft', 0.3);
-		setExpression('browDownRight', 0.3);
-		setExpression('mouthFrownLeft', 0.5);
-		setExpression('mouthFrownRight', 0.5);
-		setTimeout(() => {
-			setExpression('browInnerUp', 0);
-			setExpression('browDownLeft', 0);
-			setExpression('browDownRight', 0);
-			setExpression('mouthFrownLeft', 0);
-			setExpression('mouthFrownRight', 0);
-		}, 1000);
-	}
-
-	// Open mouth for testing
-	function testMouthOpen() {
-		setExpression('jawOpen', 0.7);
-		setTimeout(() => {
-			setExpression('jawOpen', 0);
-		}, 500);
-	}
+	const quickTests: { test: QuickTest; label: string; ms: number }[] = [
+		{ test: 'blink', label: 'Test Blink', ms: 150 },
+		{ test: 'smile', label: 'Test Smile', ms: 1000 },
+		{ test: 'surprised', label: 'Test Surprised', ms: 1000 },
+		{ test: 'sad', label: 'Test Sad', ms: 1000 },
+		{ test: 'mouthOpen', label: 'Test Mouth Open', ms: 500 }
+	];
 
 	// ── Temporary VRM Upload ──
 	let tempModelName = $state('');
@@ -219,7 +162,7 @@
 	// If parsing the temporary model fails, restore the original avatar so the
 	// expression list and viewport do not stay empty/corrupted.
 	$effect(() => {
-		if (vrmStore.tempModelLoadError) {
+		if (vrmGalleryStore.tempModelLoadError) {
 			vrmStore.restoreOriginalModel();
 			tempModelName = '';
 		}
@@ -247,6 +190,7 @@
 
 	// Restore original avatar when leaving the developer page
 	onDestroy(() => {
+		resetAll();
 		vrmStore.restoreOriginalModel();
 	});
 
@@ -255,12 +199,8 @@
 	async function clearVrmStorage() {
 		clearingStorage = true;
 		try {
-			const vrmStorage = localforage.createInstance({
-				name: 'utsuwa-vrm',
-				storeName: 'models'
-			});
+			const vrmStorage = localforage.createInstance({ ...STORAGE_INVENTORY.localforage.vrm });
 			await vrmStorage.clear();
-			// console.log('VRM storage cleared');
 			// Reload to reset state
 			window.location.reload();
 		} catch (e) {
@@ -279,8 +219,7 @@
 	// Clear all character data
 	async function clearCharacterData() {
 		try {
-			indexedDB.deleteDatabase('utsuwa-db');
-			// console.log('Character database cleared');
+			indexedDB.deleteDatabase(STORAGE_INVENTORY.indexedDb);
 			window.location.reload();
 		} catch (e) {
 			console.error('Failed to clear character data:', e);
@@ -291,7 +230,7 @@
 <div class="developer-settings">
 	<div class="page-header">
 		<div>
-			<h2>{t('settings.developer.pageTitle')}</h2>
+			<h2>Developer Tools</h2>
 			<p >Test and debug VRM facial expressions and animations.</p>
 		</div>
 	</div>
@@ -303,7 +242,7 @@
 				<VrmScene centered />
 			</div>
 			<div class="viewport-controls">
-				<button class="btn btn-sm btn-secondary" onclick={resetAll} title={t('settings.developer.resetExpressions')}>
+				<button class="btn btn-sm btn-secondary" onclick={resetAll} title="Reset expressions">
 					<Icon name="refresh-cw" size={16} />
 					Reset
 				</button>
@@ -314,33 +253,33 @@
 		<div class="controls-panel">
 			<!-- Temporary VRM Model Upload -->
 			<section class="section">
-				<h3>{t('settings.developer.temporaryVrm')}</h3>
+				<h3>Temporary VRM Model</h3>
 				<p class="hint">
 					Upload a .vrm file to preview it in the viewport. The model is loaded in memory only
 					and is <strong>not saved</strong>. When you leave this page or click "Restore Original",
 					the previously active avatar returns automatically.
 				</p>
-				{#if vrmStore.tempModelActive}
+				{#if vrmGalleryStore.tempModelActive}
 					<div class="temp-model-info">
 						<span class="temp-model-name">{tempModelName || 'Temporary model'}</span>
 						<button
 							class="btn btn-sm btn-secondary"
 							onclick={restoreOriginalModel}
-							disabled={vrmStore.tempModelLoading}
+							disabled={vrmGalleryStore.tempModelLoading}
 						>
 							<Icon name="rotate-ccw" size={14} />
 							Restore Original
 						</button>
 					</div>
 				{:else}
-					<label class="btn btn-sm btn-primary" class:disabled={vrmStore.tempModelLoading}>
+					<label class="btn btn-sm btn-primary" class:disabled={vrmGalleryStore.tempModelLoading}>
 						<Icon name="upload" size={14} />
-						{vrmStore.tempModelLoading ? 'Loading…' : 'Upload VRM'}
+						{vrmGalleryStore.tempModelLoading ? 'Loading…' : 'Upload VRM'}
 						<input
 							type="file"
 							accept=".vrm,.VRM"
 							onchange={handleTempModelSelect}
-							disabled={vrmStore.tempModelLoading}
+							disabled={vrmGalleryStore.tempModelLoading}
 							class="sr-only"
 						/>
 					</label>
@@ -349,53 +288,37 @@
 
 			<!-- Animation Selection -->
 		<section class="section">
-			<h3>{t('settings.developer.animation')}</h3>
+			<h3>Animation</h3>
 			<p class="hint">Select an animation to play on the model.</p>
 			<div class="animation-select">
-				<select class="settings-field" aria-label={t('settings.developer.animation')}
-					value={vrmStore.currentAnimation || 'none'}
-					onchange={(e) => vrmStore.setCurrentAnimation(e.currentTarget.value === 'none' ? null : e.currentTarget.value)}
-				>
-					<option value="none">None (idle)</option>
-					{#each vrmStore.availableAnimations as anim}
-						<option value={anim.url}>{anim.name}</option>
-					{/each}
-				</select>
+				<Select label="Animation" value={vrmStore.currentAnimation || 'none'} onchange={(value) => vrmStore.setCurrentAnimation(value === 'none' ? null : value)} options={[{ value: 'none', label: 'None (idle)' }, ...vrmStore.availableAnimations.map(anim => ({ value: anim.url, label: anim.name }))]} />
 			</div>
 		</section>
 
 		<!-- Material Debug -->
 		<section class="section">
-			<h3>{t('settings.developer.materialDebug')}</h3>
+			<h3>Material Debug</h3>
 			<p class="hint">Visualize different material properties (MToon).</p>
 			<div class="animation-select">
-				<select class="settings-field" aria-label={t('settings.developer.materialDebug')}
-					value={currentDebugMode}
-					onchange={(e) => setMaterialDebugMode(e.currentTarget.value)}
-				>
-					{#each materialDebugModes as mode}
-						<option value={mode.id}>{mode.name}</option>
-					{/each}
-				</select>
+				<Select label="Material debug" value={currentDebugMode} onchange={setMaterialDebugMode} options={materialDebugModes.map(mode => ({ value: mode.id, label: mode.name }))} />
 			</div>
 		</section>
 
 		<!-- Quick Actions -->
 		<section class="section">
-			<h3>{t('settings.developer.quickTests')}</h3>
+			<h3>Quick Tests</h3>
 			<div class="quick-actions">
-				<button class="btn btn-sm btn-secondary" onclick={testBlink}>{t('settings.developer.testBlink')}</button>
-				<button class="btn btn-sm btn-secondary" onclick={testSmile}>{t('settings.developer.testSmile')}</button>
-				<button class="btn btn-sm btn-secondary" onclick={testSurprised}>{t('settings.developer.testSurprised')}</button>
-				<button class="btn btn-sm btn-secondary" onclick={testSad}>{t('settings.developer.testSad')}</button>
-				<button class="btn btn-sm btn-secondary" onclick={testMouthOpen}>{t('settings.developer.testMouthOpen')}</button>
-				<button class="btn btn-sm btn-danger" onclick={resetAll}>{t('settings.display.resetToDefaults')}</button>
+				{#each quickTests as { test, label, ms }}
+					<button class="btn btn-sm btn-secondary" onclick={() => runQuickTest(test, ms)}
+						disabled={!Object.keys(quickTestFace(test, availableExpressions)).length}>{label}</button>
+				{/each}
+				<button class="btn btn-sm btn-danger" onclick={resetAll}>Reset All</button>
 			</div>
 		</section>
 
 		<!-- Events Debug -->
 		<section class="section">
-			<h3>{t('settings.developer.eventSystem')}</h3>
+			<h3>Event System</h3>
 			<p class="hint">Trigger test events to preview the event modal styling.</p>
 			<div class="event-buttons">
 				{#each testEvents as event}
@@ -409,7 +332,7 @@
 
 		<!-- Storage -->
 		<section class="section">
-			<h3>{t('settings.developer.storage')}</h3>
+			<h3>Storage</h3>
 			<p class="hint">Clear cached data from browser storage.</p>
 			<div class="quick-actions">
 				<button class="btn btn-sm btn-danger" onclick={clearVrmStorage} disabled={clearingStorage}>
@@ -423,7 +346,7 @@
 
 		<!-- Available Expressions Info -->
 		<section class="section">
-			<h3>{t('settings.developer.availableExpressions', { n: availableExpressions.length })}</h3>
+			<h3>Available Expressions ({availableExpressions.length})</h3>
 			<p class="hint">This model supports the following expressions:</p>
 			<div class="expression-tags">
 				{#each availableExpressions as expr}
@@ -443,7 +366,7 @@
 							<div class="slider-row">
 								<label for={expr}>{expr}</label>
 								<input
-									type="range" class="settings-range"
+									type="range" use:rangeProgress={expressionValues[expr] || 0} class="settings-range"
 									id={expr}
 									min="0"
 									max="1"

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import CameraSettingsPanel from '$lib/components/ui/CameraSettingsPanel.svelte';
 	import ArUnsupportedModal from '$lib/components/ui/ArUnsupportedModal.svelte';
 	import { localPath } from '$lib/config/links';
@@ -8,7 +9,6 @@
 	import { arStore } from '$lib/stores/ar.svelte';
 	import { getColorMode, cycleColorMode, type ColorMode } from '$lib/utils/color-mode';
 	import { onMount } from 'svelte';
-	import { t } from '$lib/i18n';
 	import type { Reminder } from '$lib/types/memory';
 
 	interface Props {
@@ -36,6 +36,7 @@
 
 	function handleArClick() {
 		if (!arStore.supported) {
+			rootEl?.querySelector<HTMLButtonElement>('.cluster-trigger')?.focus();
 			showArModal = true;
 			clusterOpen = false;
 			return;
@@ -51,7 +52,7 @@
 		colorMode === 'system' ? 'monitor' : colorMode === 'light' ? 'sun' : 'moon'
 	);
 	const themeLabel = $derived(
-		t(colorMode === 'system' ? 'ui.themeSystem' : colorMode === 'light' ? 'ui.themeLight' : 'ui.themeDark')
+		colorMode === 'system' ? 'Theme: System' : colorMode === 'light' ? 'Theme: Light' : 'Theme: Dark'
 	);
 
 	onMount(() => {
@@ -65,8 +66,23 @@
 			remindersOpen = false;
 			showCamera = false;
 		};
+		const onKeydown = (event: KeyboardEvent) => {
+			if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+			if (event.target instanceof Element && event.target.closest('[role="dialog"]:not(.camera-panel)')) return;
+			let target: string;
+			if (showCamera) { showCamera = false; target = '[aria-label="Camera settings"]'; }
+			else if (remindersOpen) { remindersOpen = false; target = '.reminder-trigger'; }
+			else if (clusterOpen) { clusterOpen = false; target = '.cluster-trigger'; }
+			else return;
+			event.preventDefault();
+			rootEl?.querySelector<HTMLButtonElement>(target)?.focus();
+		};
 		document.addEventListener('pointerdown', onPointerDown);
-		return () => document.removeEventListener('pointerdown', onPointerDown);
+		document.addEventListener('keydown', onKeydown);
+		return () => {
+			document.removeEventListener('pointerdown', onPointerDown);
+			document.removeEventListener('keydown', onKeydown);
+		};
 	});
 
 	function toggleCluster() {
@@ -114,13 +130,13 @@
 	<div class="button-row">
 		<div class="reminder-wrapper">
 			<button
-				class="icon-btn"
-				class:active={remindersOpen}
+				class="btn btn-secondary btn-icon reminder-trigger"
+				aria-expanded={remindersOpen}
 				onclick={() => (remindersOpen = !remindersOpen)}
-				aria-label={t('ui.openReminders')}
+				aria-label={upcomingReminders.length > 0 ? `${t('ui.openReminders')} (${upcomingReminders.length})` : t('ui.openReminders')}
 				title={t('ui.openReminders')}
 			>
-				<Icon name="bell" size={20} />
+				<Icon name="bell" size={16} />
 				{#if upcomingReminders.length > 0}
 					<span class="reminder-badge">{upcomingReminders.length}</span>
 				{/if}
@@ -176,64 +192,63 @@
 			{/if}
 		</div>
 		{#if showOverlayBtn}
-			<button class="icon-btn overlay-btn" onclick={launchOverlay} aria-label={t('ui.launchOverlay')} title={t('ui.launchOverlayMode')}>
-				<Icon name="monitor" size={20} />
+			<button class="btn btn-primary btn-icon" onclick={launchOverlay} aria-label={t('ui.launchOverlay')} title={t('ui.launchOverlayMode')}>
+				<Icon name="monitor" size={16} />
 			</button>
 		{/if}
-		<button class="icon-btn" onclick={onInfoClick} aria-label={t('ui.appInfo')}>
-			<Icon name="info" size={20} />
+		<button class="btn btn-secondary btn-icon" onclick={(event) => { event.currentTarget.focus(); onInfoClick(); }} aria-label={t('ui.appInfo')}>
+			<Icon name="info" size={16} />
 		</button>
 		<button
-			class="icon-btn cluster-trigger"
-			class:open={clusterOpen}
+			class="btn btn-secondary btn-icon cluster-trigger"
 			onclick={toggleCluster}
 			aria-label={t('ui.controls')}
 			aria-expanded={clusterOpen}
-			title={t('ui.controls')}
+			title="Controls"
 		>
-			<Icon name={clusterOpen ? 'x' : 'sliders'} size={20} />
+			<Icon name={clusterOpen ? 'x' : 'sliders'} size={16} />
 		</button>
 	</div>
 
 	{#if clusterOpen}
 		<div class="cluster">
 			<button
-				class="icon-btn cluster-item"
+				class="btn btn-secondary btn-icon cluster-item"
 				style="--i: 0"
 				onclick={() => goto(localPath('app', '/settings'))}
-				aria-label={t('ui.settings')}
-				title={t('ui.settings')}
+				aria-label="Settings"
+				title="Settings"
 			>
-				<Icon name="settings" size={20} />
+				<Icon name="settings" size={16} />
 			</button>
 			<button
-				class="icon-btn cluster-item"
-				class:active={showCamera}
+				class="btn btn-secondary btn-icon cluster-item"
+				aria-expanded={showCamera}
 				style="--i: 1"
 				onclick={() => (showCamera = !showCamera)}
-				aria-label={t('ui.cameraSettings')}
-				title={t('ui.camera')}
+				aria-label="Camera settings"
+				title="Camera"
 			>
-				<Icon name="video" size={20} />
+				<Icon name="video" size={16} />
 			</button>
 			<button
-				class="icon-btn cluster-item"
+				class="btn btn-secondary btn-icon cluster-item"
 				style="--i: 2"
 				onclick={() => (colorMode = cycleColorMode())}
 				aria-label={themeLabel}
 				title={themeLabel}
 			>
-				<Icon name={themeIcon} size={20} />
+				<Icon name={themeIcon} size={16} />
 			</button>
 			<button
-				class="icon-btn cluster-item"
-				class:active={arStore.active}
+				class="btn btn-secondary btn-icon cluster-item"
+				aria-pressed={arStore.active}
 				style="--i: 3"
 				onclick={handleArClick}
-				aria-label={arStore.active ? t('ui.exitAr') : t('ui.enterAr')}
-				title={arStore.active ? t('ui.exitAr') : t('ui.viewInAr')}
+				aria-label={arStore.active ? 'Exit AR' : 'Enter AR'}
+				title={arStore.active ? 'Exit AR' : 'View in AR'}
 			>
-				<Icon name="cube" size={20} />
+				<Icon name="cube" size={16} />
 			</button>
 		</div>
 
@@ -295,61 +310,6 @@
 		right: 3.25rem;
 	}
 
-	.icon-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 44px;
-		height: 44px;
-		background: var(--bg-tertiary);
-		border: none;
-		border-radius: var(--radius-full);
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition: color 0.15s ease, background 0.15s ease,
-			box-shadow 0.15s ease, transform 0.15s ease;
-		box-shadow: var(--shadow-sm);
-	}
-
-	.icon-btn:hover {
-		color: var(--text-primary);
-		background: color-mix(in srgb, var(--bg-tertiary), var(--text-primary) 8%);
-		box-shadow: var(--shadow-md);
-		transform: translateY(-1px);
-	}
-
-	.icon-btn:focus-visible {
-		outline: none;
-		color: var(--text-primary);
-		box-shadow: 0 0 0 3px var(--accent-muted);
-	}
-
-	.icon-btn:active {
-		color: var(--accent);
-		transform: translateY(0) scale(0.96);
-		box-shadow: var(--shadow-sm);
-	}
-
-	.cluster-trigger.open,
-	.cluster-item.active {
-		color: var(--accent);
-	}
-
-	/* Overlay button - accent action */
-	.overlay-btn {
-		background: var(--accent);
-		border-color: transparent;
-		color: #fff;
-	}
-
-	.overlay-btn:hover {
-		background: var(--accent-hover);
-		color: #fff;
-	}
-
-	.overlay-btn:active {
-		color: #fff;
-	}
 
 	.reminder-wrapper {
 		position: relative;
@@ -362,8 +322,8 @@
 		min-width: 18px;
 		height: 18px;
 		padding: 0 5px;
-		background: var(--color-error);
-		color: white;
+		background: var(--color-error-fill);
+		color: var(--color-error-contrast);
 		font-size: 10px;
 		font-weight: 700;
 		border-radius: 9px;
@@ -380,23 +340,11 @@
 		width: 280px;
 		max-height: 320px;
 		overflow-y: auto;
-		background: var(--bg-primary);
-		border: 1px solid var(--border-color);
-		border-radius: var(--radius-lg);
 		padding: 0.75rem;
-		box-shadow: var(--shadow-lg);
 		z-index: 60;
 	}
 
-	.reminder-header {
-		font-size: 0.85rem;
-		font-weight: 700;
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		margin-bottom: 0.5rem;
-		padding: 0 0.25rem;
-	}
+	.reminder-header { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; padding: 0 4px; }
 
 	.reminder-header--fired {
 		margin-top: 0.75rem;
@@ -405,7 +353,7 @@
 
 	.reminder-empty {
 		font-size: 0.85rem;
-		color: var(--text-muted);
+		color: var(--text-secondary);
 		padding: 0.75rem 0.25rem;
 		text-align: center;
 	}
@@ -431,7 +379,7 @@
 	}
 
 	.reminder-item:hover {
-		background: var(--bg-tertiary);
+		background: var(--bg-primary);
 	}
 
 	.reminder-text {
@@ -452,7 +400,7 @@
 
 	.reminder-time {
 		font-size: 0.75rem;
-		color: var(--text-muted);
+		color: var(--text-secondary);
 	}
 
 	.reminder-delete {
@@ -463,9 +411,9 @@
 		height: 28px;
 		padding: 0;
 		background: transparent;
-		border: none;
-		border-radius: var(--radius-full);
-		color: var(--text-muted);
+		border: 1px solid var(--border-light);
+		border-radius: var(--control-radius);
+		color: var(--text-secondary);
 		cursor: pointer;
 		transition: color 0.15s ease, background 0.15s ease;
 		flex-shrink: 0;

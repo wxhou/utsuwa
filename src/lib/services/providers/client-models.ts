@@ -6,20 +6,25 @@ import {
 	isLocalLLMProvider,
 	looksLikeOllama
 } from './local-endpoints';
-import { DEFAULT_MODELS_BASE_URLS } from './provider-defaults.ts';
+import { CHAT_MODEL_FILTERS, DEFAULT_MODELS_BASE_URLS } from './provider-defaults.ts';
+import { addLMStudioVision, addOllamaVision, reportedVision, type FetchJson } from './vision';
 
 interface ModelInfo {
 	id: string;
 	name: string;
+	vision?: boolean;
 }
 
-const MODEL_FILTERS: Record<string, RegExp> = {
-	openai: /^(gpt-|o1-|o3-|chatgpt-4o-)/,
-	anthropic: /^claude-/,
-	deepseek: /^deepseek-(chat|reasoner)/,
-	xai: /^grok-/,
-	google: /^gemini-/
-};
+function jsonAt(base: string): FetchJson {
+	return async (path, body) => {
+		const res = await fetch(
+			new URL(path, base),
+			body === undefined ? undefined : { method: 'POST', body: JSON.stringify(body) }
+		);
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		return res.json();
+	};
+}
 
 function getCurrentSiteOrigin(): string | undefined {
 	return typeof window !== 'undefined' ? window.location.origin : undefined;
@@ -92,6 +97,7 @@ export async function fetchModelsDirect(
 						id: m.name,
 						name: m.name
 					}));
+					models = await addOllamaVision(models, jsonAt(cleanBaseUrl));
 				} else {
 					const normalizedUrl = ensureOpenAIPath(cleanBaseUrl);
 					const res = await fetch(`${normalizedUrl}/models`, { headers });
@@ -99,7 +105,8 @@ export async function fetchModelsDirect(
 					const data = await res.json();
 					models = (data.data || []).map((m: { id: string }) => ({
 						id: m.id,
-						name: m.id
+						name: m.id,
+						vision: reportedVision(m)
 					}));
 				}
 				break;
@@ -125,6 +132,7 @@ export async function fetchModelsDirect(
 					id: m.name,
 					name: m.name
 				}));
+				models = await addOllamaVision(models, jsonAt(cleanBaseUrl));
 				break;
 			}
 			case 'lmstudio': {
@@ -132,6 +140,7 @@ export async function fetchModelsDirect(
 				if (!res.ok) throw new Error(`Failed to fetch models: ${res.statusText}`);
 				const data = await res.json();
 				models = data.data.map((m: { id: string }) => ({ id: m.id, name: m.id }));
+				models = await addLMStudioVision(models, jsonAt(cleanBaseUrl));
 				break;
 			}
 			case 'google': {
@@ -187,7 +196,7 @@ export async function fetchModelsDirect(
 				return { models: [], error: `Unknown provider: ${providerId}` };
 		}
 
-		const filter = MODEL_FILTERS[providerId];
+		const filter = CHAT_MODEL_FILTERS[providerId];
 		const filtered = filter ? models.filter((m) => filter.test(m.id)) : models;
 		return { models: filtered };
 	} catch (error) {

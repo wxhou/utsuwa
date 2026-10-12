@@ -1,16 +1,20 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
 	import { t } from '$lib/i18n';
-	import { vrmStore } from '$lib/stores/vrm.svelte';
+	import { modulesStore } from '$lib/stores/modules.svelte';
+	import { vrmGalleryStore } from '$lib/stores/vrm-gallery.svelte';
 
 	interface Props {
 		characterName: string;
 		onComplete: () => void;
+		onBack: () => void;
 	}
 
-	let { characterName, onComplete }: Props = $props();
+	let { characterName, onComplete, onBack }: Props = $props();
 
-	const activeModel = $derived(vrmStore.models.find((m) => m.id === vrmStore.activeModelId));
+	const activeModel = $derived(
+		vrmGalleryStore.models.find((m) => m.id === vrmGalleryStore.activeModelId)
+	);
 </script>
 
 <div class="ob-step ob-step--center">
@@ -25,14 +29,15 @@
 	</div>
 
 	<div class="ob-head">
-		<h2 class="ob-title">{t('onboarding.meet', { name: characterName })}</h2>
-		<p class="ob-subtitle">{t('onboarding.ready')}</p>
+		<h2 class="ob-title">Meet {characterName}</h2>
+		<p class="ob-subtitle">{modulesStore.isModuleEnabled('consciousness') ? 'Your companion is ready for a conversation.' : 'Your companion is set up. Connect a chat model in Settings when you are ready to talk.'}</p>
 	</div>
 
 	<button class="btn btn-primary btn-lg btn-block" onclick={onComplete}>
-		{t('onboarding.startChatting')}
+		{modulesStore.isModuleEnabled('consciousness') ? t('onboarding.startChatting') : 'Open companion'}
 		<Icon name="arrow-right" size={16} />
 	</button>
+	<button class="btn btn-ghost" onclick={onBack}>{t('common.back')}</button>
 </div>
 
 <style>

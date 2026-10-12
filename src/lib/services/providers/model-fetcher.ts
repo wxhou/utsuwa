@@ -1,10 +1,13 @@
 import { isTauri } from '$lib/services/platform';
 import { fetchModelsDirect } from './client-models';
 import { isLocalLLMProvider } from './local-endpoints';
+import { getTTSProvider } from './registry';
 
 export interface ModelInfo {
 	id: string;
 	name: string;
+	/** Whether the provider says this model takes images, when it says */
+	vision?: boolean;
 }
 
 export interface FetchModelsResult {
@@ -41,6 +44,11 @@ async function fetchProviderModelsUncached(
 	apiKey: string,
 	baseUrl?: string
 ): Promise<FetchModelsResult> {
+	// Fish Audio has no model-list endpoint; the registry list is the full set.
+	if (providerId === 'fish-audio') {
+		return { models: getTTSProvider(providerId)?.models ?? [] };
+	}
+
 	// Local providers must be fetched from the user's device, not the deployed server.
 	// Tauri production builds also don't have server routes.
 	if (isTauri() || isLocalLLMProvider(providerId)) {

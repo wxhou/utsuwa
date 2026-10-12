@@ -43,7 +43,7 @@ A short list, learned from real PRs. Following it is the difference between one 
 
 **No fork-local configuration upstream.** Personal ignore rules, editor and tool files, and fork housekeeping belong in your fork (or `.git/info/exclude`), not in upstream `.gitignore`.
 
-**Both provider surfaces, or neither.** Provider configuration currently renders in two places: onboarding (`ServicesStep`) and settings (`AiServicesSection`). Until they share components, a provider UI change should keep the two consistent. Say so in the PR if you deliberately did only one.
+**Both provider surfaces, or neither.** Provider configuration currently renders in two places: onboarding (`ServicesStep`) and settings (`LlmSettings`, `TtsSettings`, `SttSettings`). Until they share components, a provider UI change should keep the two consistent. Say so in the PR if you deliberately did only one.
 
 **Match the code around you.** TypeScript everywhere, Svelte 5 runes (`$state`, `$derived`, `$effect`), design tokens instead of hardcoded colors (`var(--accent)`, not hex), and minimal comments that explain why, not what.
 
@@ -52,9 +52,13 @@ Before pushing:
 ```bash
 pnpm check   # svelte-check, must be 0 errors 0 warnings
 pnpm test    # full unit suite, must be green
+pnpm test:browser  # Playwright browser tests (tests/browser)
+VISUAL_REVIEW=1 pnpm test:browser  # also save review screenshots to test-results/
 ```
 
-CI runs both plus a Rust `cargo check` on every PR. A red check means no review until it's green.
+CI runs both, the Playwright browser tests on desktop and mobile, and a Rust `cargo check` on every PR. A red check means no review until it's green. Branches in this repo also get a Cloudflare preview deploy; PRs from forks don't, so say how you tested in the description.
+
+**Bump Tauri JS and Rust together.** The `@tauri-apps/*` packages in `package.json` and the `tauri*` crates in `src-tauri/Cargo.toml` must stay on the same minor versions. Dependabot groups each side, so land the npm and cargo bumps together.
 
 ## Adding a Provider Integration
 
@@ -65,11 +69,20 @@ LLM, TTS, and STT providers follow an established pattern. If you're adding or e
 - Web builds route cloud calls through the SvelteKit server routes; desktop and local providers call directly. Your change usually needs both paths, and they must behave identically (including auth headers when there is no API key).
 - Fixed cloud providers always use their official endpoint. User-supplied base URLs are for local and custom providers only.
 
+## Adding Strings (Translations)
+
+Utsuwa uses [Paraglide JS](https://paraglidejs.com) for translations. Only the landing page is localized so far (English at `/`, Japanese at `/ja`); the app, docs, and blog are still English-only.
+
+- Messages live in `messages/en.json` (the source of truth) and `messages/ja.json`. Add every new key to both files; a missing or renamed key fails `pnpm check`.
+- Use them in components as `m.key_name()` from `$lib/paraglide/messages`, with named parameters like `m.stories_show({ title })`.
+- The code in `src/lib/paraglide/` is generated and ignored by git. `pnpm check` and `pnpm build` regenerate it, and `pnpm dev` compiles it on startup. A running dev server may not notice message edits, so run `pnpm check` (or restart the server) after changing them.
+- Which URLs get a locale prefix is set in `project.inlang/paraglide.config.js`. Both the Vite plugin and `pnpm check` read it, so change routing there rather than in `vite.config.ts`.
+
 ## Scope and Content Decisions
 
 Some changes are product decisions, not code decisions: anything that changes what Utsuwa ships in its prompts, how the project positions itself, or what the hosted deployment transmits. Open an issue to discuss before writing code, it saves everyone time.
 
-One standing decision, so nobody has to rediscover it: **Utsuwa core does not ship content preambles or filter-override text.** The persona system prompt is fully user-editable, on the user's machine, in the user's words, and that is where tone and content boundaries belong. PRs that bundle preamble text into the app will be asked to convert to documentation instead.
+One standing decision, so nobody has to rediscover it: **Utsuwa core does not ship content preambles or filter-override text.** The persona and the system prompt framing (Settings > Character) are fully user-editable, on the user's machine, in the user's words, and that is where tone and content boundaries belong. PRs that bundle preamble text into the app will be asked to convert to documentation instead.
 
 ## Review Expectations
 
@@ -151,9 +164,9 @@ git push origin v0.9.0
 
 The [`Release` workflow](.github/workflows/release.yml) then builds the app on macOS, Windows, and Linux runners in parallel and attaches the installers to a **draft** GitHub Release:
 
-- **macOS** — `.dmg` (universal: Apple Silicon + Intel)
-- **Windows** — `.exe` installer
-- **Linux** — `.AppImage`, `.deb`, and `.rpm`
+- **macOS**: `.dmg` (universal: Apple Silicon + Intel)
+- **Windows**: `.exe` installer
+- **Linux**: `.AppImage`, `.deb`, and `.rpm`
 
 A maintainer reviews the draft, edits the release notes, and publishes it. You can also trigger the workflow manually from the Actions tab to verify a build without cutting a release.
 

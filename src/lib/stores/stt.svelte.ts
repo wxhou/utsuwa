@@ -13,7 +13,6 @@ function createSttStore() {
 	let interimTranscript = $state('');
 	let error = $state<string | null>(null);
 	let audioLevel = $state(0);
-	let errorTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Which OpenAI-compatible STT provider to use, if any. A configured local
 	// server wins over Groq (mirrors how a Groq key wins over Web Speech), and
@@ -48,7 +47,8 @@ function createSttStore() {
 			label: isLocal ? 'the local STT server' : (meta?.name ?? 'the STT server'),
 			connectionHint: isLocal
 				? getLocalSTTConnectionHint(baseUrl, browser ? window.location.origin : undefined)
-				: undefined
+				: undefined,
+			timeoutMs: config.timeoutMs
 		});
 	}
 
@@ -174,28 +174,17 @@ function createSttStore() {
 
 	function showUnsupportedError() {
 		if (isTauri()) {
-			setError('Add a Groq key or a local STT server in Settings → Persona for voice input on desktop.');
+			setError('Add a Groq key or a local STT server in Settings > STT for voice input on desktop.');
 		} else {
-			setError('Voice input is not supported in this browser. Add a Groq key or a local STT server in Settings → Persona, or try Chrome/Edge.');
+			setError('Voice input is not supported in this browser. Add a Groq key or a local STT server in Settings > STT, or try Chrome/Edge.');
 		}
 	}
 
 	function setError(message: string) {
-		if (errorTimeout) {
-			clearTimeout(errorTimeout);
-		}
 		error = message;
-		errorTimeout = setTimeout(() => {
-			error = null;
-			errorTimeout = null;
-		}, 4000);
 	}
 
 	function clearError() {
-		if (errorTimeout) {
-			clearTimeout(errorTimeout);
-			errorTimeout = null;
-		}
 		error = null;
 	}
 

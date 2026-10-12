@@ -16,8 +16,8 @@ export interface ProviderMetadata {
 	// base-URL field and a manual model input for these.
 	custom?: boolean;
 	// Whether this provider's models are broadly vision-capable. Coarse, cloud
-	// only. Local providers (Ollama/LM Studio) leave this unset and rely on a
-	// per-model heuristic, since vision depends on the installed model.
+	// only. Local and custom providers leave this unset and rely on a per-model
+	// heuristic, since vision depends on whatever model sits behind them.
 	supportsVision?: boolean;
 	models?: Array<{ id: string; name: string }>;
 	voices?: Array<{ id: string; name: string }>;
@@ -67,6 +67,7 @@ export const LLM_PROVIDERS: ProviderMetadata[] = [
 		category: 'llm',
 		icon: '🔍',
 		requiresApiKey: true,
+		supportsVision: true,
 		defaultBaseUrl: DEFAULT_CHAT_BASE_URLS.deepseek,
 	},
 	{
@@ -225,6 +226,35 @@ export const TTS_PROVIDERS: ProviderMetadata[] = [
 			{ id: 'cedar', name: 'Cedar' }
 		]
 	},
+	{
+		id: 'fish-audio',
+		name: 'Fish Audio',
+		description: 'Expressive voices and a large community voice library',
+		category: 'tts',
+		icon: 'fish-audio',
+		requiresApiKey: true,
+		// Fish Audio has no model-list endpoint, so this is the full set.
+		// S2.1 Pro Free works on any key without credits.
+		models: [
+			{ id: 's2.1-pro', name: 'S2.1 Pro' },
+			{ id: 's2.1-pro-free', name: 'S2.1 Pro Free' },
+			{ id: 's2-pro', name: 'S2 Pro' },
+			{ id: 's1', name: 'S1' }
+		],
+		// Voices from Fish Audio's official library. Any voice id, or its
+		// fish.audio link, works in the voice field too.
+		voices: [
+			{ id: '933563129e564b19a115bedd57b7406a', name: 'Sarah' },
+			{ id: '4f14b263c4ee418b9193de6ab1123015', name: 'Sadie' },
+			{ id: '7f3375b90d3e4494bbb1a3cbbf56c607', name: 'Mila' },
+			{ id: 'b347db033a6549378b48d00acb0d06cd', name: 'Selene' },
+			{ id: '0db6e93af420470b9d9b9a886dbaa954', name: 'Kai' },
+			{ id: '8451cb6e7e204684973f172cc616ec20', name: 'Jonah' },
+			{ id: 'bf322df2096a46f18c579d0baa36f41d', name: 'Adrian' },
+			{ id: '5da7f24e9e274f91b2b677669c818ce9', name: 'Shiori (Japanese)' },
+			{ id: '297a6fd278df47c3b9da9bfdf55ac89a', name: 'Satoru (Japanese)' }
+		]
+	},
 	// Local TTS - OpenAI-compatible server running on the user's machine
 	// (Kokoro-FastAPI, openedai-speech, etc). Voices/model are server-specific,
 	// so these are sensible Kokoro defaults plus a free-text override in the UI.
@@ -360,4 +390,10 @@ export function getSTTProvider(id: string): ProviderMetadata | undefined {
 /** Whether an LLM provider's models are broadly vision-capable (cloud providers). */
 export function providerSupportsVision(id: string): boolean {
 	return getLLMProvider(id)?.supportsVision === true;
+}
+
+/** Local and custom endpoints can serve anything, so the model id decides vision. */
+export function visionDependsOnModel(id: string): boolean {
+	const p = getLLMProvider(id);
+	return p?.isLocal === true || p?.custom === true;
 }

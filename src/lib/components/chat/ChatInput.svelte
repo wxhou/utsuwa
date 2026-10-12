@@ -3,6 +3,8 @@
 	import { t } from '$lib/i18n';
 	import { sttStore } from '$lib/stores/stt.svelte';
 	import { chatDraftStore } from '$lib/stores/chat-draft.svelte';
+	import { chatStore } from '$lib/stores/chat.svelte';
+	import { cancelActiveTurn } from '$lib/services/chat/companion-chat';
 	import { queueFiles, showVisionHint } from './attach-files';
 	import { unlockAudioContext } from '$lib/services/tts';
 	import { type PreparedImage } from '$lib/services/storage/keepsakes';
@@ -176,23 +178,34 @@
 				>
 					<Icon name="mic" size={20} />
 				</button>
-				<button
-					type="submit"
-					class="mic-btn send-btn"
-					disabled={disabled || !hasContent}
-					aria-label={t('chat.sendMessage')}
-					title={t('chat.sendMessage')}
-				>
-					<Icon name="send" size={20} />
-				</button>
+				{#if chatStore.isLoading}
+					<button
+						type="button"
+						class="mic-btn send-btn"
+						onclick={cancelActiveTurn}
+						aria-label="Stop reply"
+						title="Stop reply"
+					>
+						<Icon name="stop" size={16} />
+					</button>
+				{:else}
+					<button
+						type="submit"
+						class="mic-btn send-btn"
+						disabled={disabled || !hasContent}
+						aria-label={t('chat.sendMessage')}
+						title={t('chat.sendMessage')}
+					>
+						<Icon name="send" size={20} />
+					</button>
+				{/if}
 			{/if}
 		</div>
 	</form>
 </div>
 
 <style>
-	/* Fill the bar's flex row; without this the pill collapses to the
-	   textarea's intrinsic width */
+	/* Fill the composer row while allowing it to shrink beside the avatar. */
 	.chat-input {
 		flex: 1;
 		min-width: 0;
@@ -220,7 +233,7 @@
 	}
 
 	.pending-chip:hover {
-		transform: scale(1.12) translateY(-3px) rotate(-3deg);
+		transform: translateY(-2px);
 		z-index: 2;
 	}
 
@@ -238,7 +251,7 @@
 
 	.pending-chip:hover img {
 		border-color: var(--accent);
-		box-shadow: var(--shadow-glow);
+		box-shadow: none;
 	}
 
 	.remove-chip {
@@ -248,9 +261,9 @@
 		width: 19px;
 		height: 19px;
 		border: 2px solid var(--bg-primary);
-		border-radius: var(--radius-full);
-		background: var(--color-error);
-		color: #fff;
+		border-radius: var(--control-radius, var(--radius-md));
+		background: var(--color-error-fill);
+		color: var(--color-error-contrast);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -279,28 +292,24 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		background: var(--bg-secondary);
+		background: var(--bg-primary);
 		border: 1px solid var(--border-subtle);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
-		border-radius: var(--radius-full);
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
+		border-radius: var(--radius-lg);
 		padding: 0.5rem;
 		/* 44px buttons + 0.5rem padding either side: the pill's original stature */
 		height: 60px;
-		box-shadow: var(--shadow-md);
+		box-shadow: var(--shadow-xs);
 		transition: box-shadow 0.2s;
 	}
 
 	.input-wrapper:focus-within {
-		box-shadow:
-			0 0 0 3px var(--accent-muted),
-			var(--shadow-glow);
+		box-shadow: 0 0 0 3px var(--accent-muted);
 	}
 
 	.input-wrapper.recording {
-		box-shadow:
-			0 0 0 3px var(--accent-muted),
-			var(--shadow-glow);
+		box-shadow: 0 0 0 3px var(--accent-muted);
 	}
 
 	.input-wrapper.transcribing {
@@ -408,7 +417,7 @@
 		width: 44px;
 		height: 44px;
 		border: none;
-		border-radius: var(--radius-full);
+		border-radius: var(--control-radius, var(--radius-md));
 		cursor: pointer;
 		display: flex;
 		align-items: center;
@@ -449,7 +458,7 @@
 
 	.mic-btn.recording {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-contrast);
 		animation: recording-pulse 1.6s ease-in-out infinite;
 	}
 
@@ -475,19 +484,15 @@
 
 	.send-btn {
 		background: var(--accent);
-		color: var(--text-on-accent, white);
+		color: var(--accent-contrast);
 	}
 	.send-btn:hover:not(:disabled) {
 		background: var(--accent-hover);
-		color: var(--text-on-accent, white);
+		color: var(--accent-contrast);
 	}
 	.send-btn:disabled {
 		opacity: 0.4;
 		cursor: default;
-	}
-	.mic-btn:focus-visible {
-		outline: 2px solid var(--accent);
-		outline-offset: 2px;
 	}
 	.pending-chip:focus-within .remove-chip {
 		opacity: 1;
