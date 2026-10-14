@@ -7,6 +7,7 @@
 	import { MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH } from '$lib/stores/animation-library-parser';
 	import { vrmStore } from '$lib/stores/vrm.svelte';
 	import { removeAnimation } from '$lib/services/animation-actions';
+	import { t } from '$lib/i18n';
 
 	let { entry }: { entry: AnimationEntry } = $props();
 
@@ -17,7 +18,7 @@
 	}
 
 	async function remove() {
-		if (!confirm(`Delete "${entry.name}"? This can't be undone.`)) return;
+		if (!confirm(t('settings.animRow.deleteConfirm', { name: entry.name }))) return;
 		await removeAnimation(entry.id);
 	}
 
@@ -33,7 +34,7 @@
 		{#if entry.kind === 'custom'}
 			<input
 				class="settings-field anim-name"
-				aria-label="Animation name"
+				aria-label={t('settings.animRow.nameAria')}
 				maxlength={MAX_NAME_LENGTH}
 				value={entry.name}
 				onchange={(e) => rename(e.currentTarget)}
@@ -43,12 +44,12 @@
 		{/if}
 		{#if entry.durationSec !== undefined}<span class="duration">{entry.durationSec.toFixed(1)} s</span>{/if}
 		<div class="anim-actions">
-			<Button variant="secondary" size="sm" onclick={play} aria-label="Play {entry.name}">
-				<Icon name="play" size={14} />Play
+			<Button variant="secondary" size="sm" onclick={play} aria-label={t('settings.animRow.playAria', { name: entry.name })}>
+				<Icon name="play" size={14} />{t('settings.animRow.play')}
 			</Button>
 			{#if entry.kind === 'custom'}
-				<Button variant="ghost" size="sm" onclick={remove} aria-label="Delete {entry.name}">
-					<Icon name="trash" size={14} />Delete
+				<Button variant="ghost" size="sm" onclick={remove} aria-label={t('settings.animRow.deleteAria', { name: entry.name })}>
+					<Icon name="trash" size={14} />{t('common.delete')}
 				</Button>
 			{/if}
 		</div>
@@ -57,15 +58,15 @@
 		class="settings-field"
 		rows="2"
 		maxlength={MAX_DESCRIPTION_LENGTH}
-		placeholder="What does this motion look like?"
-		aria-label="Description of {entry.name}"
+		placeholder={t('settings.animRow.descPlaceholder')}
+		aria-label={t('settings.animRow.descAria', { name: entry.name })}
 		value={entry.description}
 		onchange={(e) => animationLibraryStore.update(entry.id, { description: e.currentTarget.value })}
 	></textarea>
 	<div class="anim-foot">
-		<span class="setting-desc">Companion can use</span>
+		<span class="setting-desc">{t('settings.animRow.llmCanUse')}</span>
 		<Switch
-			label="Companion can use {entry.name}"
+			label={t('settings.animRow.llmCanUseName', { name: entry.name })}
 			checked={entry.llmEnabled}
 			onchange={(checked) => animationLibraryStore.update(entry.id, { llmEnabled: checked })}
 		/>

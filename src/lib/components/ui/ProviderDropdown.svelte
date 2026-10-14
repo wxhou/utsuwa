@@ -110,7 +110,7 @@
 			<span class="trigger-label">{selectedProvider.name}</span>
 				{@const status = providerHealthStatus(selectedProvider.id)}
 				{#if status !== 'unknown'}
-					<span class="health-dot {status}" title={status === 'healthy' ? 'Reachable' : 'Unreachable'}></span>
+					<span class="health-dot {status}" title={status === 'healthy' ? t('providers.reachable') : t('providers.unreachable')}></span>
 				{/if}
 		{:else}
 			<span class="trigger-placeholder">{placeholder}</span>
@@ -137,12 +137,12 @@
 									<span class="provider-name">{provider.name}</span>
 							{@const status = providerHealthStatus(provider.id)}
 							{#if status !== 'unknown'}
-								<span class="health-dot {status}" title={status === 'healthy' ? 'Reachable' : 'Unreachable'}></span>
+								<span class="health-dot {status}" title={status === 'healthy' ? t('providers.reachable') : t('providers.unreachable')}></span>
 							{/if}
 									{#if provider.isLocal}
-										<span class="ui-badge">Local</span>
+										<span class="ui-badge">{t('providers.local')}</span>
 									{:else if isConfigured(provider.id)}
-										<span class="configured" aria-label="Configured">
+										<span class="configured" aria-label={t('providers.configuredAria')}>
 											<Icon name="check" size={10} strokeWidth={3} />
 										</span>
 									{/if}

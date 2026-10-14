@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui';
-	import { t } from '$lib/i18n';
+	import { t, type DictKey } from '$lib/i18n';
 	import { parseResponse, extractPotentialFacts } from '$lib/ai/response-parser';
 	import { characterStore } from '$lib/stores/character.svelte';
 
@@ -8,7 +8,10 @@
 	const firstSample =
 		'That sounds fun!\n```json\n{"mood_change":{"emotion":"happy","intensity_delta":5},"new_memory":"The user enjoys hiking."}\n```';
 	let response = $state(firstSample);
-	let result = $state('');
+	// Either one of our own dictionary keys or the parsed output itself.
+	let resultKey = $state<DictKey | ''>('');
+	let resultText = $state('');
+	const result = $derived(resultKey ? t(resultKey) : resultText);
 	const samples = [
 		{ label: t('memory.sampleMood'), text: firstSample },
 		{ label: t('memory.sampleDialogue'), text: 'Tell me more about your day.' },
@@ -17,43 +20,46 @@
 	function parse() {
 		try {
 			const parsed = parseResponse(response, characterStore.name);
-			result = JSON.stringify(
+			resultKey = '';
+			resultText = JSON.stringify(
 				{ ...parsed, potentialFacts: extractPotentialFacts(parsed.dialogue, message) },
 				null,
 				2
 			);
 		} catch {
-			result = 'This sample could not be parsed.';
+			resultText = '';
+			resultKey = 'memory.parserParseFailed';
 		}
+	}
+	function pickSample(text: string) {
+		response = text;
+		resultKey = '';
+		resultText = '';
 	}
 </script>
 
 <p class="hint">
-	Try sample responses without changing your memories or character. Nothing here calls an AI
-	provider.
+	{t('memory.parserTryHint')}
 </p>
 <div class="samples">
 	{#each samples as sample}<Button
 			variant="secondary"
 			size="sm"
-			onclick={() => {
-				response = sample.text;
-				result = '';
-			}}>{sample.label}</Button
+			onclick={() => pickSample(sample.text)}>{sample.label}</Button
 		>{/each}
 </div>
 <label
-	>User message<textarea class="settings-field" bind:value={message} maxlength={2000} rows={2}
+	>{t('memory.userMessage')}<textarea class="settings-field" bind:value={message} maxlength={2000} rows={2}
 	></textarea></label
 >
 <label
-	>Raw model response<textarea
+	>{t('memory.rawResponse')}<textarea
 		class="settings-field"
 		bind:value={response}
 		maxlength={20000}
 		rows={7}></textarea></label
 >
-<Button onclick={parse}>Parse sample</Button>
+<Button onclick={parse}>{t('memory.parseSample')}</Button>
 {#if result}<pre aria-label={t('memory.parserResult')}>{result}</pre>{/if}
 
 <style>

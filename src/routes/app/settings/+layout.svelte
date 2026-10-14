@@ -14,7 +14,7 @@
 	const navItems = $derived([
 		{ href: localPath('app', '/settings/persona'), label: t('settings.nav.character'), icon: 'persona', keywords: 'avatar personality name companion mode system prompt instructions' },
 		{ href: localPath('app', '/settings/display'), label: t('settings.nav.display'), icon: 'monitor', keywords: 'appearance theme light dark chat typing screen awake layout' },
-		{ href: localPath('app', '/settings/animations'), label: 'Animations', icon: 'play', keywords: 'vrma emote gesture upload motion library idle thinking' },
+		{ href: localPath('app', '/settings/animations'), label: t('settings.nav.animations'), icon: 'play', keywords: 'vrma emote gesture upload motion library idle thinking' },
 		{ href: localPath('app', '/settings/llm'), label: t('settings.nav.llm'), icon: 'brain', keywords: 'ai provider api model language context vision image photo' },
 		{ href: localPath('app', '/settings/tts'), label: t('settings.nav.tts'), icon: 'volume', keywords: 'speech voice audio omnivoice elevenlabs fish audio minimax siliconflow', hint: t('settings.nav.ttsHint') },
 		{ href: localPath('app', '/settings/stt'), label: t('settings.nav.stt'), icon: 'mic', keywords: 'microphone transcription speech recognition timeout whisper', hint: t('settings.nav.sttHint') },
@@ -24,7 +24,7 @@
 		{ href: localPath('app', '/settings/developer'), label: t('settings.nav.developer'), icon: 'code', keywords: 'debug logs reset diagnostics' }
 	]);
 	const filteredItems = $derived(navItems.filter(item => `${item.label} ${item.keywords}`.toLowerCase().includes(query.trim().toLowerCase())));
-	const currentPage = $derived(navItems.find(item => item.href === $page.url.pathname)?.label ?? 'Settings');
+	const currentPage = $derived(navItems.find(item => item.href === $page.url.pathname)?.label ?? t('settings.nav.settings'));
 
 	onMount(() => {
 		if (mcpStore.capability === 'unknown') void mcpStore.detectCapability();
@@ -42,17 +42,17 @@
 
 <div class="settings-layout">
 	<aside class="sidebar">
-		<a class="sidebar-brand" href={localPath('app')} aria-label="Utsuwa home">
+		<a class="sidebar-brand" href={localPath('app')} aria-label={t('settings.nav.homeAria')}>
 			<Icon name="chevron-left" size={16} />
 			<span>Utsuwa</span>
 		</a>
 		<div class="settings-search">
 			<Icon name="search" size={16} />
-			<input bind:this={searchInput} bind:value={query} placeholder="Search settings" aria-label="Search settings"
+			<input bind:this={searchInput} bind:value={query} placeholder={t('settings.nav.search')} aria-label={t('settings.nav.search')}
 				onkeydown={(event) => { if (event.key === 'Escape') { event.preventDefault(); query = ''; searchInput.blur(); } }} />
 			<kbd>/</kbd>
 		</div>
-		<nav class="nav" aria-label="Settings">
+		<nav class="nav" aria-label={t('settings.nav.settings')}>
 			{#each filteredItems as item}
 				<a href={item.href} aria-label={item.label} title={item.hint ?? item.label}
 					aria-current={$page.url.pathname === item.href ? 'page' : undefined}
@@ -60,16 +60,16 @@
 					<Icon name={item.icon} size={16} /><span class="nav-label">{item.label}</span>
 				</a>
 			{:else}
-				<p class="search-empty" role="status">No matching settings</p>
+				<p class="search-empty" role="status">{t('settings.nav.noMatch')}</p>
 			{/each}
 		</nav>
 		<div class="sidebar-footer">
-			<a href={localPath('app')} class="back-button" aria-label="Back"><Icon name="chevron-left" size={16} /><span>Back to companion</span><kbd>esc</kbd></a>
+			<a href={localPath('app')} class="back-button" aria-label={t('common.back')}><Icon name="chevron-left" size={16} /><span>{t('settings.nav.back')}</span><kbd>esc</kbd></a>
 		</div>
 	</aside>
 	<main class="content">
-		<header class="settings-topbar" aria-label="Settings breadcrumb">
-			<span>Settings</span><span class="separator">/</span><span class="current-page">{currentPage}</span>
+		<header class="settings-topbar" aria-label={t('settings.nav.breadcrumbAria')}>
+			<span>{t('settings.nav.settings')}</span><span class="separator">/</span><span class="current-page">{currentPage}</span>
 		</header>
 		<div class="settings-content">{@render children()}</div>
 	</main>

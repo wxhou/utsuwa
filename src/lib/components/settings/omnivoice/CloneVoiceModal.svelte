@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
+	import { t, type DictKey } from '$lib/i18n';
 	import { cloneVoice, type OmniVoiceConnection } from '$lib/services/tts/omnivoice-client';
 
 	interface Props {
@@ -15,12 +16,15 @@
 	let refText = $state('');
 	let refAudio = $state<File | null>(null);
 	let loading = $state(false);
-	let error = $state('');
+	let errorKey = $state<DictKey | null>(null);
+	let errorText = $state('');
+	let error = $derived(errorKey ? t(errorKey) : errorText);
 
 	async function submit() {
-		error = '';
+		errorKey = null;
+		errorText = '';
 		if (!name.trim() || !refAudio || !refText.trim()) {
-			error = 'Please provide a voice name, reference audio, and reference text.';
+			errorKey = 'settings.omnivoice.errMissing';
 			return;
 		}
 		loading = true;
@@ -28,7 +32,8 @@
 			await cloneVoice(connection, { voiceId: name.trim(), refAudio, refText: refText.trim() });
 			onCloned('clone:' + name.trim());
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Clone failed';
+			if (err instanceof Error) errorText = err.message;
+			else errorKey = 'settings.omnivoice.cloneFailed';
 		} finally {
 			loading = false;
 		}
@@ -42,13 +47,13 @@
  {#snippet child({ props })}
  <div {...props} class="clone-modal ui-dialog">
 		<Dialog.Title level={3}>
-			{#snippet child({ props })}<h3 {...props} class="omnivoice-modal-title">Clone New Voice</h3>{/snippet}
+			{#snippet child({ props })}<h3 {...props} class="omnivoice-modal-title">{t('settings.omnivoice.cloneNewVoice')}</h3>{/snippet}
 		</Dialog.Title>
 
 		<div class="omnivoice-modal-field">
-			<label class="omnivoice-modal-label" for="clone-audio">Reference Audio (3–10s)</label>
+			<label class="omnivoice-modal-label" for="clone-audio">{t('settings.omnivoice.referenceAudio')}</label>
 			<div class="omnivoice-file-row">
-				<label class="btn btn-sm btn-secondary" for="clone-audio">{refAudio?.name || 'Choose file...'}</label>
+				<label class="btn btn-sm btn-secondary" for="clone-audio">{refAudio?.name || t('settings.omnivoice.chooseFile')}</label>
 				<input type="file" accept="audio/*" id="clone-audio" class="omnivoice-hidden-input" onchange={(e) => (refAudio = e.currentTarget.files?.[0] ?? null)} />
 				{#if refAudio?.name}
 					<span class="omnivoice-file-name">{refAudio.name}</span>
@@ -57,13 +62,13 @@
 		</div>
 
 		<div class="omnivoice-modal-field">
-			<label class="omnivoice-modal-label" for="clone-name">Voice Name</label>
-			<input type="text" id="clone-name" class="api-key-input" placeholder="e.g. my_voice" bind:value={name} />
+			<label class="omnivoice-modal-label" for="clone-name">{t('settings.omnivoice.voiceName')}</label>
+			<input type="text" id="clone-name" class="api-key-input" placeholder={t('settings.omnivoice.cloneNamePh')} bind:value={name} />
 		</div>
 
 		<div class="omnivoice-modal-field">
-			<label class="omnivoice-modal-label" for="clone-text">Reference Text</label>
-			<textarea id="clone-text" class="api-key-input omnivoice-clone-textarea" placeholder="Write the sentence you have recorded in the audio file" rows="4" bind:value={refText}></textarea>
+			<label class="omnivoice-modal-label" for="clone-text">{t('settings.omnivoice.referenceText')}</label>
+			<textarea id="clone-text" class="api-key-input omnivoice-clone-textarea" placeholder={t('settings.omnivoice.clonePromptPlaceholder')} rows="4" bind:value={refText}></textarea>
 		</div>
 
 		{#if error}
@@ -71,9 +76,9 @@
 		{/if}
 
 		<div class="omnivoice-modal-actions">
-			<button class="btn btn-sm btn-secondary" onclick={onClose}>Cancel</button>
+			<button class="btn btn-sm btn-secondary" onclick={onClose}>{t('common.cancel')}</button>
 			<button class="btn btn-sm btn-primary" onclick={submit} disabled={loading}>
-				{loading ? 'Cloning...' : 'Clone Voice'}
+				{loading ? t('settings.omnivoice.cloning') : t('settings.omnivoice.cloneBtn')}
 			</button>
 		</div>
 	</div>

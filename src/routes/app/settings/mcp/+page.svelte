@@ -6,6 +6,7 @@
 	import { Button, Icon } from '$lib/components/ui';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
+	import { t, type DictKey } from '$lib/i18n';
 
 	// ── Form state (shared for add + edit) ──────────────────────────────────
 	let showForm = $state(false);
@@ -20,7 +21,9 @@
 	let formAuthToken = $state('');
 	let formInjectResultsAsUser = $state(false);
 	let formAskBeforeRun = $state(true);
-	let formError = $state('');
+	// Validation failures are our own static strings, stored as keys so the
+	// message re-renders on locale switches.
+	let formError = $state<DictKey | ''>('');
 
 	const isEditing = $derived(editingId !== null);
 
@@ -68,19 +71,19 @@
 	function submitForm() {
 		formError = '';
 		if (!formName.trim()) {
-			formError = 'Name is required';
+			formError = 'settings.mcp.errName';
 			return;
 		}
 		if (formTransport === 'http' && !formUrl.trim()) {
-			formError = 'URL is required';
+			formError = 'settings.mcp.errUrl';
 			return;
 		}
 		if (formTransport === 'stdio' && !formCommand.trim()) {
-			formError = 'Command is required';
+			formError = 'settings.mcp.errCommand';
 			return;
 		}
 		if (formTransport === 'http' && formAuthType === 'bearer' && !formAuthToken.trim()) {
-			formError = 'Token is required for bearer authentication';
+			formError = 'settings.mcp.errToken';
 			return;
 		}
 
@@ -116,50 +119,48 @@
 
 <div class="page">
 	<header class="page-header">
-		<h2>MCP Servers</h2>
+		<h2>{t('settings.mcp.title')}</h2>
 		<p>
-			Connect to Model Context Protocol servers to give your companion tools like home control,
-			web search, and more.
+			{t('settings.mcp.subtitle')}
 		</p>
 	</header>
 
 	{#if mcpStore.capability === 'none'}
 		<section class="section notice">
-			<strong>MCP disabled on this server</strong>
+			<strong>{t('settings.mcp.disabledTitle')}</strong>
 			<span>
-				The administrator of this deployment has not enabled MCP (set
-				<code>MCP_ENABLED=server</code> to turn it on). No MCP requests will be sent.
+				{t('settings.mcp.disabledBody', { code: 'MCP_ENABLED=server' })}
 			</span>
 		</section>
 	{/if}
 
 	{#if mcpStore.capability === 'client'}
 		<section class="section notice info">
-			<strong>Desktop mode</strong>
-			<span>HTTP servers connect directly. stdio servers run only in the server (web) build.</span>
+			<strong>{t('settings.mcp.desktopTitle')}</strong>
+			<span>{t('settings.mcp.desktopBody')}</span>
 		</section>
 	{/if}
 
 	{#if mcpStore.serverEnabled}
-		<SettingsSection title="Servers">
+		<SettingsSection title={t('settings.mcp.servers')}>
 			{#snippet actions()}
 				<Button variant="secondary" onclick={() => (showForm && !isEditing ? resetForm() : openAddForm())}>
 					<Icon name={showForm && !isEditing ? 'xmark' : 'plus'} size={13} />
-					{showForm && !isEditing ? 'Cancel' : 'Add Server'}
+					{showForm && !isEditing ? t('common.cancel') : t('settings.mcp.addServer')}
 				</Button>
 			{/snippet}
 
 			{#if showForm}
 				<div class="form-card">
-					<div class="form-title">{isEditing ? 'Edit Server' : 'New Server'}</div>
+					<div class="form-title">{isEditing ? t('settings.mcp.editServerTitle') : t('settings.mcp.newServer')}</div>
 
 					<div class="form-row">
-						<label class="form-label" for="mcp-name">Name</label>
+						<label class="form-label" for="mcp-name">{t('settings.mcp.name')}</label>
 						<input id="mcp-name" class="settings-field" bind:value={formName} placeholder="Home Assistant" />
 					</div>
 
 					<div class="form-row">
-						<span class="form-label">Transport</span>
+						<span class="form-label">{t('settings.mcp.transport')}</span>
 						<div class="transport-toggle">
 							<label class="transport-opt">
 								<input
@@ -186,16 +187,17 @@
 
 					{#if formTransport === 'stdio'}
 						<p class="form-hint">
-							stdio is fail-closed: the full command line must be listed in
-							<code>MCP_STDIO_ALLOWED_COMMANDS</code> (e.g.
-							<code>npx -y @brave/brave-search-mcp-server</code>), and env vars must be named in
-							<code>MCP_STDIO_ENV_ALLOWLIST</code>, otherwise this server stays disabled.
+							{t('settings.mcp.stdioHint', {
+								allowlist: 'MCP_STDIO_ALLOWED_COMMANDS',
+								example: 'npx -y @brave/brave-search-mcp-server',
+								env: 'MCP_STDIO_ENV_ALLOWLIST'
+							})}
 						</p>
 					{/if}
 
 					{#if formTransport === 'http'}
 						<div class="form-row">
-							<label class="form-label" for="mcp-url">URL</label>
+							<label class="form-label" for="mcp-url">{t('settings.mcp.url')}</label>
 							<input
 								id="mcp-url"
 								class="settings-field"
@@ -205,7 +207,7 @@
 							/>
 						</div>
 						<div class="form-row">
-							<span class="form-label">Auth</span>
+							<span class="form-label">{t('settings.mcp.auth')}</span>
 							<div class="transport-toggle">
 								<label class="transport-opt">
 									<input
@@ -215,7 +217,7 @@
 										checked={formAuthType === 'none'}
 										onchange={() => (formAuthType = 'none')}
 									/>
-									None
+									{t('settings.mcp.authNone')}
 								</label>
 								<label class="transport-opt">
 									<input
@@ -225,29 +227,29 @@
 										checked={formAuthType === 'bearer'}
 										onchange={() => (formAuthType = 'bearer')}
 									/>
-									Bearer
+									{t('settings.mcp.authBearer')}
 								</label>
 							</div>
 						</div>
 						{#if formAuthType === 'bearer'}
 							<div class="form-row">
-								<label class="form-label" for="mcp-token">Token</label>
+								<label class="form-label" for="mcp-token">{t('settings.mcp.token')}</label>
 								<input
 									id="mcp-token"
 									class="settings-field"
 									bind:value={formAuthToken}
-									placeholder="Long-lived access token"
+									placeholder={t('settings.mcp.tokenPlaceholder')}
 									type="password"
 								/>
 							</div>
 						{/if}
 					{:else}
 						<div class="form-row">
-							<label class="form-label" for="mcp-command">Command</label>
+							<label class="form-label" for="mcp-command">{t('settings.mcp.command')}</label>
 							<input id="mcp-command" class="settings-field" bind:value={formCommand} placeholder="npx" />
 						</div>
 						<div class="form-row">
-							<label class="form-label" for="mcp-args">Arguments</label>
+							<label class="form-label" for="mcp-args">{t('settings.mcp.arguments')}</label>
 							<input
 								id="mcp-args"
 								class="settings-field"
@@ -257,8 +259,8 @@
 						</div>
 						<div class="form-row">
 							<label class="form-label" for="mcp-env">
-								Env Vars
-								<span class="form-hint">KEY=value per line</span>
+								{t('settings.mcp.envVars')}
+								<span class="form-hint">{t('settings.mcp.envHint')}</span>
 							</label>
 							<textarea
 								id="mcp-env"
@@ -271,34 +273,34 @@
 					{/if}
 
 					{#if formError}
-						<p class="form-error">{formError}</p>
+						<p class="form-error">{t(formError)}</p>
 					{/if}
 
 					<label class="checkbox-row">
 						<input type="checkbox" bind:checked={formAskBeforeRun} />
-						<span>Ask before running tools</span>
-						<span class="form-hint">Shows each tool call with its arguments so you can run or skip it.</span>
+						<span>{t('settings.mcp.askBeforeRun')}</span>
+						<span class="form-hint">{t('settings.mcp.askBeforeRunHint')}</span>
 					</label>
 
 					<label class="checkbox-row">
 						<input type="checkbox" bind:checked={formInjectResultsAsUser} />
-						<span>Inject text tool results as user messages</span>
-						<span class="form-hint">Helps with local/SLIM models that ignore strict tool-role messages.</span>
+						<span>{t('settings.mcp.injectText')}</span>
+						<span class="form-hint">{t('settings.mcp.injectHint')}</span>
 					</label>
 
 					<div class="form-actions">
 						{#if isEditing}
-							<Button variant="secondary" onclick={resetForm}>Cancel</Button>
+							<Button variant="secondary" onclick={resetForm}>{t('common.cancel')}</Button>
 						{/if}
 						<Button onclick={submitForm}>
-							{isEditing ? 'Save Changes' : 'Add Server'}
+							{isEditing ? t('settings.mcp.saveChanges') : t('settings.mcp.addServer')}
 						</Button>
 					</div>
 				</div>
 			{/if}
 
 			{#if mcpStore.servers.length === 0 && !showForm}
-				<p class="empty-hint">No servers configured. Add one above to get started.</p>
+				<p class="empty-hint">{t('settings.mcp.empty')}</p>
 			{/if}
 
 			<ul class="server-list">
@@ -317,27 +319,27 @@
 								<span class="ui-badge">auth</span>
 							{/if}
 							{#if server.askBeforeRun === false}
-								<span class="ui-badge" title="Tools run without asking">auto-run</span>
+								<span class="ui-badge" title={t('settings.mcp.autoRunTitle')}>auto-run</span>
 							{/if}
 							<span class="ui-badge">{server.transport}</span>
 							<Switch
 								checked={server.enabled}
 								onchange={() => mcpStore.toggleServer(server.id)}
-								label={`Enable ${server.name}`}
+								label={t('settings.mcp.enableServer', { name: server.name })}
 							/>
 							<Button
 								variant="ghost"
 								onclick={() => openEditForm(server)}
-								title="Edit server"
-								aria-label="Edit server"
+								title={t('settings.mcp.editServer')}
+								aria-label={t('settings.mcp.editServer')}
 							>
 								<Icon name="pencil" size={13} />
 							</Button>
 							<Button
 								variant="danger"
 								onclick={() => mcpStore.removeServer(server.id)}
-								title="Remove server"
-								aria-label="Remove server"
+								title={t('settings.mcp.removeServer')}
+								aria-label={t('settings.mcp.removeServer')}
 							>
 								<Icon name="trash" size={13} />
 							</Button>
@@ -347,11 +349,11 @@
 			</ul>
 		</SettingsSection>
 
-		<SettingsSection title="Available Tools">
+		<SettingsSection title={t('settings.mcp.availableTools')}>
 			{#snippet actions()}
 				<Button variant="secondary" onclick={() => mcpStore.refreshTools()} disabled={mcpStore.isLoadingTools}>
 					<Icon name="refresh" size={13} />
-					{mcpStore.isLoadingTools ? 'Loading…' : 'Refresh'}
+					{mcpStore.isLoadingTools ? t('settings.mcp.loading') : t('settings.mcp.refresh')}
 				</Button>
 			{/snippet}
 
@@ -373,8 +375,8 @@
 			{#if mcpStore.tools.length === 0 && !mcpStore.isLoadingTools && mcpStore.serverErrors.length === 0}
 				<p class="empty-hint">
 					{mcpStore.enabledServers.length === 0
-						? 'Enable a server above to see its tools.'
-						: 'No tools found. Check that your MCP servers are running.'}
+						? t('settings.mcp.noServers')
+						: t('settings.mcp.noTools')}
 				</p>
 			{/if}
 
@@ -417,13 +419,6 @@
 		font-size: 0.8125rem;
 		color: var(--text-secondary);
 		line-height: 1.4;
-	}
-
-	.notice code {
-		font-size: 0.78rem;
-		background: var(--bg-tertiary);
-		padding: 0.1rem 0.3rem;
-		border-radius: var(--radius-sm);
 	}
 
 	.form-card {

@@ -5,6 +5,7 @@
 	import { getLLMProvider } from '$lib/services/providers/registry';
 	import type { VisionSource } from '$lib/services/providers/vision';
 	import { Icon, ProviderDropdown, ModelDropdown, ContextSizeSlider } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import { DOCS_URL } from '$lib/config/site';
 	import { isTauri } from '$lib/services/platform';
 	import type { LlmSettingsState } from '$lib/stores/ai-services-settings.svelte';
@@ -15,8 +16,8 @@
 	// The same fields serve the chat model and the separate vision model
 	const vision = $derived(state.moduleId === 'vision');
 	const idp = $derived(vision ? 'vision' : 'llm');
-	const title = $derived(vision ? 'Vision' : 'Chat (LLM)');
-	const switchLabel = $derived(vision ? 'Separate vision model' : 'Chat (LLM)');
+	const title = $derived(vision ? t('settings.llm.vision') : t('settings.llm.chatLlm'));
+	const switchLabel = $derived(vision ? t('settings.llm.visionSwitch') : t('settings.llm.chatLlm'));
 
 	const LOCAL_LLM_DOCS_URL = `${DOCS_URL}/guides/local-llm-setup#allowing-utsuwa-to-reach-ollama`;
 
@@ -32,39 +33,39 @@
 	}
 
 	function visionNote(capable: boolean, source: VisionSource, providerName = 'the provider') {
-		if (source === 'you') return 'Set by you.';
-		if (source === 'provider') return `Reported by ${providerName}.`;
+		if (source === 'you') return t('settings.llm.visionSetByYou');
+		if (source === 'provider') return t('settings.llm.visionReportedBy', { name: providerName });
 		return capable
-			? 'Guessed from the model name. Turn this off if photos fail.'
-			: 'Guessed from the model name. Turn this on if the model takes images.';
+			? t('settings.llm.visionGuessOff')
+			: t('settings.llm.visionGuessOn');
 	}
 </script>
 
 {#snippet troubleHelp()}
 	<p class="hint">
-		Having trouble? Click <a
+		{t('settings.llm.troublePrefix')} <a
 			href={LOCAL_LLM_DOCS_URL}
 			target="_blank"
 			rel="noopener"
-			onclick={openLocalLlmDocs}>here</a
+			onclick={openLocalLlmDocs}>{t('settings.llm.troubleLink')}</a
 		>
 	</p>
 {/snippet}
 
 <SettingsSection
 	{title}
-	description={vision ? 'Let a different model look at photos for your chat model.' : undefined}
+	description={vision ? t('settings.llm.visionDesc') : undefined}
 >
 	{#snippet actions()}<Switch checked={state.isLLMEnabled} onchange={state.toggleLLM} label={switchLabel} />{/snippet}
 	<div class="ai-fields">
 		{#if state.isLLMEnabled}
 			<div class="ai-field">
-				<span class="settings-label">Provider</span>
+				<span class="settings-label">{t('settings.fields.provider')}</span>
 				<ProviderDropdown
 					type="llm"
 					value={state.activeProvider}
 					onSelect={state.handleLLMProviderChange}
-					placeholder={vision ? 'Select vision provider...' : 'Select LLM provider...'}
+					placeholder={vision ? t('settings.llm.selectVisionProvider') : t('settings.llm.selectLlmProvider')}
 				/>
 			</div>
 
@@ -73,13 +74,13 @@
 
 				{#if provider?.requiresApiKey || provider?.custom}
 					<div class="ai-field">
-						<label class="settings-label" for="{idp}-api-key">{provider?.custom ? 'API key (optional)' : 'API key'}</label>
+						<label class="settings-label" for="{idp}-api-key">{provider?.custom ? t('settings.fields.apiKeyOptional') : t('settings.fields.apiKey')}</label>
 						<input
 							id="{idp}-api-key"
 							type="password"
 							class="settings-field"
 							class:error={state.llmFetchError}
-							placeholder={provider?.custom ? 'API Key (optional)' : 'API Key'} aria-label={provider?.custom ? 'API Key (optional)' : 'API Key'}
+							placeholder={provider?.custom ? t('settings.fields.apiKeyOptionalPh') : t('settings.fields.apiKeyPh')} aria-label={provider?.custom ? t('settings.fields.apiKeyOptionalPh') : t('settings.fields.apiKeyPh')}
 							value={settingsStore.getProviderConfig(provider.id).apiKey ?? ''}
 							oninput={(e) => state.handleApiKeyChange(provider.id, e.currentTarget.value)}
 							onblur={provider?.custom ? undefined : state.handleLLMApiKeyBlur}
@@ -89,13 +90,13 @@
 
 				{#if provider?.isLocal || provider?.custom}
 					<div class="ai-field">
-						<label class="settings-label" for="{idp}-base-url">Base URL</label>
+						<label class="settings-label" for="{idp}-base-url">{t('settings.fields.baseUrl')}</label>
 						<input
 							id="{idp}-base-url"
 							type="text"
 							class="settings-field"
 							placeholder={provider.custom
-								? 'https://api.openai.com/v1/ or your endpoint'
+								? t('settings.llm.baseUrlPhCustom')
 								: provider.defaultBaseUrl || 'http://localhost:11434/v1/'}
 							value={settingsStore.getProviderConfig(provider.id).baseUrl ?? ''}
 							oninput={(e) => state.handleLLMBaseUrlChange(provider.id, e.currentTarget.value)}
@@ -117,12 +118,12 @@
 				{#if provider?.custom}
 					{@const customConfig = settingsStore.getProviderConfig(provider.id)}
 					<div class="ai-field">
-						<label class="settings-label" for="{idp}-custom-model">Model</label>
+						<label class="settings-label" for="{idp}-custom-model">{t('settings.fields.model')}</label>
 						<input
 							id="{idp}-custom-model"
 							type="text"
 							class="settings-field"
-							placeholder="Model (e.g. gpt-4o-mini, meta-llama/llama-3-70b)" aria-label="Model (e.g. gpt-4o-mini, meta-llama/llama-3-70b)"
+							placeholder={t('settings.fields.modelPhExample')} aria-label={t('settings.fields.modelPhExample')}
 							value={state.activeModel ?? ''}
 							oninput={(e) => state.handleLLMModelChange(e.currentTarget.value.trim())}
 						/>
@@ -131,23 +132,23 @@
 								models={state.llmModels}
 								value={state.activeModel}
 								onSelect={state.handleLLMModelChange}
-								placeholder="Pick a fetched model..."
+								placeholder={t('settings.llm.pickFetched')}
 								isLoading={state.llmIsLoading}
 								onRefresh={state.refreshLLMModels}
 								disabled={false}
 							/>
 						{:else}
-							<p class="hint">Enter a base URL to fetch available models.</p>
+							<p class="hint">{t('settings.llm.enterBaseUrlFirst')}</p>
 						{/if}
 					</div>
 
 					{#if !vision}
 					<details class="llm-advanced-params">
-						<summary>Advanced Parameters</summary>
+						<summary>{t('settings.llm.advanced')}</summary>
 						<div class="llm-param-grid">
 							<div class="llm-param-row">
 								<label class="llm-param-label" for="llm-temperature">
-									Temperature
+									{t('settings.llm.temperature')}
 									<span class="llm-param-value">{state.consciousnessSettings.temperature.toFixed(2)}</span>
 								</label>
 								<input
@@ -160,12 +161,12 @@
 									value={state.consciousnessSettings.temperature}
 									oninput={(e) => state.handleLLMNumberSetting('temperature', Number(e.currentTarget.value))}
 								/>
-								<p class="hint">Controls randomness: 0 = focused, 2 = highly creative.</p>
+								<p class="hint">{t('settings.llm.temperatureHint')}</p>
 							</div>
 
 							<div class="llm-param-row">
 								<label class="llm-param-label" for="llm-top-p">
-									Top P
+									{t('settings.llm.topP')}
 									<span class="llm-param-value">{state.consciousnessSettings.topP.toFixed(2)}</span>
 								</label>
 								<input
@@ -178,13 +179,13 @@
 									value={state.consciousnessSettings.topP}
 									oninput={(e) => state.handleLLMNumberSetting('topP', Number(e.currentTarget.value))}
 								/>
-								<p class="hint">Nucleus sampling: 1 = disabled.</p>
+								<p class="hint">{t('settings.llm.topPHint')}</p>
 							</div>
 
 							<div class="llm-param-row">
 								<label class="llm-param-label" for="llm-max-tokens">
-									Max Tokens
-									<span class="llm-param-value">{state.consciousnessSettings.maxTokens ?? 'Default'}</span>
+									{t('settings.llm.maxTokens')}
+									<span class="llm-param-value">{state.consciousnessSettings.maxTokens ?? t('settings.llm.default')}</span>
 								</label>
 								<input
 									id="llm-max-tokens"
@@ -192,19 +193,19 @@
 									class="settings-field"
 									min="1"
 									step="1"
-									placeholder="Unlimited" aria-label="Unlimited"
+									placeholder={t('settings.llm.unlimited')} aria-label={t('settings.llm.unlimited')}
 									value={state.consciousnessSettings.maxTokens ?? ''}
 									oninput={(e) => {
 										const val = e.currentTarget.value;
 										state.handleLLMNumberSetting('maxTokens', val ? parseInt(val, 10) : undefined);
 									}}
 								/>
-								<p class="hint">Hard limit for the number of tokens in the response. Leave empty to use the provider default.</p>
+								<p class="hint">{t('settings.llm.maxTokensHint')}</p>
 							</div>
 
 							<div class="llm-param-row">
 								<label class="llm-param-label" for="llm-presence-penalty">
-									Presence Penalty
+									{t('settings.llm.presencePenalty')}
 									<span class="llm-param-value">{state.consciousnessSettings.presencePenalty.toFixed(1)}</span>
 								</label>
 								<input
@@ -217,12 +218,12 @@
 									value={state.consciousnessSettings.presencePenalty}
 									oninput={(e) => state.handleLLMNumberSetting('presencePenalty', Number(e.currentTarget.value))}
 								/>
-								<p class="hint">Reduces repetition of tokens already used.</p>
+								<p class="hint">{t('settings.llm.presenceHint')}</p>
 							</div>
 
 							<div class="llm-param-row">
 								<label class="llm-param-label" for="llm-frequency-penalty">
-									Frequency Penalty
+									{t('settings.llm.frequencyPenalty')}
 									<span class="llm-param-value">{state.consciousnessSettings.frequencyPenalty.toFixed(1)}</span>
 								</label>
 								<input
@@ -235,23 +236,23 @@
 									value={state.consciousnessSettings.frequencyPenalty}
 									oninput={(e) => state.handleLLMNumberSetting('frequencyPenalty', Number(e.currentTarget.value))}
 								/>
-								<p class="hint">Stronger penalty for frequently repeated tokens.</p>
+								<p class="hint">{t('settings.llm.frequencyHint')}</p>
 							</div>
 						</div>
 					</details>
 					{/if}
 				{:else}
 					<div class="ai-field">
-						<span class="settings-label">Model</span>
+						<span class="settings-label">{t('settings.fields.model')}</span>
 						<ModelDropdown
 							models={state.llmModels}
 							value={state.activeModel}
 							onSelect={state.handleLLMModelChange}
-							placeholder="Select model..."
+							placeholder={t('settings.fields.selectModel')}
 							isLoading={state.llmIsLoading}
 							onRefresh={state.llmHasApiKey ? state.refreshLLMModels : undefined}
 							disabled={!state.llmHasApiKey}
-							disabledMessage="Enter API key first"
+							disabledMessage={t('settings.fields.enterKeyFirst')}
 						/>
 					</div>
 				{/if}
@@ -261,12 +262,12 @@
 					{@const sight = settingsStore.resolveModelVision(state.activeProvider, model)}
 					<div class="setting-row">
 						<div class="setting-info">
-							<span class="setting-label">Can see images</span>
+							<span class="setting-label">{t('settings.llm.canSeeImages')}</span>
 							<span class="setting-desc">{visionNote(sight.capable, sight.source, provider?.name)}</span>
 						</div>
 						<Switch
 							id="{idp}-sees-images"
-							label="This model can see images"
+							label={t('settings.llm.seesImagesSwitch')}
 							checked={sight.capable}
 							onchange={(on) => settingsStore.setVisionOverride(state.activeProvider, model, on)}
 						/>
@@ -278,14 +279,15 @@
 						contextSize={state.consciousnessSettings.contextSize}
 						onChange={handleContextSizeChange}
 						id="llm-context-size-toggle"
+						note={t('settings.llm.contextScalingHint')}
 					/>
 				{/if}
 			{/if}
 		{:else}
 			<p class="hint">
 				{vision
-					? "Off. Photos go to your chat model. Turn this on to have another model describe them instead, and your chat model replies from that description. Useful when the chat model can't see images, or its image tokens cost more."
-					: 'Turn on chat to pick a provider and model.'}
+					? t('settings.llm.visionOffHint')
+					: t('settings.llm.chatOffHint')}
 			</p>
 		{/if}
 	</div>

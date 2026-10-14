@@ -6,6 +6,7 @@ import { translate } from './core.ts';
 import { currentLocale } from './locale.svelte.ts';
 
 export type { Locale } from './types.ts';
+export type { DictKey } from './locales/en.ts';
 export { currentLocale, setLocale, LOCALES } from './locale.svelte.ts';
 
 export function t(key: DictKey, params?: Record<string, string | number>): string {

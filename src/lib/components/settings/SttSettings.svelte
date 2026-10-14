@@ -1,21 +1,22 @@
 <script lang="ts">
 	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { t } from '$lib/i18n';
 	import { DEFAULT_STT_TIMEOUT_MS, resolveSttTimeoutMs } from '$lib/services/stt/openai-stt';
 	import SettingsSection from './SettingsSection.svelte';
 </script>
 
 <SettingsSection
-	title="Cloud providers"
-	description="A local server is used first, then Groq, then OpenAI, then the browser's built-in recognition. Required on desktop, which has no built-in recognition."
+	title={t('settings.stt.cloudTitle')}
+	description={t('settings.stt.cloudDesc')}
 >
 	<div class="ai-fields">
 		<div class="ai-field">
-			<label class="settings-label" for="stt-groq-key">Groq API key</label>
+			<label class="settings-label" for="stt-groq-key">{t('settings.stt.groqKeyLabel')}</label>
 			<input
 				id="stt-groq-key"
 				type="password"
 				class="settings-field"
-				placeholder="Groq API Key" aria-label="Groq API Key"
+				placeholder={t('settings.stt.groqKey')} aria-label={t('settings.stt.groqKey')}
 				value={settingsStore.getProviderConfig('groq-stt').apiKey ?? ''}
 				oninput={(e) => {
 					const v = e.currentTarget.value;
@@ -26,12 +27,12 @@
 			/>
 		</div>
 		<div class="ai-field">
-			<label class="settings-label" for="stt-openai-key">OpenAI API key (Whisper)</label>
+			<label class="settings-label" for="stt-openai-key">{t('settings.stt.openaiLabel')}</label>
 			<input
 				id="stt-openai-key"
 				type="password"
 				class="settings-field"
-				placeholder="OpenAI API Key" aria-label="OpenAI API Key"
+				placeholder={t('settings.stt.openaiKey')} aria-label={t('settings.stt.openaiKey')}
 				value={settingsStore.getProviderConfig('openai-stt').apiKey ?? ''}
 				oninput={(e) => {
 					const v = e.currentTarget.value;
@@ -42,12 +43,12 @@
 			/>
 		</div>
 		<div class="ai-field">
-			<label class="settings-label" for="stt-siliconflow-key">SiliconFlow API key</label>
+			<label class="settings-label" for="stt-siliconflow-key">{t('settings.stt.siliconflowKeyLabel')}</label>
 			<input
 				id="stt-siliconflow-key"
 				type="password"
 				class="settings-field"
-				placeholder="SiliconFlow API Key" aria-label="SiliconFlow API Key"
+				placeholder={t('settings.stt.siliconflowKeyPh')} aria-label={t('settings.stt.siliconflowKeyPh')}
 				value={settingsStore.getProviderConfig('siliconflow').apiKey ?? ''}
 				oninput={(e) => {
 					const v = e.currentTarget.value;
@@ -59,13 +60,13 @@
 			/>
 		</div>
 		<div class="ai-field">
-			<label class="settings-label" for="stt-siliconflow-model">SiliconFlow model</label>
+			<label class="settings-label" for="stt-siliconflow-model">{t('settings.stt.siliconflowModel')}</label>
 			<input
 				id="stt-siliconflow-model"
 				type="text"
 				class="settings-field"
 				placeholder="SenseVoiceSmall"
-				aria-label="SiliconFlow STT model"
+				aria-label={t('settings.stt.siliconflowModelAria')}
 				value={settingsStore.getProviderConfig('siliconflow').modelId ?? ''}
 				oninput={(e) => {
 					settingsStore.setProviderConfig('siliconflow', { modelId: e.currentTarget.value.trim() });
@@ -76,12 +77,12 @@
 </SettingsSection>
 
 <SettingsSection
-	title="Local server"
-	description="Speaches, faster-whisper-server, whisper.cpp, or any OpenAI-compatible transcription endpoint."
+	title={t('settings.stt.localTitle')}
+	description={t('settings.stt.localDesc')}
 >
 	<div class="ai-fields">
 		<div class="ai-field">
-			<label class="settings-label" for="stt-local-url">Server URL</label>
+			<label class="settings-label" for="stt-local-url">{t('settings.stt.serverUrl')}</label>
 			<input
 				id="stt-local-url"
 				type="text"
@@ -97,12 +98,12 @@
 			/>
 		</div>
 		<div class="ai-field">
-			<label class="settings-label" for="stt-local-model">Model</label>
+			<label class="settings-label" for="stt-local-model">{t('settings.fields.model')}</label>
 			<input
 				id="stt-local-model"
 				type="text"
 				class="settings-field"
-				placeholder="Model (e.g. Systran/faster-whisper-large-v3)" aria-label="Model (e.g. Systran/faster-whisper-large-v3)"
+				placeholder={t('settings.stt.localModel')} aria-label={t('settings.stt.localModel')}
 				value={settingsStore.getProviderConfig('local-stt').modelId ?? ''}
 				oninput={(e) => {
 					settingsStore.setProviderConfig('local-stt', { modelId: e.currentTarget.value.trim() });
@@ -110,7 +111,7 @@
 			/>
 		</div>
 		<div class="ai-field">
-			<label class="settings-label" for="stt-local-timeout">Transcription timeout (seconds)</label>
+			<label class="settings-label" for="stt-local-timeout">{t('settings.stt.timeout')}</label>
 			<input
 				id="stt-local-timeout"
 				type="number"
@@ -126,7 +127,7 @@
 					e.currentTarget.value = String(timeoutMs / 1000);
 				}}
 			/>
-			<p class="hint">How long to wait for the server to transcribe. Raise this for slow or CPU-only machines.</p>
+			<p class="hint">{t('settings.stt.timeoutHint')}</p>
 		</div>
 	</div>
 </SettingsSection>

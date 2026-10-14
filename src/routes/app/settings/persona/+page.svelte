@@ -35,34 +35,34 @@
 </script>
 
 <div class="page character-screen">
-	<header class="page-header"><h2>Character</h2><p>Shape your companion's identity, or see how they're doing.</p></header>
-	<Tabs bind:value={() => view, navigate} items={[{ value: 'profile', label: 'Profile' }, { value: 'state', label: 'State & activity' }]} label="Character views">
+	<header class="page-header"><h2>{t('settings.persona.title')}</h2><p>{t('settings.persona.subtitle')}</p></header>
+	<Tabs bind:value={() => view, navigate} items={[{ value: 'profile', label: t('settings.persona.tabProfile') }, { value: 'state', label: t('settings.persona.tabState') }]} label={t('settings.persona.viewsAria')}>
 		{#snippet children(tab)}
 			{#if tab === 'profile'}
 				<div class="profile-sections">
-					<SettingsSection title="Identity">
-						<div class="setting-row"><div class="setting-info"><label class="setting-label" for="character-name">{t('settings.persona.nameLabel')}</label><span class="setting-desc">What you'll call your companion.</span></div>
+					<SettingsSection title={t('settings.persona.identity')}>
+						<div class="setting-row"><div class="setting-info"><label class="setting-label" for="character-name">{t('settings.persona.nameLabel')}</label><span class="setting-desc">{t('settings.persona.nameDesc')}</span></div>
 							<input id="character-name" class="settings-field name-field" bind:value={page.formName} placeholder="Utsuwa" aria-label={t('settings.persona.nameLabel')} onblur={page.saveName} />
 						</div>
 					</SettingsSection>
-					<SettingsSection title="Appearance"><AvatarGallery {page} /></SettingsSection>
-					<SettingsSection title="Personality" description="How your companion speaks, behaves, and sees the world. Changes save when you leave the field.">
+					<SettingsSection title={t('settings.persona.appearance')}><AvatarGallery {page} /></SettingsSection>
+					<SettingsSection title={t('settings.persona.personality')} description={t('settings.persona.personalityDesc')}>
 						<label class="sr-only" for="character-personality">{t('onboarding.corePersonality')}</label>
 						<textarea id="character-personality" class="settings-field" bind:value={page.formSystemPrompt} rows="6" onblur={page.saveSystemPrompt} placeholder={t('settings.persona.personalityPlaceholder')}></textarea>
 					</SettingsSection>
-					<SettingsSection title="System prompt" description="Replaces the built-in framing and rules at the top of every prompt, in both modes. Leave it empty to use the default.">
+					<SettingsSection title={t('settings.persona.systemPrompt')} description={t('settings.persona.systemPromptDesc')}>
 						{#snippet actions()}
-							{#if page.formCustomSystemPrompt.trim()}<Button variant="ghost" size="sm" onclick={() => (page.resetPromptOpen = true)}>Reset to default</Button>
-							{:else}<Button variant="ghost" size="sm" onclick={startFromDefault}>Start from default</Button>{/if}
+							{#if page.formCustomSystemPrompt.trim()}<Button variant="ghost" size="sm" onclick={() => (page.resetPromptOpen = true)}>{t('settings.persona.resetPrompt')}</Button>
+							{:else}<Button variant="ghost" size="sm" onclick={startFromDefault}>{t('settings.persona.startFromDefault')}</Button>{/if}
 						{/snippet}
 						<div class="ai-fields">
-							<label class="sr-only" for="character-system-prompt">System prompt</label>
+							<label class="sr-only" for="character-system-prompt">{t('settings.persona.systemPrompt')}</label>
 							<textarea id="character-system-prompt" class="settings-field" bind:this={customPromptField} bind:value={page.formCustomSystemPrompt} rows="8" onblur={page.saveCustomSystemPrompt} placeholder={page.defaultRules} aria-describedby="character-system-prompt-hint"></textarea>
-							<p class="hint" id="character-system-prompt-hint">{'{{char}}'} becomes your companion's name and {'{{user}}'} becomes "the user", here and in Personality. Memory, mood, and the reply format are still added after this.</p>
+							<p class="hint" id="character-system-prompt-hint">{t('settings.persona.systemPromptHint', { charToken: '{{char}}', userToken: '{{user}}' })}</p>
 						</div>
 					</SettingsSection>
-					<SettingsSection title="Experience">
-						<div class="setting-row"><div class="setting-info"><span class="setting-label">Companion mode</span><span class="setting-desc">Dating sim includes relationship progression and events. Companion focuses on everyday conversation.</span></div>
+					<SettingsSection title={t('settings.persona.experience')}>
+						<div class="setting-row"><div class="setting-info"><span class="setting-label">{t('settings.persona.companionMode')}</span><span class="setting-desc">{t('settings.persona.companionModeDesc')}</span></div>
 							<SegmentedControl label={t('settings.persona.appMode')} value={page.appMode} onchange={page.requestModeChange} options={[{ value: 'companion', label: t('onboarding.companion'), icon: 'sparkles' }, { value: 'dating_sim', label: t('onboarding.datingSim'), icon: 'heart' }]} compact />
 						</div>
 					</SettingsSection>
@@ -76,9 +76,9 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="confirm-modal" />
 		<Dialog.Content class="confirm-content">
-			<Dialog.Title class="confirm-title">Change companion mode?</Dialog.Title>
-			<Dialog.Description class="confirm-message">This changes whether relationship progression and events are active. Your companion's name and personality stay the same.</Dialog.Description>
-			<div class="confirm-actions"><Dialog.Close class="btn btn-secondary">Cancel</Dialog.Close><button class="btn btn-primary" onclick={page.confirmModeChange}>Change mode</button></div>
+			<Dialog.Title class="confirm-title">{t('settings.persona.changeModeTitle')}</Dialog.Title>
+			<Dialog.Description class="confirm-message">{t('settings.persona.changeModeBody')}</Dialog.Description>
+			<div class="confirm-actions"><Dialog.Close class="btn btn-secondary">{t('common.cancel')}</Dialog.Close><button class="btn btn-primary" onclick={page.confirmModeChange}>{t('settings.persona.changeModeConfirm')}</button></div>
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>
@@ -87,9 +87,9 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="confirm-modal" />
 		<Dialog.Content class="confirm-content">
-			<Dialog.Title class="confirm-title">Reset system prompt?</Dialog.Title>
-			<Dialog.Description class="confirm-message">Your custom system prompt will be cleared and the built-in one used again. Personality is not affected.</Dialog.Description>
-			<div class="confirm-actions"><Dialog.Close class="btn btn-secondary">Cancel</Dialog.Close><button class="btn btn-danger" onclick={page.resetCustomSystemPrompt}>Reset</button></div>
+			<Dialog.Title class="confirm-title">{t('settings.persona.resetPromptTitle')}</Dialog.Title>
+			<Dialog.Description class="confirm-message">{t('settings.persona.resetPromptBody')}</Dialog.Description>
+			<div class="confirm-actions"><Dialog.Close class="btn btn-secondary">{t('common.cancel')}</Dialog.Close><button class="btn btn-danger" onclick={page.resetCustomSystemPrompt}>{t('settings.persona.resetConfirm')}</button></div>
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>

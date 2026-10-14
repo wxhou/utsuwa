@@ -55,7 +55,7 @@
 		<h2>{t('settings.nav.memory')}</h2>
 		<p>{t('settings.memory.pageSubtitle')}</p>
 	</header>
-	<Tabs bind:value={() => tab, navigate} items={tabs} label="Memory views">
+	<Tabs bind:value={() => tab, navigate} items={tabs} label={t('settings.memory.viewsAria')}>
 		{#snippet children(view)}
 			{#if view === 'graph'}
 				<div class="graph-heading">
@@ -131,7 +131,7 @@
 							{ value: 'state', label: t('settings.memory.state') },
 							{ value: 'test', label: t('settings.memory.parserTest') }
 						]}
-						label="Advanced memory tools"
+						label={t('settings.memory.advancedToolsAria')}
 					>
 						{#snippet children(tool)}<MemoryInspector
 								view={tool === 'state' ? 'state' : 'test'}

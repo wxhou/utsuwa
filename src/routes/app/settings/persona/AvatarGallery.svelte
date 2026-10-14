@@ -51,9 +51,9 @@
  <Dialog.Content class="ui-dialog upload-content">
   <div class="upload-header">
    <Dialog.Title class="upload-title">{t('settings.persona.uploadCustom')}</Dialog.Title>
-   <Dialog.Close class="btn btn-ghost btn-icon" aria-label="Close model upload"><Icon name="x" size={16} /></Dialog.Close>
+   <Dialog.Close class="btn btn-ghost btn-icon" aria-label={t('settings.persona.closeUpload')}><Icon name="x" size={16} /></Dialog.Close>
   </div>
-  <Dialog.Description class="sr-only">Choose a VRM avatar file from your device.</Dialog.Description>
+  <Dialog.Description class="sr-only">{t('settings.persona.uploadDesc')}</Dialog.Description>
   <VrmUploader onUpload={page.handleUpload} />
  </Dialog.Content>
 </Dialog.Portal>

@@ -24,9 +24,9 @@
 		<Dialog.Content class="expanded-memory-graph">
 			<header>
 				<div>
-					<Dialog.Title class="expanded-memory-title">Memory graph</Dialog.Title>
+					<Dialog.Title class="expanded-memory-title">{t('memory.graphTitle')}</Dialog.Title>
 					<Dialog.Description class="expanded-memory-description"
-						>Select a memory to inspect it, or drag and zoom to explore connections.</Dialog.Description
+						>{t('memory.graphDescription')}</Dialog.Description
 					>
 				</div>
 				<Dialog.Close class="btn btn-ghost btn-icon" aria-label={t('memory.collapseGraph')}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 
 	interface Model {
 		id: string;
@@ -66,7 +67,7 @@
 			{#if isLoading}
 				<span class="trigger-loading">
 					<span class="loading-spinner"></span>
-					Fetching models...
+					{t('models.fetching')}
 				</span>
 			{:else if disabled}
 				<span class="trigger-placeholder">{disabledMessage}</span>
@@ -87,8 +88,8 @@
 					<input
 						type="text"
 						class="search-input"
-						placeholder="Search models..."
-						aria-label="Search models"
+						placeholder={t('models.search')}
+						aria-label={t('models.searchAria')}
 						bind:value={searchQuery}
 						onclick={(e) => e.stopPropagation()}
 						onkeydown={(e) => {
@@ -97,7 +98,7 @@
 						}}
 					/>
 					{#if searchQuery}
-						<button aria-label="Clear model search" class="btn btn-ghost btn-icon" onclick={() => (searchQuery = '')}>
+						<button aria-label={t('models.clearSearch')} class="btn btn-ghost btn-icon" onclick={() => (searchQuery = '')}>
 							<Icon name="x" size={12} />
 						</button>
 					{/if}
@@ -117,7 +118,7 @@
 						</DropdownMenu.Item>
 					{/each}
 					{#if filteredModels.length === 0 && !isLoading}
-						<div class="no-models">No models found</div>
+						<div class="no-models">{t('models.noneFound')}</div>
 					{/if}
 				</div>
 			</DropdownMenu.Content>
@@ -125,7 +126,7 @@
 	</DropdownMenu.Root>
 
 	{#if onRefresh && !isLoading}
-		<button class="btn btn-secondary btn-icon" onclick={onRefresh} title="Refresh models" aria-label="Refresh models">
+		<button class="btn btn-secondary btn-icon" onclick={onRefresh} title={t('models.refresh')} aria-label={t('models.refresh')}>
 			<Icon name="refresh-cw" size={14} />
 		</button>
 	{/if}

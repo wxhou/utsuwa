@@ -6,6 +6,7 @@
 	import VoicePicker from './omnivoice/VoicePicker.svelte';
 	import CloneVoiceModal from './omnivoice/CloneVoiceModal.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { t, type DictKey } from '$lib/i18n';
 	import type { TtsSettingsState } from '$lib/stores/ai-services-settings.svelte';
 	import type { ProviderMetadata } from '$lib/services/providers/registry';
 	import { getSharedAudioContext } from '$lib/services/tts';
@@ -22,15 +23,45 @@
 	let { state: settings, provider }: { state: TtsSettingsState; provider: ProviderMetadata } = $props();
 
 	let previewLoading = $state(false);
-	let previewError = $state('');
+	let previewErrorKey = $state<DictKey | null>(null);
+	let previewErrorText = $state('');
+	let previewError = $derived(previewErrorKey ? t(previewErrorKey) : previewErrorText);
 	let regenerating = $state(false);
-	let profileError = $state('');
+	let profileErrorKey = $state<DictKey | null>(null);
+	let profileErrorText = $state('');
+	let profileError = $derived(profileErrorKey ? t(profileErrorKey) : profileErrorText);
 	let showCloneModal = $state(false);
 	let clonedVoices = $state<omnivoice.ClonedVoice[]>([]);
 	let cloneDeleting = $state('');
 	let proxyStatus = $state<omnivoice.ProxyStatus | 'checking'>('checking');
-	const PROXY_STATUS = { connected: ['omnivoice-dot-ok', 'Connected'], connecting: ['omnivoice-dot-warn', 'Connecting...'],
-		disconnected: ['omnivoice-dot-err', 'Not reachable'], checking: ['', 'Checking...'] };
+	const PROXY_STATUS: Record<omnivoice.ProxyStatus | 'checking', [string, DictKey]> = { connected: ['omnivoice-dot-ok', 'settings.omnivoice.proxyConnected'], connecting: ['omnivoice-dot-warn', 'settings.omnivoice.proxyConnecting'],
+		disconnected: ['omnivoice-dot-err', 'settings.omnivoice.proxyDisconnected'], checking: ['', 'settings.omnivoice.proxyChecking'] };
+
+	// PARAMS.key is a settings field name; the visible label for it lives in the dictionary
+	const PARAM_LABELS: Record<(typeof PARAMS)[number]['key'], DictKey> = {
+		speed: 'settings.omnivoice.speed',
+		numStep: 'settings.omnivoice.numStep',
+		positionTemperature: 'settings.omnivoice.positionTemp',
+		classTemperature: 'settings.omnivoice.classTemp'
+	};
+	const PARAM_ALT_LABELS: Record<(typeof PARAMS)[number]['key'], DictKey> = {
+		speed: 'settings.omnivoice.altSpeed',
+		numStep: 'settings.omnivoice.altNumStep',
+		positionTemperature: 'settings.omnivoice.altPositionTemp',
+		classTemperature: 'settings.omnivoice.altClassTemp'
+	};
+
+	function setProfileError(err: unknown) {
+		if (err instanceof Error) profileErrorText = err.message;
+		else profileErrorKey = 'settings.omnivoice.errReset';
+	}
+
+	function clearErrors() {
+		profileErrorKey = null;
+		profileErrorText = '';
+		previewErrorKey = null;
+		previewErrorText = '';
+	}
 
 	const activeVoiceId = $derived(settings.speechSettings.activeVoiceId || '');
 	const isClone = $derived(activeVoiceId.startsWith('clone:'));
@@ -79,13 +110,16 @@
 
 	function initializeProfile(voice: string, instructions: string, language: string) {
 		omnivoice.initializeProfile(connection, { voice, instructions, language }).catch((err) => {
-			profileError = err instanceof Error ? err.message : 'Profile initialization failed';
+			profileErrorKey = null;
+			profileErrorText = '';
+			setProfileError(err);
 		});
 	}
 
 	async function regenerateProfile() {
 		regenerating = true;
-		profileError = '';
+		profileErrorKey = null;
+		profileErrorText = '';
 		try {
 			const voiceId = activeVoiceId || DEFAULT_PRESET_VOICE;
 			await omnivoice.resetProfile(connection, {
@@ -94,7 +128,7 @@
 				instructions: isClone ? undefined : settings.speechSettings.instructions || deriveInstructions(voiceId, activeLanguage)
 			});
 		} catch (err) {
-			profileError = err instanceof Error ? err.message : 'Profile reset failed';
+			setProfileError(err);
 		} finally {
 			regenerating = false;
 		}
@@ -155,7 +189,8 @@
 
 	async function preview(alt: boolean) {
 		previewLoading = true;
-		previewError = '';
+		previewErrorKey = null;
+		previewErrorText = '';
 		try {
 			const s = settings.speechSettings;
 			const language = alt ? altLangOrDefault() : activeLanguage;
@@ -174,7 +209,8 @@
 			source.connect(ctx.destination);
 			source.start(0);
 		} catch (err) {
-			previewError = err instanceof Error ? err.message : 'Preview failed';
+			if (err instanceof Error) previewErrorText = err.message;
+			else previewErrorKey = 'settings.omnivoice.previewFailed';
 		} finally {
 			previewLoading = false;
 		}
@@ -200,7 +236,7 @@
 </script>
 
 {#snippet voicePicker(alt: boolean)}
-	<VoicePicker id={alt ? 'omnivoice-alt-voice' : 'omnivoice-voice'} label={alt ? 'Alternative voice' : 'Primary voice'}
+	<VoicePicker id={alt ? 'omnivoice-alt-voice' : 'omnivoice-voice'} label={alt ? t('settings.omnivoice.altVoice') : t('settings.omnivoice.primaryVoice')}
 		voiceId={alt ? altVoiceId : activeVoiceId} isClone={alt ? altIsClone : isClone} presets={provider.voices ?? []} clones={clonedVoices} deleting={cloneDeleting}
 		onchange={(id) => ((alt ? altIsClone : isClone) ? settings.setSpeech(alt ? 'altVoiceId' : 'activeVoiceId', id) : id && pickPreset(alt, id))}
 		onDelete={(cloneId) => deleteClone(cloneId, alt)} onCloneNew={() => (showCloneModal = true)} />
@@ -208,14 +244,14 @@
 
 {#snippet modeRadios(alt: boolean)}
 	{@const clone = alt ? altIsClone : isClone}
-	<span class="omnivoice-design-label">Mode</span>
+	<span class="omnivoice-design-label">{t('settings.omnivoice.mode')}</span>
 	<label class="omnivoice-radio">
 		<input type="radio" name={alt ? 'ov-alt-mode' : 'ov-mode'} value="synth" checked={!clone} onchange={() => resetVoice(alt)} />
-		Synthetic
+		{t('settings.omnivoice.synthetic')}
 	</label>
 	<label class="omnivoice-radio">
 		<input type="radio" name={alt ? 'ov-alt-mode' : 'ov-mode'} value="clone" checked={clone} onchange={() => switchToClone(alt)} />
-		Cloned
+		{t('settings.omnivoice.cloned')}
 	</label>
 {/snippet}
 
@@ -230,7 +266,7 @@
 		{#each PARAMS.slice(0, 2) as p (p.key)}
 			{@const id = `omnivoice-${alt ? 'alt-' : ''}${p.id}`}
 			<div class="omnivoice-design-row">
-				<label class="omnivoice-design-label" for={id}>{alt ? `Alt ${p.label}` : p.label}</label>
+				<label class="omnivoice-design-label" for={id}>{t(alt ? PARAM_ALT_LABELS[p.key] : PARAM_LABELS[p.key])}</label>
 				{@render slider(p, alt, id)}
 			</div>
 		{/each}
@@ -239,7 +275,7 @@
 		{#each PARAMS.slice(2) as p (p.key)}
 			{@const id = `omnivoice-${alt ? 'alt-' : ''}${p.id}`}
 			<div class="omnivoice-advanced-slider">
-				<label class="omnivoice-advanced-label" for={id}>{alt ? `Alt ${p.label}` : p.label}</label>
+				<label class="omnivoice-advanced-label" for={id}>{t(alt ? PARAM_ALT_LABELS[p.key] : PARAM_LABELS[p.key])}</label>
 				<div class="omnivoice-advanced-row">{@render slider(p, alt, id)}</div>
 			</div>
 		{/each}
@@ -249,9 +285,9 @@
 {#snippet testButton(alt: boolean)}
 	<button class="btn btn-sm btn-primary" onclick={() => preview(alt)} disabled={previewLoading}>
 		{#if previewLoading}
-			<span class="omnivoice-spinner"></span> Testing...
+			<span class="omnivoice-spinner"></span> {t('settings.omnivoice.testing')}
 		{:else}
-			<Icon name="play" size={14} /> {alt ? 'Test Alt Voice' : 'Test'}
+			<Icon name="play" size={14} /> {alt ? t('settings.omnivoice.testAlt') : t('settings.omnivoice.test')}
 		{/if}
 	</button>
 {/snippet}
@@ -259,8 +295,8 @@
 <div class="omnivoice-card">
 	<div class="omnivoice-field">
 		<label class="omnivoice-label" for="omnivoice-base-url">
-			<span>OmniVoice Proxy</span>
-			<span class="omnivoice-proxy-status"><span class="omnivoice-dot {PROXY_STATUS[proxyStatus][0]}"></span> {PROXY_STATUS[proxyStatus][1]}</span>
+			<span>{t('settings.omnivoice.proxy')}</span>
+			<span class="omnivoice-proxy-status"><span class="omnivoice-dot {PROXY_STATUS[proxyStatus][0]}"></span> {t(PROXY_STATUS[proxyStatus][1])}</span>
 		</label>
 		<input id="omnivoice-base-url" type="text" class="api-key-input" placeholder={provider.defaultBaseUrl || 'http://localhost:8881/v1/'} value={settingsStore.getProviderConfig(provider.id).baseUrl ?? ''}
 			onchange={(e) => settingsStore.setProviderConfig(provider.id, { baseUrl: e.currentTarget.value })} />
@@ -270,15 +306,15 @@
 {#if profileError || previewError}
 	<div class="omnivoice-error" role="alert">
 		{profileError || previewError}
-		<button class="omnivoice-error-close btn btn-ghost btn-sm" onclick={() => { profileError = ''; previewError = ''; }} aria-label="Dismiss error"><Icon name="x" size={14} /></button>
+		<button class="omnivoice-error-close btn btn-ghost btn-sm" onclick={clearErrors} aria-label={t('settings.omnivoice.dismissError')}><Icon name="x" size={14} /></button>
 	</div>
 {/if}
 
-<SettingsSection title="Primary voice" outlined>
+<SettingsSection title={t('settings.omnivoice.primaryVoice')} outlined>
 	<div class="omnivoice-design-grid-2">
 		<div class="omnivoice-field">
-			<label class="omnivoice-label" for="omnivoice-language">Language</label>
-			<Select id="omnivoice-language" label="Language" value={activeLanguage} onchange={handleLanguageChange} options={languages.map((lang) => ({ value: lang.code, label: lang.name }))} />
+			<label class="omnivoice-label" for="omnivoice-language">{t('settings.omnivoice.language')}</label>
+			<Select id="omnivoice-language" label={t('settings.omnivoice.language')} value={activeLanguage} onchange={handleLanguageChange} options={languages.map((lang) => ({ value: lang.code, label: lang.name }))} />
 		</div>
 		{@render voicePicker(false)}
 	</div>
@@ -286,11 +322,11 @@
 	<div class="omnivoice-voice-row">
 		{@render modeRadios(false)}
 		<span style="flex:1;"></span>
-		<button class="btn btn-sm btn-secondary" onclick={regenerateProfile} disabled={regenerating || isClone} title={isClone ? 'Profile regeneration is only available for synthetic voices' : ''}>
+		<button class="btn btn-sm btn-secondary" onclick={regenerateProfile} disabled={regenerating || isClone} title={isClone ? t('settings.omnivoice.regenerateCloneTitle') : ''}>
 			{#if regenerating}
-				<span class="omnivoice-spinner"></span> Regenerating...
+				<span class="omnivoice-spinner"></span> {t('settings.omnivoice.regenerating')}
 			{:else}
-				<Icon name="refresh-cw" size={14} /> Regenerate
+				<Icon name="refresh-cw" size={14} /> {t('settings.omnivoice.regenerate')}
 			{/if}
 		</button>
 		{@render testButton(false)}
@@ -299,11 +335,11 @@
 	{@render params(false)}
 </SettingsSection>
 
-<SettingsSection title="Alternative voice" outlined>
+<SettingsSection title={t('settings.omnivoice.altVoice')} outlined>
 	<div class="omnivoice-voice-row">
 		<label class="omnivoice-radio">
 			<input type="checkbox" checked={altEnabled} onchange={(e) => settings.setSpeech('enableAltLanguage', e.currentTarget.checked)} />
-			Speak foreign words with a second voice
+			{t('settings.omnivoice.speakForeign')}
 		</label>
 		<span style="flex:1;"></span>
 		{#if altEnabled}{@render testButton(true)}{/if}
@@ -312,8 +348,8 @@
 	{#if altEnabled}
 		<div class="omnivoice-design-grid-2">
 			<div class="omnivoice-field">
-				<label class="omnivoice-label" for="omnivoice-alt-language">Language</label>
-				<Select id="omnivoice-alt-language" label="Alternative language" value={altLanguage} onchange={handleAltLanguageChange} placeholder="Select a language..." options={languages.filter((lang) => lang.code !== activeLanguage).map((lang) => ({ value: lang.code, label: lang.name }))} />
+				<label class="omnivoice-label" for="omnivoice-alt-language">{t('settings.omnivoice.language')}</label>
+				<Select id="omnivoice-alt-language" label={t('settings.omnivoice.altLanguage')} value={altLanguage} onchange={handleAltLanguageChange} placeholder={t('settings.omnivoice.selectLanguage')} options={languages.filter((lang) => lang.code !== activeLanguage).map((lang) => ({ value: lang.code, label: lang.name }))} />
 			</div>
 			{@render voicePicker(true)}
 		</div>
@@ -321,9 +357,9 @@
 		<div class="omnivoice-voice-row">
 			<label class="omnivoice-radio">
 				<input type="checkbox" checked={settings.speechSettings.enableToolCalling} onchange={(e) => settings.setSpeech('enableToolCalling', e.currentTarget.checked)} />
-				<span>Force language per segment</span>
+				<span>{t('settings.omnivoice.forceLanguage')}</span>
 			</label>
-			<Tooltip content="More reliable; needs LLM tool support"><Icon name="info" size={16} /></Tooltip>
+			<Tooltip content={t('settings.omnivoice.forceLanguageTip')}><Icon name="info" size={16} /></Tooltip>
 		</div>
 
 		<div class="omnivoice-voice-row">{@render modeRadios(true)}</div>

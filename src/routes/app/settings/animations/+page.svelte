@@ -3,12 +3,16 @@
 	import AnimationRow from '$lib/components/settings/AnimationRow.svelte';
 	import { Button, Icon } from '$lib/components/ui';
 	import Select from '$lib/components/ui/Select.svelte';
+	import { t, type DictKey } from '$lib/i18n';
 	import { animationLibraryStore } from '$lib/stores/animation-library.svelte';
 	import { BUILTIN_IDLES } from '$lib/stores/animation-library-parser';
 
 	let fileInput = $state<HTMLInputElement>();
 	let uploading = $state(false);
-	let uploadError = $state('');
+	// Either one of our own dictionary keys or a raw message from a thrown error.
+	let uploadErrorKey = $state<DictKey | ''>('');
+	let uploadErrorText = $state('');
+	const uploadError = $derived(uploadErrorKey ? t(uploadErrorKey) : uploadErrorText);
 	const customEntries = $derived(animationLibraryStore.entries.filter((e) => e.kind === 'custom'));
 	const builtinEntries = $derived(animationLibraryStore.entries.filter((e) => e.kind === 'emote'));
 
@@ -32,7 +36,7 @@
 	}
 
 	const thinkingOptions = $derived([
-		{ value: 'none', label: 'None' },
+		{ value: 'none', label: t('settings.animations.thinkingNone') },
 		...[...candidates, ...builtinEntries].map((e) => ({ value: e.id, label: e.name }))
 	]);
 	const thinkingValue = $derived(
@@ -46,11 +50,13 @@
 		input.value = '';
 		if (!file) return;
 		uploading = true;
-		uploadError = '';
+		uploadErrorKey = '';
+		uploadErrorText = '';
 		try {
 			await animationLibraryStore.addFromFile(file);
 		} catch (e) {
-			uploadError = e instanceof Error ? e.message : "Couldn't add that animation.";
+			if (e instanceof Error) uploadErrorText = e.message;
+			else uploadErrorKey = 'settings.animations.addFailed';
 		} finally {
 			uploading = false;
 		}
@@ -59,16 +65,16 @@
 
 <div class="page">
 	<header class="page-header">
-		<h2>Animations</h2>
-		<p>Motions she can perform. Describe each one so she knows when to use it.</p>
-		<p>Play switches back to your companion to show the motion.</p>
+		<h2>{t('settings.animations.title')}</h2>
+		<p>{t('settings.animations.subtitle')}</p>
+		<p>{t('settings.animations.playHint')}</p>
 	</header>
-	<SettingsSection title="Base behavior" description="How she moves when nothing else is happening. Talking keeps the built-in motion.">
+	<SettingsSection title={t('settings.animations.baseBehavior')} description={t('settings.animations.baseBehaviorDesc')}>
 		<div class="setting-row">
 			<div class="setting-info">
-				<span class="setting-label" id="idle-pool-label">Idle pool</span>
-				<span class="setting-desc">She cycles through the checked motions at random.</span>
-				{#if keepOneHint}<span class="setting-desc" role="status">Keep at least one idle motion.</span>{/if}
+				<span class="setting-label" id="idle-pool-label">{t('settings.animations.idlePool')}</span>
+				<span class="setting-desc">{t('settings.animations.idlePoolDesc')}</span>
+				{#if keepOneHint}<span class="setting-desc" role="status">{t('settings.animations.keepOne')}</span>{/if}
 			</div>
 			<div class="pool" role="group" aria-labelledby="idle-pool-label">
 				{#each candidates as entry (entry.id)}
@@ -85,22 +91,22 @@
 		</div>
 		<div class="setting-row">
 			<div class="setting-info">
-				<span class="setting-label">Thinking</span>
-				<span class="setting-desc">Plays while she is working on a reply, before the first words arrive.</span>
+				<span class="setting-label">{t('settings.animations.thinking')}</span>
+				<span class="setting-desc">{t('settings.animations.thinkingDesc')}</span>
 			</div>
 			<Select
 				class="thinking-select"
-				label="Thinking animation"
+				label={t('settings.animations.thinkingAria')}
 				value={thinkingValue}
 				options={thinkingOptions}
 				onchange={(value) => animationLibraryStore.setThinkingId(value === 'none' ? null : value)}
 			/>
 		</div>
 	</SettingsSection>
-	<SettingsSection title="Your animations">
+	<SettingsSection title={t('settings.animations.yours')}>
 		{#snippet actions()}
 			<Button variant="secondary" size="sm" onclick={() => fileInput?.click()} disabled={uploading}>
-				<Icon name="upload" size={14} />{uploading ? 'Checking...' : 'Upload'}
+				<Icon name="upload" size={14} />{uploading ? t('settings.animations.checking') : t('settings.animations.upload')}
 			</Button>
 			<input bind:this={fileInput} type="file" accept=".vrma" hidden onchange={(e) => handleFile(e.currentTarget)} />
 		{/snippet}
@@ -108,10 +114,10 @@
 		{#each customEntries as entry (entry.id)}
 			<AnimationRow {entry} />
 		{:else}
-			<p class="hint">No custom animations yet. Upload a .vrma file to add one.</p>
+			<p class="hint">{t('settings.animations.emptyCustom')}</p>
 		{/each}
 	</SettingsSection>
-	<SettingsSection title="Built-in emotes">
+	<SettingsSection title={t('settings.animations.builtin')}>
 		{#each builtinEntries as entry (entry.id)}
 			<AnimationRow {entry} />
 		{/each}

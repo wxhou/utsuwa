@@ -1,21 +1,22 @@
 <script lang="ts">
 	import type { Fact } from '$lib/types/memory';
+	import { t, type DictKey } from '$lib/i18n';
 	let {
 		fact
 	}: {
 		fact: Pick<Fact, 'content' | 'category' | 'importance'> & Partial<Pick<Fact, 'confidence'>>;
 	} = $props();
-	const labels = {
-		user: 'About you',
-		relationship: 'Relationship',
-		shared_experience: 'Shared experience'
+	const labels: Record<'user' | 'relationship' | 'shared_experience', DictKey> = {
+		user: 'memory.catUser',
+		relationship: 'memory.catRelationship',
+		shared_experience: 'memory.catShared'
 	};
 </script>
 
 <p class="fact-content">{fact.content}</p>
 <p class="metadata">
-	{labels[fact.category]} · Importance {fact.importance}{#if fact.confidence !== undefined}
-		· Confidence {Math.round(fact.confidence * 100)}%{/if}
+	{t(labels[fact.category])} · {t('memory.importance')} {fact.importance}{#if fact.confidence !== undefined}
+		· {t('memory.confidence')} {Math.round(fact.confidence * 100)}%{/if}
 </p>
 
 <style>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { rangeProgress } from '$lib/utils/range-progress';
 	import Switch from './Switch.svelte';
+	import { t } from '$lib/i18n';
 	const CONTEXT_SIZE_STEPS = [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072];
 
 	// Conservative default: 8k fits most local / entry-level models while still
@@ -46,20 +47,20 @@
 
 <div class="context-size-row">
 	<label class="context-size-label" for={id}>
-		Context Window
+		{t('settings.llm.contextWindow')}
 		{#if enabled}
 			<span class="context-size-value">{formatContextSize(snapContextSize(contextSize as number))}</span>
 		{:else}
-			<span class="context-size-value">Default</span>
+			<span class="context-size-value">{t('settings.llm.contextDefault')}</span>
 		{/if}
 	</label>
-	<Switch {id} checked={enabled} onchange={handleToggle} label="Context window scaling" />
+	<Switch {id} checked={enabled} onchange={handleToggle} label={t('settings.llm.contextScaling')} />
 </div>
 {#if enabled}
 	<div class="context-size-slider-row">
 		<input
 			type="range" use:rangeProgress={CONTEXT_SIZE_STEPS.indexOf(snapContextSize(contextSize as number))}
-			class="settings-range" aria-label="Context window size"
+			class="settings-range" aria-label={t('llm.contextSize')}
 			min="0"
 			max={CONTEXT_SIZE_STEPS.length - 1}
 			step="1"

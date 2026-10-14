@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Select from '$lib/components/ui/Select.svelte';
-	import { t } from '$lib/i18n';
+	import { t, type DictKey } from '$lib/i18n';
 	import { onMount, untrack } from 'svelte';
 	import type ForceGraph from 'force-graph';
 	import type { LinkObject } from 'force-graph';
@@ -34,14 +34,14 @@
 	let graph = $state.raw<ForceGraph<GraphNode, LinkObject<GraphNode>> | null>(null);
 	let fullData = $state<GraphData>({ nodes: [], links: [] });
 	let loading = $state(true);
-	let error = $state('');
+	let error = $state<DictKey | ''>('');
 	let dark = $state(false);
 	let reducedMotion = $state(false);
-	const categoryOptions: { value: FactCategory; label: string }[] = [
-		{ value: 'user', label: 'About you' },
-		{ value: 'relationship', label: 'Relationship' },
-		{ value: 'shared_experience', label: 'Shared' }
-	];
+	const categoryOptions = $derived([
+		{ value: 'user' as FactCategory, label: t('memory.catUser') },
+		{ value: 'relationship' as FactCategory, label: t('memory.catRelationship') },
+		{ value: 'shared_experience' as FactCategory, label: t('memory.catSharedShort') }
+	]);
 	const data = $derived(
 		filterGraph(fullData, { categories: new Set(categories), minSimilarity: 0.5 })
 	);
@@ -163,16 +163,11 @@
 					.onLinkClick((_link, event) => selectAt(event))
 					.onBackgroundClick(selectAt);
 				const canvas = container.querySelector('canvas');
-				canvas?.setAttribute(
-					'aria-label',
-					'Memory connections. Use Inspect a memory to select a node with the keyboard.'
-				);
+				canvas?.setAttribute('aria-label', t('memory.graphCanvasAria'));
 				canvas?.setAttribute('role', 'img');
 			}
 		} catch {
-			if (!destroyed)
-				error =
-					'Could not load the memory graph. Your saved memories are still available in Facts.';
+			if (!destroyed) error = 'memory.graphLoadFailed';
 		} finally {
 			if (!destroyed) loading = false;
 		}
@@ -209,7 +204,7 @@
 
 <div class="memory-graph" class:expanded>
 	<div class="controls">
-		<div class="category-toggles" role="group" aria-label="Graph categories">
+		<div class="category-toggles" role="group" aria-label={t('memory.graphCategories')}>
 			{#each categoryOptions as category}<Button
 					variant={categories.includes(category.value) ? 'secondary' : 'ghost'}
 					size="sm"
@@ -226,64 +221,63 @@
 				selectedId = null;
 				fit();
 			}}
-			disabled={loading || !data.nodes.length}><Icon name="refresh" size={14} />Reset view</Button
+			disabled={loading || !data.nodes.length}><Icon name="refresh" size={14} />{t('memory.graphResetView')}</Button
 		>
 	</div>
 	<label class="memory-picker"
-		>Inspect a memory
-		<Select label="Inspect a memory" value={selected ? String(selected.id) : ''} onchange={(value) => selectedId = value ? Number(value) : null} disabled={!data.nodes.length} options={[{ value: '', label: 'Select a memory' }, ...data.nodes.map(node => ({ value: String(node.id), label: node.content.length > 90 ? `${node.content.slice(0, 90)}…` : node.content }))]} />
+		>{t('memory.graphInspect')}
+		<Select label={t('memory.graphInspect')} value={selected ? String(selected.id) : ''} onchange={(value) => selectedId = value ? Number(value) : null} disabled={!data.nodes.length} options={[{ value: '', label: t('memory.selectMemory') }, ...data.nodes.map(node => ({ value: String(node.id), label: node.content.length > 90 ? `${node.content.slice(0, 90)}…` : node.content }))]} />
 	</label>
 	<div class="graph-layout" class:has-selection={!!selected}>
 		<div class="graph-container" bind:this={container}>
-			{#if loading}<div class="graph-message" role="status">Loading graph...</div>
+			{#if loading}<div class="graph-message" role="status">{t('memory.graphLoading')}</div>
 			{:else if error}<div class="graph-message" role="alert">
-					<p>{error}</p>
-					<Button variant="secondary" onclick={load}>Retry graph</Button>
+					<p>{t(error)}</p>
+					<Button variant="secondary" onclick={load}>{t('memory.graphRetry')}</Button>
 				</div>
 			{:else if !fullData.nodes.length}<div class="graph-message">
 					<Icon name="brain" size={28} />
-					<h3>No connected memories yet</h3>
+					<h3>{t('memory.noConnected')}</h3>
 					<p>
-						The graph shows memories once their connections are ready. You can still read and manage
-						all saved memories in Facts.
+						{t('memory.graphEmptyDesc')}
 					</p>
-					<Button variant="secondary" onclick={onOpenFacts}>View facts</Button>
+					<Button variant="secondary" onclick={onOpenFacts}>{t('memory.graphViewFacts')}</Button>
 				</div>
 			{:else if !data.nodes.length}<div class="graph-message">
-					<p>No memories match these categories.</p>
+					<p>{t('memory.noMatch')}</p>
 					<Button
 						variant="secondary"
 						onclick={() => (categories = ['user', 'relationship', 'shared_experience'])}
-						>Show all categories</Button
+						>{t('memory.graphShowAllCategories')}</Button
 					>
 				</div>{/if}
 		</div>
-		{#if selected}<aside class="selected-detail" aria-label="Memory details">
+		{#if selected}<aside class="selected-detail" aria-label={t('memory.detailsAria')}>
 				<div class="detail-heading">
-					<h3>Memory details</h3>
+					<h3>{t('memory.memoryDetails')}</h3>
 					<Button
 						variant="ghost"
 						size="sm"
-						aria-label="Close memory details"
+						aria-label={t('memory.closeDetails')}
 						onclick={() => (selectedId = null)}><Icon name="x" size={14} /></Button
 					>
 				</div>
 				<MemoryFactSummary fact={selected} />
 				<dl>
-					<dt>Referenced</dt>
-					<dd>{selected.referenceCount} times</dd>
-					<dt>Created</dt>
+					<dt>{t('memory.graphReferenced')}</dt>
+					<dd>{t('memory.graphTimes', { n: selected.referenceCount })}</dd>
+					<dt>{t('memory.graphCreated')}</dt>
 					<dd>{new Date(selected.createdAt).toLocaleString()}</dd>
 				</dl>
 				<Button variant="secondary" size="sm" onclick={() => onInspect(selected!.id)}
-					>Open in Facts<Icon name="arrow-right" size={14} /></Button
+					>{t('memory.graphOpenInFacts')}<Icon name="arrow-right" size={14} /></Button
 				>
 			</aside>{/if}
 	</div>
 	<p class="graph-stats">
-		{data.nodes.length}
-		{data.nodes.length === 1 ? 'memory' : 'memories'} · {data.links.length}
-		{data.links.length === 1 ? 'connection' : 'connections'}
+		{t('memory.memoriesCount', { n: data.nodes.length })}
+		·
+		{t('memory.connectionsCount', { n: data.links.length })}
 	</p>
 </div>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '$lib/components/ui';
+	import { t, type DictKey } from '$lib/i18n';
 	import SettingsSection from './SettingsSection.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { pop, slideOpen } from '$lib/utils/motion';
@@ -23,9 +24,13 @@
 	let importFile = $state<File | null>(null);
 	let importPreview = $state<SaveFilePreview | null>(null);
 	let importMode = $state<'merge' | 'replace'>('replace');
-	let importError = $state<string | null>(null);
+	// Error messages come from two sources: fixed keys and raw Error text, so
+	// keep them apart and resolve the key at render time to follow the locale.
+	let importErrorKey = $state<DictKey | null>(null);
+	let importErrorText = $state<string | null>(null);
+	let importError = $derived(importErrorKey ? t(importErrorKey) : importErrorText);
 	let importSuccess = $state<{ imported: number; skipped: number } | null>(null);
-	let exportMessage = $state<{ kind: 'success' | 'error'; text: string } | null>(null);
+	let exportMessage = $state<{ kind: 'success' | 'error'; key: DictKey; params?: Record<string, string> } | null>(null);
 
 	let fileInput: HTMLInputElement;
 
@@ -38,11 +43,11 @@
 			// The browser shows its own download UI; the desktop app writes silently,
 			// so tell the user where the file went.
 			if (savedToDownloads) {
-				exportMessage = { kind: 'success', text: `Saved to your Downloads folder as ${filename}` };
+				exportMessage = { kind: 'success', key: 'settings.data.savedTo', params: { name: filename } };
 			}
 		} catch (e) {
 			console.error('Export failed:', e);
-			exportMessage = { kind: 'error', text: `Export failed: ${e instanceof Error ? e.message : String(e)}` };
+			exportMessage = { kind: 'error', key: 'settings.data.exportFailed', params: { msg: e instanceof Error ? e.message : String(e) } };
 		} finally {
 			isExporting = false;
 		}
@@ -55,7 +60,8 @@
 		if (!file) return;
 
 		importFile = file;
-		importError = null;
+		importErrorKey = null;
+		importErrorText = null;
 		importSuccess = null;
 		importPreview = null;
 
@@ -66,14 +72,14 @@
 				const validated = validateSaveFile(json);
 
 				if (!validated) {
-					importError = 'Invalid save file format';
+					importErrorKey = 'settings.data.errFormat';
 					importFile = null;
 					return;
 				}
 
 				importPreview = getSaveFilePreview(validated);
 			} catch {
-				importError = 'Failed to parse JSON file';
+				importErrorKey = 'settings.data.errJson';
 				importFile = null;
 			}
 		};
@@ -84,7 +90,8 @@
 		if (!importFile || !importPreview) return;
 
 		isImporting = true;
-		importError = null;
+		importErrorKey = null;
+		importErrorText = null;
 
 		try {
 			const reader = new FileReader();
@@ -113,7 +120,8 @@
 				window.location.reload();
 			}, 1500);
 		} catch (e) {
-			importError = e instanceof Error ? e.message : 'Import failed';
+			if (e instanceof Error) importErrorText = e.message;
+			else importErrorKey = 'settings.data.importFailed';
 		} finally {
 			isImporting = false;
 		}
@@ -122,7 +130,8 @@
 	function cancelImport() {
 		importFile = null;
 		importPreview = null;
-		importError = null;
+		importErrorKey = null;
+		importErrorText = null;
 		importSuccess = null;
 		if (fileInput) fileInput.value = '';
 	}
@@ -156,22 +165,21 @@
 </script>
 
 <div class="data-management">
-	<header class="page-header"><h2>Data Management</h2>
-	<p>
-		Export your data as a save file or import a previous save. All data is stored locally in your
-		browser.
-	</p></header>
+	<header class="page-header"><h2>{t('settings.data.pageTitle')}</h2>
+		<p>
+			{t('settings.data.pageDesc')}
+		</p></header>
 
 	<div class="actions">
 		<!-- Export -->
-		<SettingsSection title="Export Save" description="Download all your data as a JSON file. Includes character states, memories, conversation history, and milestones.">
+		<SettingsSection title={t('settings.data.exportSave')} description={t('settings.data.exportDesc')}>
 			<Button variant="secondary" onclick={handleExport} disabled={isExporting}>
 				{#snippet children()}
 					{#if isExporting}
-						Exporting...
+						{t('settings.data.exporting')}
 					{:else}
 						<Icon name="download" size={16} />
-						Download Save File
+						{t('settings.data.downloadSave')}
 					{/if}
 				{/snippet}
 			</Button>
@@ -181,20 +189,20 @@
 					transition:pop={{ duration: 200, y: 6 }}
 				>
 					<Icon name={exportMessage.kind === 'error' ? 'alert' : 'check-circle'} size={16} />
-					<span>{exportMessage.text}</span>
+					<span>{t(exportMessage.key, exportMessage.params)}</span>
 				</div>
 			{/if}
 		</SettingsSection>
 
 		<!-- Import -->
-		<SettingsSection title="Import Save" description="Restore data from a previously exported save file.">
+		<SettingsSection title={t('settings.data.importSave')} description={t('settings.data.importSaveDesc')}>
 
 			<input
 				type="file"
 				accept=".json"
 				onchange={handleFileSelect}
 				bind:this={fileInput}
-				class="settings-field settings-file" aria-label="Import save file"
+				class="settings-field settings-file" aria-label={t('settings.data.importFileAria')}
 			/>
 
 			{#if importError}
@@ -207,11 +215,11 @@
 			{#if importSuccess}
 				<div class="success-message" transition:pop={{ duration: 200, y: 6 }}>
 					<Icon name="check" size={16} />
-					Imported {importSuccess.imported} records
+					{t('settings.data.imported', { n: importSuccess.imported })}
 					{#if importSuccess.skipped > 0}
-						(skipped {importSuccess.skipped})
+						{t('settings.data.skipped', { n: importSuccess.skipped })}
 					{/if}
-					- Reloading...
+					{t('settings.data.reloading')}
 				</div>
 			{/if}
 
@@ -219,21 +227,21 @@
 				<div class="import-preview" transition:slideOpen>
 					<div class="preview-header">
 						<Icon name="file" size={16} />
-						<span>Save File Preview</span>
+						<span>{t('settings.data.saveFilePreview')}</span>
 					</div>
 					<div class="preview-details">
 						<div class="preview-row">
-							<span class="label">Exported:</span>
+							<span class="label">{t('settings.data.exported')}</span>
 							<span class="value">{formatDate(importPreview.exportedAt)}</span>
 						</div>
 						<div class="preview-row">
-							<span class="label">Character:</span>
-							<span class="value">{importPreview.characterName || 'Unknown'}</span>
+							<span class="label">{t('settings.data.character')}</span>
+							<span class="value">{importPreview.characterName || t('settings.data.unknown')}</span>
 						</div>
 						<div class="preview-row">
-							<span class="label">Records:</span>
+							<span class="label">{t('settings.data.records')}</span>
 							<span class="value">
-								{importPreview.counts.facts} facts, {importPreview.counts.conversationTurns} messages
+								{t('settings.data.counts', { facts: importPreview.counts.facts, messages: importPreview.counts.conversationTurns })}
 							</span>
 						</div>
 					</div>
@@ -241,27 +249,27 @@
 					<div class="import-mode">
 						<label class="mode-option">
 							<input type="radio" bind:group={importMode} value="replace" />
-							<span class="mode-label">Replace</span>
-							<span class="mode-description">Clear existing data and import</span>
+							<span class="mode-label">{t('settings.data.replace')}</span>
+							<span class="mode-description">{t('settings.data.replaceDesc')}</span>
 						</label>
 						<label class="mode-option">
 							<input type="radio" bind:group={importMode} value="merge" />
-							<span class="mode-label">Merge</span>
-							<span class="mode-description">Add to existing data (skip duplicates)</span>
+							<span class="mode-label">{t('settings.data.merge')}</span>
+							<span class="mode-description">{t('settings.data.mergeDesc')}</span>
 						</label>
 					</div>
 
 					<div class="import-actions">
 						<Button variant="secondary" onclick={cancelImport}>
-							{#snippet children()}Cancel{/snippet}
+							{#snippet children()}{t('common.cancel')}{/snippet}
 						</Button>
 						<Button onclick={handleImport} disabled={isImporting}>
 							{#snippet children()}
 								{#if isImporting}
-									Importing...
+									{t('settings.data.importing')}
 								{:else}
 									<Icon name="upload" size={16} />
-									Import
+									{t('settings.data.importBtn')}
 								{/if}
 							{/snippet}
 						</Button>
@@ -271,23 +279,23 @@
 		</SettingsSection>
 
 		<!-- Clear Data -->
-		<SettingsSection title="Clear All Data" description="Permanently delete everything Utsuwa stores on this device: saves, memories, conversations, reminders, photos, custom models and animations, backgrounds, provider keys, MCP servers, and settings. This cannot be undone. An export only holds your save, memories, and conversations.">
+		<SettingsSection title={t('settings.data.clearAll')} description={t('settings.data.clearDesc')}>
 
 			{#if showClearConfirm}
 				<div class="confirm-message" transition:pop={{ duration: 200, y: 6 }}>
 					<Icon name="warning" size={16} />
-					Are you sure? Saves, memories, conversations, reminders, photos, custom models and animations, backgrounds, provider keys, MCP servers, and settings will all be deleted.
+					{t('settings.data.confirmClear')}
 				</div>
 				<div class="confirm-actions">
 					<Button variant="secondary" onclick={() => (showClearConfirm = false)}>
-						{#snippet children()}Cancel{/snippet}
+						{#snippet children()}{t('common.cancel')}{/snippet}
 					</Button>
 					<Button variant="danger" onclick={handleClear} disabled={isClearing}>
 						{#snippet children()}
 							{#if isClearing}
-								Clearing...
+								{t('settings.data.clearing')}
 							{:else}
-								Yes, Delete Everything
+								{t('settings.data.yesDelete')}
 							{/if}
 						{/snippet}
 					</Button>
@@ -296,7 +304,7 @@
 				<Button variant="danger" onclick={handleClear}>
 					{#snippet children()}
 						<Icon name="trash" size={16} />
-						Clear All Data
+						{t('settings.data.clearAll')}
 					{/snippet}
 				</Button>
 			{/if}

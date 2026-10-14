@@ -13,14 +13,15 @@
 	import { goto } from '$app/navigation';
 	import { localPath } from '$lib/config/links';
 	import { quickTestFace, type QuickTest } from '$lib/engine/expression-compose';
+	import { t, type DictKey } from '$lib/i18n';
 
 	// Material debug modes from @pixiv/three-vrm-materials-mtoon
-	const materialDebugModes = [
-		{ id: 'none', name: 'None (Normal Rendering)' },
-		{ id: 'normal', name: 'Normals' },
-		{ id: 'litShadeRate', name: 'Lit/Shade Rate' },
-		{ id: 'uv', name: 'UV Coordinates' }
-	];
+	const materialDebugModes = $derived([
+		{ id: 'none', name: t('settings.developer.debug.none') },
+		{ id: 'normal', name: t('settings.developer.debug.normals') },
+		{ id: 'litShadeRate', name: t('settings.developer.debug.litShade') },
+		{ id: 'uv', name: t('settings.developer.debug.uv') }
+	]);
 
 	let currentDebugMode = $state('none');
 
@@ -45,8 +46,7 @@
 	}
 
 	// Expression categories for organization
-	const expressionCategories = {
-		eyes: [
+	const expressionCategories = {		eyes: [
 			'eyeBlinkLeft',
 			'eyeBlinkRight',
 			'eyeLookDownLeft',
@@ -117,6 +117,13 @@
 	// Track expression values
 	let expressionValues = $state<Record<string, number>>({});
 
+	const categoryTitles = {
+		eyes: 'settings.developer.cat.eyes',
+		brows: 'settings.developer.cat.brows',
+		mouth: 'settings.developer.cat.mouth',
+		other: 'settings.developer.other'
+	} as const;
+
 	// Use stored expressions (persists across navigation)
 	let availableExpressions = $derived(vrmStore.availableExpressions);
 
@@ -148,12 +155,12 @@
 		}, ms);
 	}
 
-	const quickTests: { test: QuickTest; label: string; ms: number }[] = [
-		{ test: 'blink', label: 'Test Blink', ms: 150 },
-		{ test: 'smile', label: 'Test Smile', ms: 1000 },
-		{ test: 'surprised', label: 'Test Surprised', ms: 1000 },
-		{ test: 'sad', label: 'Test Sad', ms: 1000 },
-		{ test: 'mouthOpen', label: 'Test Mouth Open', ms: 500 }
+	const quickTests: { test: QuickTest; label: DictKey; ms: number }[] = [
+		{ test: 'blink', label: 'settings.developer.testBlink', ms: 150 },
+		{ test: 'smile', label: 'settings.developer.testSmile', ms: 1000 },
+		{ test: 'surprised', label: 'settings.developer.testSurprised', ms: 1000 },
+		{ test: 'sad', label: 'settings.developer.testSad', ms: 1000 },
+		{ test: 'mouthOpen', label: 'settings.developer.testMouthOpen', ms: 500 }
 	];
 
 	// ── Temporary VRM Upload ──
@@ -230,8 +237,8 @@
 <div class="developer-settings">
 	<div class="page-header">
 		<div>
-			<h2>Developer Tools</h2>
-			<p >Test and debug VRM facial expressions and animations.</p>
+			<h2>{t('settings.developer.pageTitle')}</h2>
+			<p >{t('settings.developer.subtitle')}</p>
 		</div>
 	</div>
 
@@ -242,9 +249,9 @@
 				<VrmScene centered />
 			</div>
 			<div class="viewport-controls">
-				<button class="btn btn-sm btn-secondary" onclick={resetAll} title="Reset expressions">
+				<button class="btn btn-sm btn-secondary" onclick={resetAll} title={t('settings.developer.resetExpressions')}>
 					<Icon name="refresh-cw" size={16} />
-					Reset
+					{t('settings.developer.reset')}
 				</button>
 			</div>
 		</div>
@@ -253,28 +260,26 @@
 		<div class="controls-panel">
 			<!-- Temporary VRM Model Upload -->
 			<section class="section">
-				<h3>Temporary VRM Model</h3>
+				<h3>{t('settings.developer.temporaryVrm')}</h3>
 				<p class="hint">
-					Upload a .vrm file to preview it in the viewport. The model is loaded in memory only
-					and is <strong>not saved</strong>. When you leave this page or click "Restore Original",
-					the previously active avatar returns automatically.
+					{@html t('settings.developer.tempModelHint', { restore: t('settings.developer.restoreOriginal') })}
 				</p>
 				{#if vrmGalleryStore.tempModelActive}
 					<div class="temp-model-info">
-						<span class="temp-model-name">{tempModelName || 'Temporary model'}</span>
+						<span class="temp-model-name">{tempModelName || t('settings.developer.tempModelName')}</span>
 						<button
 							class="btn btn-sm btn-secondary"
 							onclick={restoreOriginalModel}
 							disabled={vrmGalleryStore.tempModelLoading}
 						>
 							<Icon name="rotate-ccw" size={14} />
-							Restore Original
+							{t('settings.developer.restoreOriginal')}
 						</button>
 					</div>
 				{:else}
 					<label class="btn btn-sm btn-primary" class:disabled={vrmGalleryStore.tempModelLoading}>
 						<Icon name="upload" size={14} />
-						{vrmGalleryStore.tempModelLoading ? 'Loading…' : 'Upload VRM'}
+						{vrmGalleryStore.tempModelLoading ? t('settings.developer.loading') : t('settings.developer.uploadVrm')}
 						<input
 							type="file"
 							accept=".vrm,.VRM"
@@ -288,38 +293,38 @@
 
 			<!-- Animation Selection -->
 		<section class="section">
-			<h3>Animation</h3>
-			<p class="hint">Select an animation to play on the model.</p>
+			<h3>{t('settings.developer.animation')}</h3>
+			<p class="hint">{t('settings.developer.animationHint')}</p>
 			<div class="animation-select">
-				<Select label="Animation" value={vrmStore.currentAnimation || 'none'} onchange={(value) => vrmStore.setCurrentAnimation(value === 'none' ? null : value)} options={[{ value: 'none', label: 'None (idle)' }, ...vrmStore.availableAnimations.map(anim => ({ value: anim.url, label: anim.name }))]} />
+				<Select label={t('settings.developer.animation')} value={vrmStore.currentAnimation || 'none'} onchange={(value) => vrmStore.setCurrentAnimation(value === 'none' ? null : value)} options={[{ value: 'none', label: t('settings.developer.noneIdle') }, ...vrmStore.availableAnimations.map(anim => ({ value: anim.url, label: anim.name }))]} />
 			</div>
 		</section>
 
 		<!-- Material Debug -->
 		<section class="section">
-			<h3>Material Debug</h3>
-			<p class="hint">Visualize different material properties (MToon).</p>
+			<h3>{t('settings.developer.materialDebug')}</h3>
+			<p class="hint">{t('settings.developer.materialDebugHint')}</p>
 			<div class="animation-select">
-				<Select label="Material debug" value={currentDebugMode} onchange={setMaterialDebugMode} options={materialDebugModes.map(mode => ({ value: mode.id, label: mode.name }))} />
+				<Select label={t('settings.developer.materialDebug')} value={currentDebugMode} onchange={setMaterialDebugMode} options={materialDebugModes.map(mode => ({ value: mode.id, label: mode.name }))} />
 			</div>
 		</section>
 
 		<!-- Quick Actions -->
 		<section class="section">
-			<h3>Quick Tests</h3>
+			<h3>{t('settings.developer.quickTests')}</h3>
 			<div class="quick-actions">
 				{#each quickTests as { test, label, ms }}
 					<button class="btn btn-sm btn-secondary" onclick={() => runQuickTest(test, ms)}
-						disabled={!Object.keys(quickTestFace(test, availableExpressions)).length}>{label}</button>
+						disabled={!Object.keys(quickTestFace(test, availableExpressions)).length}>{t(label)}</button>
 				{/each}
-				<button class="btn btn-sm btn-danger" onclick={resetAll}>Reset All</button>
+				<button class="btn btn-sm btn-danger" onclick={resetAll}>{t('settings.developer.resetAll')}</button>
 			</div>
 		</section>
 
 		<!-- Events Debug -->
 		<section class="section">
-			<h3>Event System</h3>
-			<p class="hint">Trigger test events to preview the event modal styling.</p>
+			<h3>{t('settings.developer.eventSystem')}</h3>
+			<p class="hint">{t('settings.developer.eventSystemHint')}</p>
 			<div class="event-buttons">
 				{#each testEvents as event}
 					<button class="btn btn-sm btn-secondary" onclick={() => triggerEvent(event)}>
@@ -332,22 +337,22 @@
 
 		<!-- Storage -->
 		<section class="section">
-			<h3>Storage</h3>
-			<p class="hint">Clear cached data from browser storage.</p>
+			<h3>{t('settings.developer.storage')}</h3>
+			<p class="hint">{t('settings.developer.storageHint')}</p>
 			<div class="quick-actions">
 				<button class="btn btn-sm btn-danger" onclick={clearVrmStorage} disabled={clearingStorage}>
-					{clearingStorage ? 'Clearing...' : 'Clear VRM Storage'}
+					{clearingStorage ? t('settings.developer.clearing') : t('settings.developer.clearVrmStorage')}
 				</button>
 				<button class="btn btn-sm btn-danger" onclick={clearCharacterData}>
-					Reset Character Data
+					{t('settings.developer.resetCharacterData')}
 				</button>
 			</div>
 		</section>
 
 		<!-- Available Expressions Info -->
 		<section class="section">
-			<h3>Available Expressions ({availableExpressions.length})</h3>
-			<p class="hint">This model supports the following expressions:</p>
+			<h3>{t('settings.developer.availableExpressions', { n: availableExpressions.length })}</h3>
+			<p class="hint">{t('settings.developer.expressionsHint')}</p>
 			<div class="expression-tags">
 				{#each availableExpressions as expr}
 					<span class="tag">{expr}</span>
@@ -360,7 +365,7 @@
 			{@const available = getAvailableInCategory(expressions)}
 			{#if available.length > 0}
 				<section class="section">
-					<h3>{category.charAt(0).toUpperCase() + category.slice(1)}</h3>
+					<h3>{t(categoryTitles[category as keyof typeof categoryTitles])}</h3>
 					<div class="sliders">
 						{#each available as expr}
 							<div class="slider-row">

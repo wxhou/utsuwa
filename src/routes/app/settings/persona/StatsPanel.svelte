@@ -2,24 +2,25 @@
 	import CompanionStateSummary from '$lib/components/ui/CompanionStateSummary.svelte';
 	import SettingsSection from '$lib/components/settings/SettingsSection.svelte';
 	import { Icon } from '$lib/components/ui';
+	import { t } from '$lib/i18n';
 	import type { PersonaPageState } from './persona-page.svelte';
 	let { page }: { page: PersonaPageState } = $props();
 </script>
 
 <div class="state-panel">
-	<SettingsSection title="Companion state" description="The same live view you'll find beside the chat input. These values change as you spend time together.">
-		{#if page.isCharacterLoading}<p class="loading" role="status">Loading character data...</p>{/if}
+	<SettingsSection title={t('settings.persona.stateTitle')} description={t('settings.persona.stateDesc')}>
+		{#if page.isCharacterLoading}<p class="loading" role="status">{t('settings.persona.loadingState')}</p>{/if}
 		<CompanionStateSummary />
 	</SettingsSection>
 	{#if page.isDatingSimMode}
-		<SettingsSection title="Achievements" description="Moments you've shared with your companion.">
+		<SettingsSection title={t('settings.persona.achievements')} description={t('settings.persona.achievementsDesc')}>
 			{#if page.achievements.length}
 				<ul>{#each page.achievements as achievement}<li>
 					<Icon name={page.achievementConfig[achievement.type].icon} size={16} />
 					<div><strong>{achievement.name}</strong><span>{page.achievementConfig[achievement.type].label}</span></div>
 					<time>{page.formatAchievementDate(achievement.completedAt)}</time>
 				</li>{/each}</ul>
-			{:else}<p class="empty">No achievements yet. They'll appear here as your relationship grows.</p>{/if}
+			{:else}<p class="empty">{t('settings.persona.noAchievements')}</p>{/if}
 		</SettingsSection>
 	{/if}
 </div>

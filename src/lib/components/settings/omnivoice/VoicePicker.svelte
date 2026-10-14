@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Select from '$lib/components/ui/Select.svelte';
+	import { t } from '$lib/i18n';
 	import type { ClonedVoice } from '$lib/services/tts/omnivoice-client';
 	import { DEFAULT_OMNIVOICE_PRESET } from '$lib/stores/ai-services-settings-logic';
 
@@ -25,20 +26,20 @@
 	const cloneOptions = $derived([
 		...clones.map((v) => ({ value: v.id, label: v.name })),
 		...(voiceId && !clones.some((v) => v.id === voiceId)
-			? [{ value: voiceId, label: `cloned ${cloneId} (loading)` }]
+			? [{ value: voiceId, label: t('settings.omnivoice.cloneLoading', { id: cloneId }) }]
 			: [])
 	]);
 </script>
 
 <div class="omnivoice-field">
-	<label class="omnivoice-label" for={id}>Voice</label>
+	<label class="omnivoice-label" for={id}>{t('settings.omnivoice.voice')}</label>
 	{#if isClone}
 		<div class="omnivoice-voice-row">
-			<Select {id} {label} style="flex:1;min-width:0;" value={voiceId} {onchange} placeholder="No cloned voices yet" options={cloneOptions} />
-			<button class="btn btn-sm btn-secondary" onclick={onCloneNew}>Clone New</button>
+			<Select {id} {label} style="flex:1;min-width:0;" value={voiceId} {onchange} placeholder={t('settings.omnivoice.noCloned')} options={cloneOptions} />
+			<button class="btn btn-sm btn-secondary" onclick={onCloneNew}>{t('settings.omnivoice.cloneNew')}</button>
 			{#if voiceId}
 				<button class="btn btn-sm btn-danger" onclick={() => onDelete(cloneId)} disabled={deleting === cloneId}>
-					{#if deleting === cloneId}...{:else}Delete{/if}
+					{#if deleting === cloneId}{t('settings.omnivoice.deleting')}{:else}{t('common.delete')}{/if}
 				</button>
 			{/if}
 		</div>
