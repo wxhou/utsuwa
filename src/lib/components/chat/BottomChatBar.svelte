@@ -287,14 +287,17 @@
 	.bottom-chat-bar {
 		position: absolute;
 		bottom: 2.5rem;
-		left: 50%;
+		left: 0;
+		right: 0;
 		width: 100%;
 		max-width: 600px;
+		/* auto margins, not translateX(-50%): a transform would become the
+		   containing block for position:fixed children (the viewport-pinned
+		   window toggle), and a fixed -300px offset only centers at exactly
+		   600px wide — on narrow screens it would shove the bar off-center. */
+		margin-inline: auto;
 		padding: 0 1rem;
 		z-index: 40;
-		/* margin, not transform: a transform would become the containing block
-		   for position:fixed children (the viewport-pinned window toggle) */
-		margin-left: -300px;
 	}
 
 	.bottom-chat-bar.overlay {
@@ -303,14 +306,13 @@
 
 	/* Alignment: pin the bar toward an edge instead of centered */
 	.bottom-chat-bar.align-left {
-		left: 0;
-		transform: none;
+		right: auto;
+		margin-inline: 0;
 	}
 
 	.bottom-chat-bar.align-right {
 		left: auto;
-		right: 0;
-		transform: none;
+		margin-inline: 0;
 	}
 
 	/* The same composer serves both main chat layouts. */
