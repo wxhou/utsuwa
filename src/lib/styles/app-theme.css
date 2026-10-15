@@ -182,3 +182,123 @@ html:has(.app, .overlay-app, .docs-site) :where(button, a, input, select, textar
 	outline-offset: 2px;
 }
 html:has(.app, .overlay-app, .docs-site) :where(input, textarea, select) { accent-color: var(--accent); }
+
+/* ---------------------------------------------------------------------------
+   Accent themes (data-theme), orthogonal to the .dark switch above.
+   Each theme overrides only the high-weight tokens (accent / canvas /
+   surface / text / controls / message + sidebar); everything else inherits
+   from the base groups. Theme blocks MUST stay after the base blocks — at
+   equal specificity, source order decides. Adding a theme means touching
+   three places: a block here + THEME_IDS in theme-kernel.ts + i18n names.
+   --------------------------------------------------------------------------- */
+
+/* Spring Sakura: warm pink accents on soft rose paper */
+html[data-theme='sakura']:has(.app, .overlay-app, .docs-site) {
+	--t3-canvas: #fbf3f5;
+	--t3-surface: #f5e7ea;
+	--t3-surface-overlay: #fdf6f8;
+	--t3-text: #33303a;
+	--t3-text-muted: #857d8f;
+	--t3-input: #e8d5db;
+	--t3-accent: #e2537d;
+	--t3-accent-foreground: #fffafc;
+	--t3-accent-text: #b2345c;
+	--t3-accent-surface: #f7e3e9;
+	--t3-message-surface: #f0dbe2;
+	--t3-message-foreground: #33303a;
+	--t3-message-action-hover: color-mix(in srgb, var(--t3-accent) 88%, black);
+	--t3-sidebar: #f1e0e5;
+	--t3-sidebar-foreground: #33303a;
+	--t3-sidebar-muted-foreground: #857d8f;
+	--t3-sidebar-control-surface: #f6e9ed;
+	--t3-sidebar-row-hover: #fbf3f5;
+	--t3-sidebar-row-selected: #fdf6f8;
+	--control-bg: #ecdadf;
+	--control-hover: #e3cfd6;
+	--control-selected: #dbc4cd;
+	--scrollbar-thumb: var(--t3-input);
+}
+
+/* Dark under sakura: near-black with rose tint; few tokens need flipping,
+   the rest inherit the base dark group. */
+html.dark[data-theme='sakura']:has(.app, .overlay-app, .docs-site) {
+	--t3-canvas: #17100f;
+	--t3-surface: #221a1e;
+	--t3-surface-overlay: #2c2227;
+	--t3-text: #f3e8ed;
+	--t3-text-muted: #a89aa5;
+	--t3-input: #3d2f36;
+	--t3-accent: #ef7d9d;
+	--t3-accent-text: #f5a9c0;
+	--t3-accent-surface: #351d26;
+	--t3-message-foreground: #f3e8ed;
+	--t3-message-action-hover: color-mix(in srgb, var(--t3-accent) 85%, white);
+	--t3-sidebar: #120c0d;
+	--t3-sidebar-foreground: #f3e8ed;
+	--t3-sidebar-muted-foreground: #a89aa5;
+	--t3-sidebar-control-surface: #17100f;
+	--t3-sidebar-row-hover: #1d1417;
+	--t3-sidebar-row-selected: #2c2227;
+	--control-bg: #332529;
+	--control-hover: #40313a;
+	--control-selected: #4d3a42;
+	--t3-focus: #ef7d9d;
+	--t3-error: #f87171;
+	--t3-error-foreground: #ff8a8a;
+	--t3-error-surface: #3a1c20;
+}
+
+/* Ocean: teal-cyan accents on cool sea-glass paper */
+html[data-theme='ocean']:has(.app, .overlay-app, .docs-site) {
+	--t3-canvas: #eef6f5;
+	--t3-surface: #dfeef0;
+	--t3-surface-overlay: #f4fbfa;
+	--t3-text: #223336;
+	--t3-text-muted: #5f7a7e;
+	--t3-input: #cfe2e2;
+	--t3-accent: #0d9aa8;
+	--t3-accent-foreground: #f4fdfd;
+	--t3-accent-text: #0a7684;
+	--t3-accent-surface: #ddefee;
+	--t3-message-surface: #d3e8ea;
+	--t3-message-foreground: #223336;
+	--t3-message-action-hover: color-mix(in srgb, var(--t3-accent) 88%, black);
+	--t3-sidebar: #e2eff0;
+	--t3-sidebar-foreground: #223336;
+	--t3-sidebar-muted-foreground: #5f7a7e;
+	--t3-sidebar-control-surface: #e5f0f1;
+	--t3-sidebar-row-hover: #eef6f5;
+	--t3-sidebar-row-selected: #f4fbfa;
+	--control-bg: #d6e7e8;
+	--control-hover: #c7dcde;
+	--control-selected: #b7d0d2;
+	--scrollbar-thumb: var(--t3-input);
+}
+
+/* Dark under ocean: deep sea-slate with cyan accent */
+html.dark[data-theme='ocean']:has(.app, .overlay-app, .docs-site) {
+	--t3-canvas: #0b1416;
+	--t3-surface: #142125;
+	--t3-surface-overlay: #1c2c30;
+	--t3-text: #e3eff0;
+	--t3-text-muted: #8fa8ac;
+	--t3-input: #24393f;
+	--t3-accent: #3ec3cd;
+	--t3-accent-text: #7bdbe3;
+	--t3-accent-surface: #12313a;
+	--t3-message-foreground: #e3eff0;
+	--t3-message-action-hover: color-mix(in srgb, var(--t3-accent) 85%, white);
+	--t3-sidebar: #080f11;
+	--t3-sidebar-foreground: #e3eff0;
+	--t3-sidebar-muted-foreground: #8fa8ac;
+	--t3-sidebar-control-surface: #0b1416;
+	--t3-sidebar-row-hover: #101c1f;
+	--t3-sidebar-row-selected: #1c2c30;
+	--control-bg: #1c2f33;
+	--control-hover: #253c41;
+	--control-selected: #2e4a50;
+	--t3-focus: #3ec3cd;
+	--t3-error: #f87171;
+	--t3-error-foreground: #ff8a8a;
+	--t3-error-surface: #391c1c;
+}

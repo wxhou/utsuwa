@@ -3,6 +3,7 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { applyColorMode, getColorMode } from '$lib/utils/color-mode';
+import { applyTheme, getTheme } from '$lib/utils/theme';
 	import { isLightOnlyRoute } from '$lib/utils/light-only';
 	import { isTauri } from '$lib/services/platform';
 	import { browser } from '$app/environment';
@@ -36,6 +37,8 @@
 		} else {
 			applyColorMode(getColorMode());
 		}
+		// Accent themes ride the same bootstrap; marketing pages skip them too.
+		applyTheme(getTheme());
 	}
 
 	// Marketing pages morph into each other (the hero card carries over from

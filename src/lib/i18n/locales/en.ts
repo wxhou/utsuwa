@@ -123,6 +123,13 @@ export const en = {
 			appearance: 'Appearance',
 			colorTheme: 'Color theme',
 			colorThemeDesc: "Choose a theme or follow your device's appearance.",
+			uiTheme: 'Accent theme',
+			uiThemeDesc: 'A matching color set and scene background. Your custom scenery stays put.',
+			themes: {
+				default: 'Default',
+				sakura: 'Spring Sakura',
+				ocean: 'Ocean'
+			},
 			theme: {
 				system: 'System',
 				light: 'Light',

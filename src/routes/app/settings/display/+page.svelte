@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getColorMode, setColorMode, type ColorMode } from '$lib/utils/color-mode';
+	import { getTheme, setTheme, THEME_IDS, type UiTheme } from '$lib/utils/theme';
+	import { BACKGROUND_PRESETS } from '$lib/services/scene-backgrounds';
 	import { t } from '$lib/i18n';
 	let colorMode = $state<ColorMode>('system');
 	const colorModes = $derived([
@@ -9,6 +11,25 @@
 		{ value: 'dark' as ColorMode, label: t('settings.display.theme.dark'), icon: 'moon' }
 	]);
 	onMount(() => { colorMode = getColorMode(); });
+
+	// Accent theme picker + its background hookup. Each theme suggests a scene
+	// background preset; switching applies it unless the user has a custom
+	// image background (theme never overrides their own upload).
+	let uiTheme = $state<UiTheme>('default');
+	onMount(() => { uiTheme = getTheme(); });
+	const themeRec: Record<Exclude<UiTheme, 'default'>, string> = { sakura: 'blossom', ocean: 'lagoon' };
+	const themeOptions = $derived(
+		THEME_IDS.map((id) => ({ value: id as UiTheme, label: t(`settings.display.themes.${id}` as const) }))
+	);
+	function handleThemeChange(next: UiTheme) {
+		uiTheme = next;
+		setTheme(next);
+		const presetId = themeRec[next as Exclude<UiTheme, 'default'>];
+		const preset = presetId ? BACKGROUND_PRESETS.find((p) => p.id === presetId) : undefined;
+		if (preset && displayStore.sceneBackground.type !== 'image') {
+			displayStore.setSceneBackground(preset.bg);
+		}
+	}
 
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
@@ -73,6 +94,10 @@
 		<div class="setting-row">
 			<div class="setting-info"><span class="setting-label">{t('settings.display.colorTheme')}</span><span class="setting-desc">{t('settings.display.colorThemeDesc')}</span></div>
 			<SegmentedControl label={t('settings.display.colorTheme')} options={colorModes} value={colorMode} onchange={(value) => { colorMode = value; setColorMode(value); }} compact />
+		</div>
+		<div class="setting-row">
+			<div class="setting-info"><span class="setting-label">{t('settings.display.uiTheme')}</span><span class="setting-desc">{t('settings.display.uiThemeDesc')}</span></div>
+			<SegmentedControl label={t('settings.display.uiTheme')} options={themeOptions} value={uiTheme} onchange={handleThemeChange} compact />
 		</div>
 	</SettingsSection>
 	<SettingsSection title={t('settings.display.chatDisplay')}>

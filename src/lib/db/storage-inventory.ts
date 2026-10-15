@@ -21,7 +21,8 @@ export const STORAGE_INVENTORY = {
 		legacyPersonaCards: 'utsuwa-persona-cards',
 		legacyPersonaActiveId: 'utsuwa-persona-active-id',
 		// Read before hydration by src/app.html, which can't import this
-		colorMode: 'colorMode'
+		colorMode: 'colorMode',
+		uiTheme: 'utsuwa-ui-theme'
 	},
 	localStorageModulePrefix: 'utsuwa-module-',
 	broadcast: {
