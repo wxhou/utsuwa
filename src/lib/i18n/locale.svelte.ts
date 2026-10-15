@@ -1,22 +1,26 @@
 // Locale state — the only runes-dependent piece of i18n. $state works only in
 // .svelte.ts/.svelte files, so index.ts keeps pure logic and imports from here.
 
-export type Locale = 'en' | 'zh-CN';
+import { browser } from '$app/environment';
+import { detectLocale, isSupportedLocale, type Locale } from './locale-kernel';
 
-export const LOCALES: Locale[] = ['en', 'zh-CN'];
+export type { Locale } from './locale-kernel';
+export const LOCALES = ['en', 'zh-CN'] as const;
 
 const STORAGE_KEY = 'utsuwa.locale';
 
 let current = $state<Locale>('en');
 
 function parseLocale(value: unknown): Locale | null {
-	return LOCALES.includes(value as Locale) ? (value as Locale) : null;
+	return isSupportedLocale(value) ? value : null;
 }
 
 function readStoredLocale(): Locale {
 	if (!browser) return 'en';
 	const stored = parseLocale(localStorage.getItem(STORAGE_KEY));
-	return stored ?? 'en';
+	// No explicit choice: follow the browser's language preference, en as the
+	// last resort. navigator.languages is ordered by the user's preference.
+	return stored ?? detectLocale(navigator.languages ?? [navigator.language]);
 }
 
 function persist() {
@@ -24,10 +28,6 @@ function persist() {
 		localStorage.setItem(STORAGE_KEY, current);
 	}
 }
-
-// Needs the shared browser guard; imported rather than inlined to keep a
-// single source of truth for SSR detection.
-import { browser } from '$app/environment';
 
 if (browser) {
 	current = readStoredLocale();
