@@ -45,3 +45,9 @@ openspec/
 tmp/
 tests/playwright/
 playwright/.auth/
+
+# Local tooling state
+.codegraph/
+.mcp.json
+AGENTS.md
+CLAUDE.md
