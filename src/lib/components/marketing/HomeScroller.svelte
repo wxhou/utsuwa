@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import BrainIcon from '@lucide/svelte/icons/brain';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import HeartIcon from '@lucide/svelte/icons/heart';
 	import CatIcon from '@lucide/svelte/icons/cat';
@@ -14,6 +12,7 @@
 	import FootprintsIcon from '@lucide/svelte/icons/footprints';
 	import SproutIcon from '@lucide/svelte/icons/sprout';
 	import UserIcon from '@lucide/svelte/icons/user';
+	import SealMark from './SealMark.svelte';
 	import ProviderIcons from '$lib/components/icons/ProviderIcons.svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -37,14 +36,14 @@
 	const bars = [0.4, 0.7, 1, 0.6, 0.85, 0.5, 0.9, 0.65, 0.4, 0.75, 0.55, 0.3, 0.6, 0.45];
 
 	type Item = { icon: typeof HeartIcon; label: string; x: number; y: number; tint: string; tilt: number; at: number };
-	const people: Item[] = [
-		{ icon: HeartIcon, label: m.sc_sticker_sister(), x: 18, y: 6, tint: 'var(--gradient-aurora)', tilt: -8, at: 0.3 },
+		const people: Item[] = [
+		{ icon: HeartIcon, label: m.sc_sticker_sister(), x: 18, y: 6, tint: 'var(--gradient-aurora)', tilt: -8, at: 0.05 },
 		{ icon: CatIcon, label: m.sc_sticker_cat(), x: 76, y: 2, tint: 'var(--gradient-aurora-mint)', tilt: 7, at: 0.38 },
 		{ icon: UsersIcon, label: m.sc_sticker_coworker(), x: 16, y: 80, tint: 'var(--gradient-aurora-cool)', tilt: 6, at: 0.46 },
 		{ icon: CookingPotIcon, label: m.sc_sticker_grandma(), x: 84, y: 70, tint: 'var(--gradient-aurora-iris)', tilt: -6, at: 0.54 }
 	];
 	const interests: Item[] = [
-		{ icon: Disc3Icon, label: m.sc_sticker_album(), x: 22, y: 4, tint: 'var(--gradient-aurora-iris)', tilt: 8, at: 0.1 },
+		{ icon: Disc3Icon, label: m.sc_sticker_album(), x: 22, y: 4, tint: 'var(--gradient-aurora-iris)', tilt: 8, at: 0.05 },
 		{ icon: LanguagesIcon, label: m.sc_sticker_language(), x: 80, y: 8, tint: 'var(--gradient-aurora-cool)', tilt: -7, at: 0.18 },
 		{ icon: FootprintsIcon, label: m.sc_sticker_runs(), x: 12, y: 76, tint: 'var(--gradient-aurora-mint)', tilt: -5, at: 0.62 },
 		{ icon: SproutIcon, label: m.sc_sticker_bonsai(), x: 82, y: 78, tint: 'var(--gradient-aurora)', tilt: 6, at: 0.7 }
@@ -100,10 +99,10 @@
 <section class="scroller" bind:this={root} aria-label={m.sc_label()}>
 	<div class="pin">
 		<!-- Presence -->
-		<div class="slide presence" class:on={slide === 0} aria-hidden={slide !== 0}>
+		<div class="slide presence daylight" class:on={slide === 0} aria-hidden={slide !== 0}>
 			<div class="grid-lines" aria-hidden="true"></div>
 			<header class="slide-head">
-				<p class="slide-note"><SparklesIcon size={16} strokeWidth={2} /> {m.sc_presence_note()}</p>
+				<p class="slide-note"><SealMark small /> {m.sc_presence_note()}</p>
 				<div class="head-row">
 					<h2 class="slide-title">{m.sc_presence_title()}</h2>
 					<p class="slide-sub">{m.sc_presence_sub()}</p>
@@ -124,7 +123,7 @@
 						class="msg"
 						class:msg-user={m.user}
 						class:msg-voice={m.voice}
-						class:shown={talk > 0.06 + i * 0.13}
+						class:shown={talk >= 0.02 + i * 0.13}
 					>
 						{#if m.voice}
 							<span class="voice-play"><PlayIcon size={12} strokeWidth={0} fill="currentColor" /></span>
@@ -141,10 +140,10 @@
 		</div>
 
 		<!-- Memory -->
-		<div class="slide memory" class:on={slide === 1} aria-hidden={slide !== 1}>
+		<div class="slide memory daylight" class:on={slide === 1} aria-hidden={slide !== 1}>
 			<div class="grid-lines" aria-hidden="true"></div>
 			<header class="slide-head">
-				<p class="slide-note"><BrainIcon size={16} strokeWidth={2} /> {m.sc_memory_note()}</p>
+				<p class="slide-note"><SealMark small /> {m.sc_memory_note()}</p>
 				<div class="head-row">
 					<h2 class="slide-title">{m.sc_memory_title()}</h2>
 					<p class="slide-sub">{m.sc_memory_sub()}</p>
@@ -185,6 +184,7 @@
 			<img class="own-bg" src="/landing-page/ownership-bg.webp" alt="" loading="lazy" />
 			<div class="own-fade"></div>
 			<div class="own-content">
+								<p class="slide-note own-note"><SealMark small /> {m.sc_own_proof()}</p>
 				<ul class="own-chips">
 					<li>{m.sc_own_model()}</li>
 					<li>{m.sc_own_voice()}</li>
@@ -282,7 +282,7 @@
 		align-items: center;
 		gap: 8px;
 		margin: 0;
-		color: var(--accent);
+		color: var(--stat-affection);
 		font-size: 1rem;
 		line-height: 1.125rem;
 		letter-spacing: -0.03em;
@@ -362,7 +362,7 @@
 	.msg-user {
 		align-self: flex-end;
 		border-radius: 20px 20px 6px 20px;
-		background: var(--accent);
+		background: var(--stat-affection);
 		color: #fff;
 		transform-origin: 92% 80%;
 	}
@@ -380,7 +380,7 @@
 		width: 28px;
 		height: 28px;
 		border-radius: 50%;
-		background: var(--accent);
+		background: var(--stat-affection);
 		color: #fff;
 	}
 
@@ -737,7 +737,7 @@
 	}
 
 	.nav-num {
-		color: var(--accent);
+		color: var(--stat-affection);
 		font-size: 12px;
 		font-weight: 600;
 		font-variant-numeric: tabular-nums;
@@ -767,7 +767,7 @@
 	.nav-bar span {
 		display: block;
 		height: 100%;
-		background: var(--accent);
+		background: var(--stat-affection);
 		transform-origin: left center;
 		transition: transform 0.15s linear;
 	}

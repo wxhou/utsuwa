@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import SealMark from './SealMark.svelte';
 	import { marketingImage } from '$lib/utils/marketing-images';
 	import { formatDate } from '$lib/utils/format-date';
 	import type { BlogPostMeta } from '$lib/utils/blog-posts';
@@ -10,7 +11,7 @@
 	// Deep tones mixed from the stat/tier palette so white copy stays readable.
 	const tones = [
 		'color-mix(in oklab, var(--tier-eternal-bond) 45%, #10141c)',
-		'color-mix(in oklab, var(--accent) 42%, #0b1620)',
+		'color-mix(in oklab, var(--stat-affection) 42%, #0b1620)',
 		'color-mix(in oklab, var(--stat-affection) 40%, #1a1016)',
 		'color-mix(in oklab, var(--tier-close-friend) 40%, #0c1614)'
 	];
@@ -55,8 +56,8 @@
 	});
 </script>
 
-<section class="stories" aria-labelledby="stories-title">
-	<h2 id="stories-title" class="stories-title">{m.stories_title()}</h2>
+<section class="stories daylight" aria-labelledby="stories-title">
+	<h2 id="stories-title" class="stories-title"><SealMark /> {m.stories_title()}</h2>
 
 	<div class="stories-track" bind:this={track}>
 		{#each posts as post, i (post.slug)}
