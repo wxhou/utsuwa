@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Icon } from '$lib/components/ui';
-	import { t } from '$lib/i18n';
+	import { t, setLocale, currentLocale, type Locale } from '$lib/i18n';
 	import CameraSettingsPanel from '$lib/components/ui/CameraSettingsPanel.svelte';
 	import ArUnsupportedModal from '$lib/components/ui/ArUnsupportedModal.svelte';
 	import { localPath } from '$lib/config/links';
@@ -55,9 +55,18 @@
 		colorMode === 'system' ? 'Theme: System' : colorMode === 'light' ? 'Theme: Light' : 'Theme: Dark'
 	);
 
+	let locale = $state<Locale>('en');
+	const NEXT_LOCALE: Record<Locale, Locale> = { en: 'zh-CN', 'zh-CN': 'en' };
+	// The label shows what a click switches TO, not the current locale.
+	const localeBadge = $derived(locale === 'en' ? '中' : 'EN');
+	const localeLabel = $derived(
+		locale === 'en' ? t('settings.display.language') + ': 中文' : t('settings.display.language') + ': English'
+	);
+
 	onMount(() => {
 		showOverlayBtn = isTauri();
 		colorMode = getColorMode();
+		locale = currentLocale();
 
 		// Close dropdowns when clicking anywhere outside the root element
 		const onPointerDown = (e: PointerEvent) => {
@@ -89,6 +98,11 @@
 		clusterOpen = !clusterOpen;
 		remindersOpen = false;
 		if (!clusterOpen) showCamera = false;
+	}
+
+	function toggleLocale() {
+		locale = NEXT_LOCALE[locale];
+		setLocale(locale);
 	}
 
 	function formatTimeLabel(date: Date): string {
@@ -242,8 +256,17 @@
 			</button>
 			<button
 				class="btn btn-secondary btn-icon cluster-item"
-				aria-pressed={arStore.active}
 				style="--i: 3"
+				onclick={toggleLocale}
+				aria-label={localeLabel}
+				title={localeLabel}
+			>
+				<span class="locale-badge">{localeBadge}</span>
+			</button>
+			<button
+				class="btn btn-secondary btn-icon cluster-item"
+				aria-pressed={arStore.active}
+				style="--i: 4"
 				onclick={handleArClick}
 				aria-label={arStore.active ? 'Exit AR' : 'Enter AR'}
 				title={arStore.active ? 'Exit AR' : 'View in AR'}
@@ -302,6 +325,12 @@
 			opacity: 1;
 			transform: translateY(0) scale(1);
 		}
+	}
+
+	.locale-badge {
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.02em;
 	}
 
 	.camera-anchor {

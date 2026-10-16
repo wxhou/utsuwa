@@ -104,6 +104,8 @@ export const zhCN: Partial<Record<DictKey, string>> = {
 	'chat.photoPrivacy': '照片隐私',
 	'chat.listening': '聆听中',
 	'chat.dropPhoto': '放下照片给她看',
+	'chat.conversationTitle': '对话',
+	'chat.emptyChat': '暂无消息',
 	'settings.title': '设置',
 	'settings.display.title': '显示',
 	'settings.display.pageTitle': '显示',

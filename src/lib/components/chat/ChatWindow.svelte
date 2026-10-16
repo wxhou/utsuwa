@@ -105,7 +105,7 @@
 	class:pin-left={displayStore.sidebarPosition === 'left'}
 >
 	<div class="window-header">
-		<span class="chat-title">Conversation</span>
+		<span class="chat-title">{t('chat.conversationTitle')}</span>
 		<button
 			class="clear-btn"
 			onclick={handleClearHistory}
@@ -153,7 +153,7 @@
 
 	<div class="messages" bind:this={messagesEl}>
 		{#if visibleMessages.length === 0 && !isTyping}
-			<p class="empty-hint">No messages yet.</p>
+			<p class="empty-hint">{t('chat.emptyChat')}</p>
 		{:else}
 			{#each visibleMessages as msg (msg.id)}
 				{@const isLastAssistant = msg.id === lastAssistantId}

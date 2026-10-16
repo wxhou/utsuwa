@@ -109,7 +109,9 @@ export const en = {
 		dismiss: 'Dismiss',
 		photoPrivacy: 'Photo privacy',
 		listening: 'Listening',
-		dropPhoto: 'Drop a photo to show her'
+		dropPhoto: 'Drop a photo to show her',
+		conversationTitle: 'Conversation',
+		emptyChat: 'No messages yet.'
 	},
 	settings: {
 		title: 'Settings',

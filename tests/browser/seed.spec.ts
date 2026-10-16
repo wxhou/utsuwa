@@ -18,6 +18,9 @@ const seedScript = `
 
 test.describe('Test group', () => {
 	test('seed', async ({ page }) => {
+		// Playwright contexts force colorScheme: 'light' by default, which lies
+		// about the real system preference; clear it so the app follows the OS.
+		await page.emulateMedia({ colorScheme: null });
 		await page.goto('/');
 		await page.evaluate(seedScript);
 	});
