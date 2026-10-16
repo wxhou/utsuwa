@@ -10,8 +10,12 @@
 	let { variant = 'page' }: { variant?: 'hero' | 'page' } = $props();
 
 	// Only the landing page is translated, so the switch only shows there
-	const translated = $derived(['/', '/ja'].includes(page.url.pathname));
+	const translated = $derived(['/', '/zh-CN'].includes(page.url.pathname));
 	const locale = getLocale();
+
+	// Stores the explicit pick so the browser-language first-visit hop in
+	// app.html never overrules it.
+	const rememberLang = (lang: string) => localStorage.setItem('marketing-lang', lang);
 </script>
 
 <header class="site-header" class:on-page={variant === 'page'}>
@@ -30,11 +34,11 @@
 		<div class="hero-actions">
 			{#if translated}
 				<nav class="lang-switch" aria-label={m.language()}>
-					<a href="/" hreflang="en" lang="en" aria-current={locale === 'en' ? 'true' : undefined} data-sveltekit-reload
+					<a href="/" hreflang="en" lang="en" aria-current={locale === 'en' ? 'true' : undefined} onclick={() => rememberLang('en')} data-sveltekit-reload
 						>EN</a
 					>
-					<a href="/ja" hreflang="ja" lang="ja" aria-current={locale === 'ja' ? 'true' : undefined} data-sveltekit-reload
-						>日本語</a
+					<a href="/zh-CN" hreflang="zh-CN" lang="zh-CN" aria-current={locale === 'zh-CN' ? 'true' : undefined} onclick={() => rememberLang('zh-CN')} data-sveltekit-reload
+						>中文</a
 					>
 				</nav>
 			{/if}

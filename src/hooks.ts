@@ -8,7 +8,7 @@ import { deLocalizeUrl } from '$lib/paraglide/runtime';
 // "Prepend only if missing" keeps already-prefixed paths working as a safety net.
 export const reroute: Reroute = ({ url }) => {
 	const host = url.hostname;
-	// Localized marketing URLs (/ja) resolve to their English route first.
+	// Localized marketing URLs (/zh-CN) resolve to their English route first.
 	// Paraglide throws on an opaque ("null") origin, which tauri:// URLs can
 	// have, and the desktop app has no localized pages anyway.
 	const pathname = url.origin === 'null' ? url.pathname : deLocalizeUrl(url).pathname;

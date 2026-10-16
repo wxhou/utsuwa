@@ -20,7 +20,7 @@ import { applyTheme, getTheme } from '$lib/utils/theme';
 	// Marketing/content routes that should never live inside the desktop app.
 	const isWebOnly = (path: string) =>
 		path === '/' ||
-		path === '/ja' ||
+		path === '/zh-CN' ||
 		path.startsWith('/docs') ||
 		path.startsWith('/blog') ||
 		path.startsWith('/download');

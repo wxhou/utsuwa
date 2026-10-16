@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isLightOnlyRoute } from './light-only.ts';
 
-const marketing = ['/', '/ja', '/blog', '/blog/', '/blog/moving-to-agpl', '/download', '/privacy', '/terms'];
+const marketing = ['/', '/zh-CN', '/zh-CN/x', '/blog', '/blog/', '/blog/moving-to-agpl', '/download', '/privacy', '/terms'];
 
 test('marketing pages are light only on the apex, previews, and local dev', () => {
 	for (const host of ['utsuwa.ai', 'utsuwa-git-branch.vercel.app', 'localhost']) {

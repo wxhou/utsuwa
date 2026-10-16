@@ -1,4 +1,6 @@
 /* Marketing site, blog, and legal pages. Light only; the app and docs use app-theme.css. */
+@import '@fontsource-variable/bricolage-grotesque';
+
 :root {
 	--bg-page: #ffffff;
 	--bg-primary: #ffffff;
@@ -12,6 +14,12 @@
 	--accent: #00b2ff;
 	--accent-hover: #0096d6;
 	--accent-muted: rgba(0, 178, 255, 0.1);
+
+	/* Landing narrative: the day sections and the closing "night" that bookends
+	   the SkyZone hero. Static section backgrounds — the hero's clock-driven
+	   time-of-day palette is a separate mechanism in window-light.ts. */
+	--bg-day: #fbfbfd;
+	--phase-night: #22243a;
 
 	/* Aurora gradients (hero shapes, avatars, thumbnails) */
 	--gradient-aurora: linear-gradient(135deg, #f4e7ff 0%, #fdddde 100%);
@@ -102,49 +110,81 @@
 	background: color-mix(in srgb, var(--stat-affection), #000 8%);
 }
 
-/* Japanese pages: system Japanese fonts behind Inter, none of the tight
-   Latin tracking, phrase-aware line breaks, and room for full-height glyphs */
-html[lang='ja'] {
-	--font-sans: 'Inter Variable', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', Meiryo, sans-serif;
-	word-break: auto-phrase;
+/* Display type: Bricolage carries the headlines on their own stack, falling
+   back to the body face. Inter stays for everything else. */
+:is(.hero-title, .slide-title, .own-title, .features-title, .stories-title, .cta-title, .letter-big) {
+	font-family: 'Bricolage Grotesque Variable', 'Inter Variable', var(--font-sans);
 }
 
-html[lang='ja'] body * {
+/* Day-phase window patch: a blurred sheared pane echoing the hero's window
+   light, hung top-right of a day section. Pure decoration. */
+.daylight {
+	position: relative;
+}
+
+.daylight::before {
+	content: '';
+	position: absolute;
+	top: -6%;
+	right: -8%;
+	width: min(46vw, 620px);
+	height: min(70%, 560px);
+	background: linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(228, 238, 255, 0.25) 55%, transparent 78%);
+	clip-path: polygon(18% 0, 100% 0, 82% 100%, 0% 100%);
+	filter: blur(42px);
+	transform: skewX(-6deg);
+	pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.daylight::before {
+		filter: blur(30px);
+	}
+}
+
+/* Chinese pages: system CJK fonts behind Inter, none of the tight Latin
+   tracking, and room for full-height glyphs (CJK wraps per character, so the
+   Japanese phrase-aware break settings are not needed) */
+html[lang='zh-CN'] {
+	--font-sans: 'Inter Variable', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+}
+
+html[lang='zh-CN'] body * {
 	letter-spacing: normal !important;
 }
 
-/* A phrase wider than a small phone may break inside itself rather than overflow */
-html[lang='ja'] :is(h1, h2, h3, p) {
+/* A word wider than a small phone may overflow otherwise */
+html[lang='zh-CN'] :is(h1, h2, h3, p) {
 	overflow-wrap: anywhere;
 }
 
-html[lang='ja'] .hero-title {
+html[lang='zh-CN'] .hero-title {
 	line-height: 1.12;
 }
 
-html[lang='ja'] :is(.letter-big, .cta-title, .own-title) {
+html[lang='zh-CN'] :is(.letter-big, .cta-title, .own-title) {
 	line-height: 1.2;
 }
 
-html[lang='ja'] :is(.slide-title, .features-title, .stories-title) {
+html[lang='zh-CN'] :is(.slide-title, .features-title, .stories-title) {
 	line-height: 1.3;
 }
 
-/* Japanese phrases don't break inside words, so give the long ones room */
-html[lang='ja'] .slide-title {
+/* Long decor-free titles need room regardless of wrapping */
+html[lang='zh-CN'] .slide-title {
 	max-width: 600px;
 }
 
-html[lang='ja'] .own-title {
+html[lang='zh-CN'] .own-title {
 	font-size: 56px;
 }
 
 @media (max-width: 768px) {
-	html[lang='ja'] .own-title {
+	html[lang='zh-CN'] .own-title {
 		font-size: clamp(28px, 8.4vw, 40px);
 	}
 
-	html[lang='ja'] .features-title {
+	html[lang='zh-CN'] .features-title {
 		font-size: 32px;
 	}
 }

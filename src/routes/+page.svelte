@@ -11,14 +11,15 @@
 	import PlatformLine from '$lib/components/marketing/PlatformLine.svelte';
 	import SiteLetter from '$lib/components/marketing/SiteLetter.svelte';
 	import SkyZone from '$lib/components/marketing/SkyZone.svelte';
+	import SealMark from '$lib/components/marketing/SealMark.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 
 	let { data }: { data: PageData } = $props();
 
 	const locale = getLocale();
-	const canonical = locale === 'ja' ? `${SITE_URL}/ja` : SITE_URL;
-	const ogImage = `${SITE_URL}/brand-assets/${locale === 'ja' ? 'og-image-ja' : 'og-image'}.jpg`;
+	const canonical = locale === 'zh-CN' ? `${SITE_URL}/zh-CN` : SITE_URL;
+	const ogImage = `${SITE_URL}/brand-assets/og-image.jpg`;
 
 	// Every provider we actually support today. Keep this honest. Wordmarks are
 	// the white (dark-theme) variants since they always sit on the sky.
@@ -43,7 +44,7 @@
 	<meta name="description" content={m.home_meta_description()} />
 	<link rel="canonical" href={canonical} />
 	<link rel="alternate" hreflang="en" href={SITE_URL} />
-	<link rel="alternate" hreflang="ja" href={`${SITE_URL}/ja`} />
+	<link rel="alternate" hreflang="zh-CN" href={`${SITE_URL}/zh-CN`} />
 	<link rel="alternate" hreflang="x-default" href={SITE_URL} />
 	<link rel="preload" as="image" href="/landing-page/bust/tsuki-1-2.webp" type="image/webp" />
 
@@ -56,7 +57,7 @@
 	<meta property="og:image:height" content="630" />
 	<meta property="og:url" content={canonical} />
 	<meta property="og:site_name" content="Utsuwa" />
-	<meta property="og:locale" content={locale === 'ja' ? 'ja_JP' : 'en_US'} />
+	<meta property="og:locale" content={locale === 'zh-CN' ? 'zh_CN' : 'en_US'} />
 
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image" />
@@ -128,8 +129,8 @@
 		<HomeScroller />
 
 		<!-- Everything else -->
-		<section id="features" class="features" aria-labelledby="features-title">
-			<p class="features-note">{m.features_note()}</p>
+		<section id="features" class="features daylight" aria-labelledby="features-title">
+			<p class="features-note"><SealMark /> {m.features_note()}</p>
 			<h2 id="features-title" class="features-title">{m.features_title()}</h2>
 
 			<div class="features-grid">
@@ -218,7 +219,7 @@
 						<DownloadIcon size={18} strokeWidth={2.25} />
 						{m.hero_download()}
 					</a>
-					<PlatformLine tone="ink" />
+					<PlatformLine />
 				</div>
 				<div class="cta-image">
 					<img
@@ -489,13 +490,25 @@
 	}
 
 	/* Closing CTA */
+	/* Closing CTA: back to night, bookending the hero. The section spans the
+	   viewport (.page is centered flex) so the dark band bleeds full width;
+	   the wrap inside keeps the content column. A top gradient melts the edge
+	   into the day section above instead of a hard cut. */
 	.cta {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
+		background: var(--phase-night);
 		width: 100%;
-		max-width: 1276px;
-		padding: 0 36px;
+		position: relative;
+	}
+
+	.cta::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 64px;
+		background: linear-gradient(to bottom, #fff, transparent);
+		pointer-events: none;
 	}
 
 	.cta-wrap {
@@ -505,6 +518,9 @@
 		justify-content: center;
 		gap: 16px;
 		width: 100%;
+		max-width: 1276px;
+		margin: 0 auto;
+		padding: 90px 36px;
 	}
 
 	.cta-image {
@@ -535,7 +551,7 @@
 	.cta-title {
 		max-width: 620px;
 		margin: 0 0 50px;
-		color: var(--ink);
+		color: #fff;
 		font-size: 120px;
 		font-weight: 700;
 		line-height: 110px;

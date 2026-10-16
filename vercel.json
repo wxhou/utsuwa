@@ -41,6 +41,16 @@
 	],
 	"redirects": [
 		{
+			"source": "/ja",
+			"destination": "/zh-CN",
+			"permanent": true
+		},
+		{
+			"source": "/ja/:path*",
+			"destination": "/zh-CN/:path*",
+			"permanent": true
+		},
+		{
 			"source": "/docs",
 			"has": [{ "type": "host", "value": "utsuwa.ai" }],
 			"destination": "https://docs.utsuwa.ai",

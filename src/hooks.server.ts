@@ -41,7 +41,18 @@ function withSecurityHeaders(response: Response): Response {
 
 // Marketing pages get the locale middleware and the right <html lang>. The
 // app, docs, and API never go through it.
+// Marketing pages get the locale middleware and the right <html lang>. The
+// app, docs, and API never go through it. /ja predates the zh-CN rename; send
+// it to the replacement permanently so old links keep working.
+function japaneseRedirect(url: URL): Response | undefined {
+	if (url.pathname !== '/ja' && !url.pathname.startsWith('/ja/')) return undefined;
+	const rest = url.pathname.slice(3) || '/';
+	return Response.redirect(`${url.origin}/zh-CN${rest === '/' ? '' : rest}${url.search}`, 308);
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
+	const redirect = japaneseRedirect(event.url);
+	if (redirect) return withSecurityHeaders(redirect);
 	if (!isLightOnlyRoute(event.url.hostname, event.url.pathname)) {
 		return withSecurityHeaders(await resolve(event));
 	}
