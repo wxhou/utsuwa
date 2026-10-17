@@ -4,6 +4,7 @@ export interface ShownImage {
 	url: string;
 }
 
+import type { CheckinMessageMeta } from '$lib/types/memory';
 import { turnsToMessages } from './chat-hydrate';
 
 export interface Message {
@@ -12,6 +13,11 @@ export interface Message {
 	content: string;
 	timestamp: Date;
 	images?: ShownImage[];
+	/** Check-in extras: set only on assistant-initiated proactive messages. */
+	proactive?: boolean;
+	memoryId?: number;
+	memoryContent?: string;
+	systemNotifyFailed?: boolean;
 }
 
 // Persisted conversation turn (subset of engine/memory's ConversationTurn that
@@ -20,6 +26,12 @@ export interface HydratableTurn {
 	role: 'user' | 'assistant';
 	content: string;
 	createdAt: Date;
+	metadata?: {
+		proactive?: boolean;
+		memoryId?: number;
+		memoryContent?: string;
+		systemNotifyFailed?: boolean;
+	};
 }
 
 function createChatStore() {
@@ -27,13 +39,19 @@ function createChatStore() {
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
 
-	function addMessage(role: 'user' | 'assistant' | 'system', content: string, images?: ShownImage[]) {
+	function addMessage(
+		role: 'user' | 'assistant' | 'system',
+		content: string,
+		images?: ShownImage[],
+		checkin?: CheckinMessageMeta
+	) {
 		const message: Message = {
 			id: crypto.randomUUID(),
 			role,
 			content,
 			timestamp: new Date(),
-			...(images?.length ? { images } : {})
+			...(images?.length ? { images } : {}),
+			...(checkin ?? {})
 		};
 		messages = [...messages, message];
 		return message;
@@ -57,16 +75,20 @@ function createChatStore() {
 		}
 		if (!loading && remoteQueue.length) {
 			const queued = remoteQueue.splice(0);
-			for (const m of queued) addMessage(m.role, m.content);
+			for (const m of queued) addMessage(m.role, m.content, undefined, m.checkin);
 		}
 	}
 
 	// Turns from the other window (app or overlay). While a reply streams here
 	// they wait, or the streamed text would land on the wrong bubble.
-	const remoteQueue: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-	function addRemoteMessage(role: 'user' | 'assistant', content: string) {
-		if (isLoading) remoteQueue.push({ role, content });
-		else addMessage(role, content);
+	const remoteQueue: Array<{ role: 'user' | 'assistant'; content: string; checkin?: CheckinMessageMeta }> = [];
+	function addRemoteMessage(
+		role: 'user' | 'assistant',
+		content: string,
+		checkin?: CheckinMessageMeta
+	) {
+		if (isLoading) remoteQueue.push({ role, content, checkin });
+		else addMessage(role, content, undefined, checkin);
 	}
 
 	function setError(err: string | null) {

@@ -2,11 +2,14 @@ import type { ModuleDefinition } from '$lib/types/module';
 import { consciousnessModule } from './essential/consciousness';
 import { speechModule } from './essential/speech';
 import { visionModule } from './essential/vision';
+import { proactiveModule } from './messaging/proactive';
 
 // Registry of all available modules
 export const moduleRegistry: ModuleDefinition[] = [
 	// Essential modules
 	consciousnessModule,
 	speechModule,
-	visionModule
+	visionModule,
+	// Messaging modules
+	proactiveModule
 ];

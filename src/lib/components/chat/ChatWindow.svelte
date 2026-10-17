@@ -14,6 +14,8 @@
 	import ChatInput from './ChatInput.svelte';
 	import CopyButton from '$lib/components/ui/CopyButton.svelte';
 	import { modulesStore } from '$lib/stores/modules.svelte';
+	import { checkinFocus } from '$lib/services/modules/messaging/proactive-bridge';
+	import { localPath } from '$lib/config/links';
 
 	interface Props {
 		open: boolean;
@@ -87,6 +89,27 @@
 	// Inline volume control, wired to the same speech.volume setting the TTS
 	// settings page edits. The change lands on the next played sentence.
 	let volumeOpen = $state(false);
+
+	// Proactive check-ins: each message can show the memory behind it, and a
+	// clicked notification deep-links here to open that card directly.
+	const openCheckinCards = $state<Record<string, boolean>>({});
+	let focusRequestId = -1;
+	$effect(() => {
+		const focus = $checkinFocus;
+		if (!focus || focus.requestId === focusRequestId) return;
+		focusRequestId = focus.requestId;
+		const target = [...chatStore.messages]
+			.reverse()
+			.find((m) => m.proactive && m.memoryId === focus.memoryId);
+		if (!target) return;
+		openCheckinCards[target.id] = true;
+		messagesEl
+			?.querySelector(`[data-message-id="${target.id}"]`)
+			?.scrollIntoView({ block: 'center' });
+	});
+	function toggleCheckinCard(id: string) {
+		openCheckinCards[id] = !openCheckinCards[id];
+	}
 	const ttsVolume = $derived(
 		(modulesStore.getModuleSettings('speech').volume as number | undefined) ?? 1
 	);
@@ -165,8 +188,30 @@
 						class="message"
 						class:user={msg.role === 'user'}
 						class:assistant={msg.role === 'assistant'}
+						data-message-id={msg.id}
 					>
 						<div class="bubble">
+							{#if msg.proactive}
+								<button
+									type="button"
+									class="proactive-badge"
+									aria-expanded={!!openCheckinCards[msg.id]}
+									onclick={() => toggleCheckinCard(msg.id)}
+								>
+									<Icon name="heart" size={11} />
+									{t('proactive.badge')}
+								</button>
+								{#if msg.systemNotifyFailed}
+									<span class="notify-failed">{t('proactive.systemNotifyFailed')}</span>
+								{/if}
+								{#if openCheckinCards[msg.id] && msg.memoryId !== undefined}
+									<div class="proactive-memory-card">
+										<span class="proactive-memory-label">{t('proactive.because')}</span>
+										<p>{msg.memoryContent}</p>
+										<a href={localPath('app', '/settings/memory')}>{t('proactive.openMemory')}</a>
+									</div>
+								{/if}
+							{/if}
 							{#if isLastAssistant && revealCadenceMs > 0 && msg.content}
 								<p style="--reveal-cadence: {revealCadenceMs}ms">
 									{@html wrapWordsInHtml(renderMarkdown(msg.content)).html}
@@ -202,6 +247,48 @@
 </div>
 
 <style>
+	.proactive-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		margin: 0 0 6px;
+		padding: 2px 10px;
+		border: 1px solid var(--border-subtle);
+		border-radius: 999px;
+		background: var(--bg-secondary);
+		color: var(--text-secondary);
+		font-size: 11px;
+		line-height: 1.6;
+		cursor: pointer;
+	}
+	.notify-failed {
+		display: inline-flex;
+		align-items: center;
+		margin: 0 0 6px 6px;
+		padding: 2px 8px;
+		border: 1px dashed var(--border-subtle);
+		border-radius: 999px;
+		color: var(--text-tertiary);
+		font-size: 11px;
+		line-height: 1.6;
+	}
+	.proactive-memory-card {
+		margin: 6px 0 10px;
+		padding: 10px 12px;
+		border: 1px dashed var(--border-subtle);
+		border-radius: var(--radius-lg);
+		background: var(--bg-secondary);
+		font-size: 12px;
+	}
+	.proactive-memory-label {
+		display: block;
+		margin-bottom: 4px;
+		color: var(--text-secondary);
+		font-size: 11px;
+	}
+	.proactive-memory-card p { margin: 0 0 8px; color: var(--text-primary); }
+	.proactive-memory-card a { font-size: 12px; }
+
 	.chat-title { flex: 1; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 	.chat-window {
 		position: absolute;

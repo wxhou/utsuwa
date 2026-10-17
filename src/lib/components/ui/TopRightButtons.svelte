@@ -189,6 +189,9 @@
 									<div class="reminder-text">
 										<span class="reminder-content">{reminder.content}</span>
 										<span class="reminder-time">{formatTimeLabel(reminder.triggerAt)}</span>
+										{#if reminder.systemNotifyFailed}
+											<span class="reminder-undelivered">{t('proactive.systemNotifyFailed')}</span>
+										{/if}
 									</div>
 									<button
 										class="reminder-delete"
@@ -430,6 +433,11 @@
 	.reminder-time {
 		font-size: 0.75rem;
 		color: var(--text-secondary);
+	}
+
+	.reminder-undelivered {
+		font-size: 0.7rem;
+		color: var(--text-tertiary);
 	}
 
 	.reminder-delete {

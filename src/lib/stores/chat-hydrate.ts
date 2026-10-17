@@ -8,6 +8,14 @@ export function turnsToMessages(turns: HydratableTurn[]): Message[] {
 		id: crypto.randomUUID(),
 		role: turn.role,
 		content: turn.content,
-		timestamp: new Date(turn.createdAt)
+		timestamp: new Date(turn.createdAt),
+		...(turn.metadata?.proactive
+			? {
+					proactive: true,
+					memoryId: turn.metadata.memoryId,
+					memoryContent: turn.metadata.memoryContent,
+					...(turn.metadata.systemNotifyFailed ? { systemNotifyFailed: true } : {})
+				}
+			: {})
 	}));
 }

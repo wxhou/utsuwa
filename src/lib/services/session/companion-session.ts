@@ -49,7 +49,19 @@ export function startCompanionSession({ send, onEvent }: CompanionSessionHooks):
 	const stopDebugEvents = debugEventsStore.listen(onEvent);
 
 	// The other window's turns show up here too, so app and overlay stay one conversation
-	const stopRemoteTurns = onRemoteTurn((turn) => chatStore.addRemoteMessage(turn.role, turn.content));
+	const stopRemoteTurns = onRemoteTurn((turn) =>
+		chatStore.addRemoteMessage(
+			turn.role,
+			turn.content,
+			turn.metadata?.proactive
+				? {
+						proactive: true,
+						memoryId: turn.metadata.memoryId ?? 0,
+						memoryContent: turn.metadata.memoryContent ?? ''
+					}
+				: undefined
+		)
+	);
 
 	// Fired reminders go back through the companion pipeline so the model
 	// decides how to react. The overlay polls too, so timers fire while the

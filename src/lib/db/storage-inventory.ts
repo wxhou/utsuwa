@@ -20,8 +20,10 @@ export const STORAGE_INVENTORY = {
 		imagePrivacyAck: 'utsuwa-image-privacy-ack',
 		legacyPersonaCards: 'utsuwa-persona-cards',
 		legacyPersonaActiveId: 'utsuwa-persona-active-id',
-		// Read before hydration by src/app.html, which can't import this
+		// Read before hydration by src/app.html, in the marketing site, which
+		// can't import this
 		colorMode: 'colorMode',
+		marketingLang: 'utsuwa-marketing-lang',
 		uiTheme: 'utsuwa-ui-theme'
 	},
 	localStorageModulePrefix: 'utsuwa-module-',

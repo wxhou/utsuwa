@@ -1,11 +1,13 @@
-import { browser } from '$app/environment';
+// No `$app/environment` here: this module sits in service-layer import graphs
+// that the node test runner loads headlessly, where $app doesn't resolve.
+// `browser` in $app is exactly "window exists".
 
 /**
  * Check if running in a Tauri desktop environment
  */
 export function isTauri(): boolean {
 	// Tauri 2.x uses __TAURI_INTERNALS__, Tauri 1.x uses __TAURI__
-	return browser && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
+	return typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 }
 
 /**

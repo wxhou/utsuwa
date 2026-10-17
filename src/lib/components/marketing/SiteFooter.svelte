@@ -3,13 +3,15 @@
 	import { GITHUB_REPO, GITHUB_RELEASES } from '$lib/config/site';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { STORAGE_INVENTORY } from '$lib/db/storage-inventory';
 
 	// Only the landing page is translated so far, so both switch links land there
 	const locale = getLocale();
 
 	// Stores the explicit pick so the browser-language first-visit hop in
 	// app.html never overrules it.
-	const rememberLang = (lang: string) => localStorage.setItem('marketing-lang', lang);
+	const rememberLang = (lang: string) =>
+		localStorage.setItem(STORAGE_INVENTORY.localStorage.marketingLang, lang);
 </script>
 
 <footer class="site-footer">

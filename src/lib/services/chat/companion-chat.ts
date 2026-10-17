@@ -24,6 +24,7 @@ import { missingLLMMessage, resolveActiveLLM, resolveVisionLLM, visionModelEnabl
 import { processCompanionTurn } from '$lib/services/chat/companion-turn';
 import { markEventShown } from '$lib/engine/event-replay';
 import { retrieveRelevantContext } from '$lib/engine/memory';
+import { noteSessionActivity } from '$lib/services/modules/messaging/proactive-bridge';
 import { buildSystemPrompt, buildMcpSecurityInstructions, truncateChatHistory, type PromptContext } from '$lib/ai/prompt-builder';
 import { keepImage, type PreparedImage } from '$lib/services/storage/keepsakes';
 import { extractReminderTags, tryExtractReminderFromUserMessage } from '$lib/utils/reminders';
@@ -163,6 +164,9 @@ export async function sendCompanionMessage(
 
 	chatStore.setLoading(true);
 	chatStore.setError(null);
+	// A round is starting in this window; the check-in kernel reads the same
+	// freshness the Rust scheduler receives.
+	noteSessionActivity();
 
 	const guard = startTurnGuard(stallTimeoutMs, turnTimeoutMs);
 	const { signal, untilAborted, bumpStall } = guard;

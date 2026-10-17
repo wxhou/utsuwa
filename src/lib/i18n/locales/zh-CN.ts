@@ -174,6 +174,7 @@ export const zhCN: Partial<Record<DictKey, string>> = {
 	'settings.stt.localModel': '模型（如 Systran/faster-whisper-large-v3）',
 		'settings.nav.character': '角色',
 		'settings.nav.display': '显示',
+		'settings.nav.proactive': '主动问候',
 		'settings.nav.llm': 'LLM 模型',
 		'settings.nav.tts': 'TTS',
 		'settings.nav.ttsHint': 'Text-to-Speech：让 TA 把回复读出声',
@@ -863,7 +864,36 @@ export const zhCN: Partial<Record<DictKey, string>> = {
 
 	'providers.reachable': '可连接',
 	'providers.unreachable': '无法连接',
-	'providers.configuredAria': '已配置'
+	'providers.configuredAria': '已配置',
+
+	'proactive.pageSubtitle':
+		'桌面应用运行期间，她可能自己想起你、主动开口。她发出的每一条主动消息都能追溯到触发它的那条记忆。',
+	'proactive.enable': '允许她偶尔主动问候',
+	'proactive.maxPerDay': '每日上限',
+	'proactive.maxPerDayHint': '主动消息的每日上限，只能调低，不能调高。',
+	'proactive.quietHours': '免打扰时段',
+	'proactive.quietHoursHint': '这些时段她保持静默。被抑制的候选不会在时段结束后补发。',
+	'proactive.quietOff': '不启用免打扰',
+	'proactive.pause': '暂停',
+	'proactive.resume': '恢复',
+	'proactive.pausedNote': '已暂停——恢复前不会安排任何主动消息。',
+	'proactive.notifications': '系统通知',
+	'proactive.permissionAllowed': '通知已允许',
+	'proactive.permissionPrompt': '通知未开启',
+	'proactive.permissionGuide': '开关在「系统设置 → 通知 → Utsuwa」；提醒样式还要设为「持续」，否则只静默进通知中心。',
+	'proactive.openSystemSettings': '打开系统设置',
+	'proactive.systemNotifyFailed': '未发出系统提醒',
+	'proactive.notifyTitle': '她想起了你',
+	'proactive.reminderNotifyTitle': '提醒',
+	'proactive.actionReply': '回复',
+	'proactive.actionReplyPlaceholder': '回她一句…',
+	'proactive.actionReplySend': '发送',
+	'proactive.actionComplete': '完成',
+	'proactive.badge': '主动',
+	'proactive.because': '因为想起了这件事',
+	'proactive.openMemory': '查看记忆',
+	'proactive.webOnlyNote':
+		'主动问候仅在桌面应用可用——桌面端可以在窗口关闭时继续运行，并通过系统通知送达。'
 };
 
 export default zhCN;

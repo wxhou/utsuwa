@@ -18,6 +18,7 @@
 		{ href: localPath('app', '/settings/llm'), label: t('settings.nav.llm'), icon: 'brain', keywords: 'ai provider api model language context vision image photo' },
 		{ href: localPath('app', '/settings/tts'), label: t('settings.nav.tts'), icon: 'volume', keywords: 'speech voice audio omnivoice elevenlabs fish audio minimax siliconflow', hint: t('settings.nav.ttsHint') },
 		{ href: localPath('app', '/settings/stt'), label: t('settings.nav.stt'), icon: 'mic', keywords: 'microphone transcription speech recognition timeout whisper', hint: t('settings.nav.sttHint') },
+		{ href: localPath('app', '/settings/proactive'), label: t('settings.nav.proactive'), icon: 'message', keywords: 'proactive check-in quiet hours pause notification reach out herself' },
 		...(mcpStore.capability === 'none' ? [] : [{ href: localPath('app', '/settings/mcp'), label: t('settings.nav.mcp'), icon: 'modules', keywords: 'servers tools integrations' }]),
 		{ href: localPath('app', '/settings/memory'), label: t('settings.nav.memory'), icon: 'brain', keywords: 'facts relationship memories graph' },
 		{ href: localPath('app', '/settings/data'), label: t('settings.nav.data'), icon: 'database', keywords: 'export import backup save' },

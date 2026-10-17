@@ -3,6 +3,7 @@
 	import { sectionUrl } from '$lib/config/links';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { STORAGE_INVENTORY } from '$lib/db/storage-inventory';
 
 	// One header everywhere: logo, the capsule of section links, and Try it
 	// live. "hero" sits over a sky hero in white; "page" is the sticky header
@@ -15,7 +16,8 @@
 
 	// Stores the explicit pick so the browser-language first-visit hop in
 	// app.html never overrules it.
-	const rememberLang = (lang: string) => localStorage.setItem('marketing-lang', lang);
+	const rememberLang = (lang: string) =>
+		localStorage.setItem(STORAGE_INVENTORY.localStorage.marketingLang, lang);
 </script>
 
 <header class="site-header" class:on-page={variant === 'page'}>

@@ -31,4 +31,29 @@ describe('turnsToMessages', () => {
 	it('returns an empty list for empty history', () => {
 		assert.deepEqual(turnsToMessages([]), []);
 	});
+
+	it('carries the undelivered marker of a proactive turn across a reload', () => {
+		const messages = turnsToMessages([
+			{
+				role: 'assistant' as const,
+				content: '想起你了',
+				createdAt: new Date('2026-09-27T10:00:05'),
+				metadata: {
+					proactive: true,
+					memoryId: 7,
+					memoryContent: '她爱喝水',
+					systemNotifyFailed: true
+				}
+			},
+			{
+				role: 'assistant' as const,
+				content: '又想起你了',
+				createdAt: new Date('2026-09-27T11:00:05'),
+				metadata: { proactive: true, memoryId: 8, memoryContent: '她爱跑步' }
+			}
+		]);
+
+		assert.equal(messages[0].systemNotifyFailed, true);
+		assert.equal(messages[1].systemNotifyFailed, undefined);
+	});
 });

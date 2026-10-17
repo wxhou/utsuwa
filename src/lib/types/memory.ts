@@ -12,6 +12,8 @@ export interface Fact {
 	referenceCount: number;
 	createdAt: Date;
 	lastAccessed?: Date;
+	/** When this memory last anchored a proactive check-in; plain field, kept out of the indexes. */
+	lastUsedAsTrigger?: Date;
 	embedding?: number[]; // 384-dim vector for semantic search
 	embeddingModel?: string; // which model produced the vector; absent = legacy, needs re-embed
 }
@@ -20,6 +22,14 @@ export interface Fact {
 export type TopicDepth = 'shallow' | 'moderate' | 'deep';
 
 // A single conversation turn
+export interface CheckinMessageMeta {
+	proactive: boolean;
+	memoryId: number;
+	memoryContent: string;
+	/** Set when the OS would not carry this check-in: it only exists in-app. */
+	systemNotifyFailed?: boolean;
+}
+
 export interface ConversationTurn {
 	id?: number;
 	sessionId?: number;
@@ -30,7 +40,7 @@ export interface ConversationTurn {
 		sentiment?: number; // -1 to 1
 		topicDepth?: TopicDepth;
 		stateChanges?: Record<string, number>;
-	};
+	} & Partial<CheckinMessageMeta>;
 	createdAt: Date;
 }
 
@@ -85,6 +95,8 @@ export interface Reminder {
 	createdAt: Date;
 	sessionId: number;
 	dismissed?: number;
+	/** Fired while the OS would not carry the notification; plain field, kept out of the indexes. */
+	systemNotifyFailed?: boolean;
 }
 
 // Working memory state (in-memory during session)

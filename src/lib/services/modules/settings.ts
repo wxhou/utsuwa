@@ -56,6 +56,32 @@ export const DEFAULT_VISION_SETTINGS: Readonly<VisionSettings> = {
 	activeProvider: ''
 };
 
+// Quiet hours as a select preset (value "start-end" in local minutes-of-day),
+// because the module system only knows preset field types — no time-range
+// control exists. The kernel parses the preset back into minutes.
+export interface ProactiveSettings {
+	/** Check-ins stay below this many per local day; raising above 3 is not offered. */
+	maxPerDay: number;
+	/** 'start-end' preset key from PROACTIVE_QUIET_PRESETS. */
+	quietHours: string;
+	quietEnabled: boolean;
+	/** One-tap pause: stops everything and withdraws queued slots until unpaused. */
+	paused: boolean;
+}
+
+export const PROACTIVE_QUIET_PRESETS: Record<string, { start: number; end: number }> = {
+	'22-8': { start: 22 * 60, end: 8 * 60 },
+	'23-9': { start: 23 * 60, end: 9 * 60 },
+	'0-7': { start: 0, end: 7 * 60 }
+};
+
+export const DEFAULT_PROACTIVE_SETTINGS: Readonly<ProactiveSettings> = {
+	maxPerDay: 3,
+	quietHours: '23-9',
+	quietEnabled: true,
+	paused: false
+};
+
 export const DEFAULT_SPEECH_SETTINGS: Readonly<SpeechSettings> = {
 	activeProvider: '',
 	activeLanguage: 'en',
@@ -78,6 +104,7 @@ export interface TypedModuleSettings {
 	consciousness: ConsciousnessSettings;
 	speech: SpeechSettings;
 	vision: VisionSettings;
+	proactive: ProactiveSettings;
 }
 
 export type ModuleSettings<Id extends string> = Id extends keyof TypedModuleSettings
@@ -87,7 +114,8 @@ export type ModuleSettings<Id extends string> = Id extends keyof TypedModuleSett
 const MODULE_DEFAULTS: Record<string, object> = {
 	consciousness: DEFAULT_CONSCIOUSNESS_SETTINGS,
 	speech: DEFAULT_SPEECH_SETTINGS,
-	vision: DEFAULT_VISION_SETTINGS
+	vision: DEFAULT_VISION_SETTINGS,
+	proactive: DEFAULT_PROACTIVE_SETTINGS
 };
 
 /** Saved keys win (including 0, false, ''); missing ones come from the defaults. */

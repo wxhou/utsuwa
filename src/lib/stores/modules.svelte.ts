@@ -185,6 +185,13 @@ function createModulesStore() {
 			});
 			moduleStates = new Map(moduleStates);
 			saveModuleState(moduleId);
+
+			// Modules that push a background snapshot need the post-flip state
+			// (their lifecycle hooks ran before enabled changed); existing
+			// modules keep this hook empty.
+			if (definition.onSettingsChange) {
+				definition.onSettingsChange(currentState.settings);
+			}
 		} catch (e) {
 			moduleStates.set(moduleId, {
 				...currentState,

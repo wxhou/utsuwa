@@ -15,7 +15,7 @@
 				// unprefixed English page. Mirrors global LANGS in SiteNav and
 				// SiteFooter, where the pills are defined.
 				var path = location.pathname;
-				var override = localStorage.getItem('marketing-lang');
+				var override = localStorage.getItem('utsuwa-marketing-lang');
 				if (path === '/' && !override) {
 					var prefs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]).filter(Boolean);
 					var prefersZh = prefs.some(function(entry) {

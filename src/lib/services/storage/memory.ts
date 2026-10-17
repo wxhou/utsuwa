@@ -151,6 +151,19 @@ export async function getFactsForSemanticSearch(
 	return facts.filter((f) => hasCurrentEmbedding(f)).map(deserializeFact);
 }
 
+// Wider than one so a recently used top candidate lets the next importance
+// through (lookback filtering lives in the check-in decision kernel).
+const CHECKIN_CANDIDATE_POOL = 10;
+
+export async function getFactsForCheckinCandidates(): Promise<Fact[]> {
+	const facts = await db.facts.orderBy('importance').reverse().limit(CHECKIN_CANDIDATE_POOL).toArray();
+	return facts.map(deserializeFact);
+}
+
+export async function markFactUsedAsTrigger(factId: number, now: Date): Promise<void> {
+	await db.facts.update(factId, { lastUsedAsTrigger: now });
+}
+
 // Sessions
 
 export async function getSessions(limit?: number): Promise<SessionSummary[]> {
@@ -235,7 +248,8 @@ function deserializeFact(fact: DBFact): Fact {
 	return {
 		...fact,
 		createdAt: new Date(fact.createdAt),
-		lastAccessed: fact.lastAccessed ? new Date(fact.lastAccessed) : undefined
+		lastAccessed: fact.lastAccessed ? new Date(fact.lastAccessed) : undefined,
+		lastUsedAsTrigger: fact.lastUsedAsTrigger ? new Date(fact.lastUsedAsTrigger) : undefined
 	};
 }
 

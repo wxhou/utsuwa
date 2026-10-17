@@ -58,6 +58,11 @@
 	import { startCompanionSession } from '$lib/services/session/companion-session';
 	import { createEventSession } from '$lib/services/session/event-session.svelte';
 	import { findReplayableEvent } from '$lib/engine/events';
+	import { t } from '$lib/i18n';
+	import {
+		registerNotificationCategories,
+		setNotificationReplySender
+	} from '$lib/services/modules/messaging/proactive-bridge';
 
 	let canvasRef: HTMLCanvasElement | null = null;
 
@@ -149,12 +154,22 @@
 		}
 	});
 
-	onMount(() =>
-		startCompanionSession({
+	onMount(() => {
+		// A reply typed into a notification runs the same chain as one typed here, so
+		// this window hands over its send pipeline and the button labels it knows how
+		// to write; the desktop layer resolves both when a notification is shown.
+		setNotificationReplySender((text) => void handleSend(text));
+		void registerNotificationCategories({
+			reply: t('proactive.actionReply'),
+			replyPlaceholder: t('proactive.actionReplyPlaceholder'),
+			replyButton: t('proactive.actionReplySend'),
+			complete: t('proactive.actionComplete')
+		});
+		return startCompanionSession({
 			send: (content, options) => handleSend(content, [], options),
 			onEvent: events.open
-		})
-	);
+		});
+	});
 
 	// Re-show an event abandoned in a previous session, once per session.
 	$effect(() => {

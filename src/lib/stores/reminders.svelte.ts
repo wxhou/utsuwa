@@ -8,6 +8,21 @@ import {
 	validateReminder,
 	DEFAULT_REMINDER_TTL_MS
 } from '$lib/utils/reminders';
+import { isTauri } from '$lib/services/platform';
+import { modulesStore } from '$lib/stores/modules.svelte';
+import { t } from '$lib/i18n';
+import {
+	checkinConfigFromSettings,
+	checkinFocus,
+	connectResidentEvents,
+	pushScheduleSnapshot,
+	sendNotificationReply,
+	type NotificationActionPayload,
+	type ReminderFired,
+	type SnapshotReminder
+} from '$lib/services/modules/messaging/proactive-bridge';
+import { handleCheckinSlotWake } from '$lib/services/modules/messaging/check-in-engine';
+import { logProactive } from '$lib/services/modules/messaging/telemetry';
 
 const POLL_INTERVAL_MS = 10000;
 // Grace must cover a full poll gap so a reminder never classifies as missed
@@ -44,6 +59,9 @@ async function loadUpcoming() {
 
 	items.sort((a, b) => a.triggerAt.getTime() - b.triggerAt.getTime());
 	upcoming = items as Reminder[];
+	// Every mutation funnels through here, so the resident scheduler re-syncs
+	// here too (no-op on the web; version bumps on each push).
+	await pushResidentSnapshot();
 }
 
 async function loadRecentFired() {
@@ -163,6 +181,86 @@ function handleVisibilityChange() {
 	checkReminders().catch((e) => console.error('[Reminders] Visibility check error:', e));
 }
 
+/** Scheduled reminders as the resident scheduler's snapshot rows. */
+export function scheduleSnapshotReminders(): SnapshotReminder[] {
+	const title = t('proactive.reminderNotifyTitle');
+	return upcoming.map((r) => ({
+		key: String(r.id),
+		triggerAt: r.triggerAt.getTime(),
+		title,
+		body: r.content,
+		sessionId: r.sessionId
+	}));
+}
+
+export async function pushResidentSnapshot(): Promise<void> {
+	await pushScheduleSnapshot(
+		scheduleSnapshotReminders(),
+		checkinConfigFromSettings(
+			modulesStore.getModuleSettings('proactive'),
+			modulesStore.isModuleEnabled('proactive')
+		)
+	);
+}
+
+/** A timer the Rust scheduler fired on time: claim it exactly like the poll
+ * path does, but skip the missed classification — firing happens when due. */
+async function handleResidentReminderFire(fire: ReminderFired) {
+	const id = Number(fire.key);
+	if (!Number.isInteger(id)) return;
+	const reminder = await db.reminders.get(id);
+	if (!reminder || reminder.executed) return;
+
+	// The OS would not carry this one, so the in-app entry is all the user gets.
+	// It is recorded on the row, not just in the event, so the marker survives a
+	// reload.
+	const undelivered = fire.delivery === 'undelivered' ? true : undefined;
+	const claimed = await db.reminders
+		.where('id')
+		.equals(id)
+		.and((r) => !r.executed)
+		.modify({ executed: 1, dismissed: 0, systemNotifyFailed: undelivered });
+	if (claimed === 0) return;
+
+	const fired = {
+		...reminder,
+		executed: 1,
+		dismissed: 0,
+		systemNotifyFailed: undelivered
+	} as Reminder;
+	if (!recentFired.some((r) => r.id === id)) {
+		recentFired.push(fired);
+	}
+	broadcastReminderFired(fired);
+	for (const callback of onReminderFiredCallbacks) {
+		callback(fired);
+	}
+	await loadUpcoming();
+}
+
+/** Deep-link routing for notification actions: a tap focuses the triggering memory
+ * card, a reply typed into the notification enters the normal chat chain, and
+ * "done" clears the reminder exactly as doing it in the list would. */
+function handleNotificationAction(payload: NotificationActionPayload) {
+	logProactive('notification_action', { action: payload.actionId, kind: payload.kind });
+	if (payload.kind === 'checkin' && payload.actionId === 'tap' && payload.memoryId !== undefined) {
+		checkinFocus.set({ memoryId: payload.memoryId, requestId: Date.now() });
+	}
+	if (payload.actionId === 'reply' && payload.userText) {
+		sendNotificationReply(payload.userText);
+	}
+	if (payload.actionId === 'complete') {
+		const id = Number(payload.key);
+		if (Number.isInteger(id)) {
+			dismissRecentFired(id).catch((e) =>
+				console.error('[Reminders] completing from a notification failed:', e)
+			);
+		}
+	}
+}
+
+let residentUnlisten: (() => void) | null = null;
+
 export function startPolling() {
 	if (!browser || pollTimer) return;
 
@@ -176,6 +274,26 @@ export function startPolling() {
 	}, POLL_INTERVAL_MS);
 
 	document.addEventListener('visibilitychange', handleVisibilityChange);
+
+	if (isTauri()) {
+		// Rust timers are the desktop authority; this store keeps polling as the
+		// fallback and owns the snapshot push + fire-event handling.
+		connectResidentEvents({
+			onReminderFired: (fire) => {
+				handleResidentReminderFire(fire).catch((e) =>
+					console.error('[Reminders] Rust fire handling error:', e)
+				);
+			},
+			onCheckinSlotWake: (slotAt) => {
+				handleCheckinSlotWake(slotAt).catch((e) =>
+					console.error('[Reminders] Check-in wake error:', e)
+				);
+			},
+			onNotificationAction: handleNotificationAction
+		}).then((unlisten) => {
+			residentUnlisten = unlisten;
+		});
+	}
 
 	// Restore any notifications from before the reload, then check for new ones.
 	loadRecentFired()
@@ -195,6 +313,11 @@ export function stopPolling() {
 		broadcastChannel.removeEventListener('message', handleBroadcastMessage);
 		broadcastChannel.close();
 		broadcastChannel = null;
+	}
+
+	if (residentUnlisten) {
+		residentUnlisten();
+		residentUnlisten = null;
 	}
 }
 
@@ -252,5 +375,7 @@ export const reminderStore = {
 	addReminder,
 	deleteReminder,
 	dismissRecentFired,
-	addReminderFiredListener
+	addReminderFiredListener,
+	scheduleSnapshotReminders,
+	pushResidentSnapshot
 };

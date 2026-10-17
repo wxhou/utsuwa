@@ -105,7 +105,7 @@ Build a meaningful relationship with your AI companion through a dating sim-insp
 - **Semantic Memory**: Facts are indexed with vector embeddings for meaning-based retrieval - "outdoor activities" finds memories about hiking. Runs locally using Transformers.js, no API calls
 - **Natural Progression**: Hybrid system combining app heuristics + LLM suggestions for believable relationship growth
 - **Time-Aware**: Your companion notices when you've been away and reacts accordingly
-- **Scheduled Tasks**: The companion can set timers/reminders for itself. Timers that fired while the app was closed are marked as missed and shown in the reminder dropdown for you to review and dismiss. The list survives a browser reload and is kept in sync across the main app and overlay windows
+- **Scheduled Tasks**: The companion can set timers/reminders for itself. In the web app, timers that fired while the page was closed are marked as missed and shown in the reminder dropdown to review and dismiss. In the desktop app, timers fire on time even with the window closed (see [Resident mode](#desktop-application-beta)); when the system will not carry the notification, the reminder still shows up in the dropdown marked as not sent as a notification, and the missed list is left for timers that never fired at all, such as when the app was terminated. The list survives a browser reload and is kept in sync across the main app and overlay windows
 
 See the [Companion System Architecture](https://docs.utsuwa.ai/technology/companion-system) for full details.
 
@@ -114,6 +114,8 @@ See the [Companion System Architecture](https://docs.utsuwa.ai/technology/compan
 A native desktop app built with Tauri that includes all web features plus:
 
 - **Overlay Mode**: Your companion floats on your desktop with a transparent background
+- **Resident Mode**: Closing the main window hides it while the app keeps running — tray/menu-bar icon, and timers that come due send a system notification you can click to return. Quit from the tray menu or Cmd+Q. Browser (web) behavior stays as before
+- **Proactive Check-ins** *(opt-in)*: Enabled in Settings, she may send an occasional unprompted message anchored in a real memory of you; every proactive message names the memory that triggered it, with a hard daily limit, quiet hours, and a pause switch. Web deployments offer this as disabled
 - **Always-on-Top**: The overlay stays visible over all other windows
 - **Draggable Positioning**: Click and drag the character to reposition anywhere on screen, or lock her in place
 - **Resizable Overlay**: Hover to reveal a soft frame and drag the corner tab to resize; your size is remembered
@@ -365,6 +367,8 @@ pnpm tauri build  # Build desktop app installer
 - [x] Mood expressions and brief reactions on request
 - [x] Animation library with custom VRMA uploads, idle pool, and thinking motion
 - [x] Personalized event moments written from shared memories
+- [x] Resident desktop mode - close hides the window (tray menu, quit, Cmd+Q), timers send system notifications while the window is closed, and notification deep-links return to the session
+- [x] Memory-anchored proactive check-ins - an opt-in desktop module with a hard daily cap, quiet hours, pause, auditable trigger memory, and a reply that lands as a new memory
 
 ### In Progress / Planned
 

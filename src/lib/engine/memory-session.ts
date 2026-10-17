@@ -1,6 +1,6 @@
 // Working memory and session bookkeeping: the in-RAM turn window, the
 // per-run session record, and hydration from IndexedDB on load.
-import type { ConversationTurn, WorkingMemory } from '$lib/types/memory';
+import type { CheckinMessageMeta, ConversationTurn, WorkingMemory } from '$lib/types/memory';
 import { MAX_WORKING_MEMORY_TURNS } from '$lib/types/memory';
 import * as memoryStorage from '$lib/services/storage/memory';
 import { STORAGE_INVENTORY } from '$lib/db/storage-inventory';
@@ -46,6 +46,7 @@ export interface RemoteTurn {
 	role: ConversationTurn['role'];
 	content: string;
 	createdAt: string;
+	metadata?: Partial<CheckinMessageMeta>;
 }
 
 let channel: BroadcastChannel | null = null;
@@ -54,7 +55,11 @@ const remoteListeners = new Set<(turn: RemoteTurn) => void>();
 function isRemoteTurn(data: unknown): data is RemoteTurn {
 	if (!data || typeof data !== 'object') return false;
 	const t = data as Partial<RemoteTurn>;
-	return (t.role === 'user' || t.role === 'assistant') && typeof t.content === 'string' && typeof t.createdAt === 'string';
+	if (!((t.role === 'user' || t.role === 'assistant') && typeof t.content === 'string' && typeof t.createdAt === 'string')) {
+		return false;
+	}
+	if (t.metadata && typeof t.metadata !== 'object') return false;
+	return true;
 }
 
 function openChannel(): BroadcastChannel | null {
@@ -120,7 +125,12 @@ export async function recordTurn(
 	const full: Omit<ConversationTurn, 'id'> = { ...turn, sessionId, createdAt: new Date() };
 
 	addTurnToWorkingMemory(full);
-	openChannel()?.postMessage({ role: full.role, content: full.content, createdAt: full.createdAt.toISOString() } satisfies RemoteTurn);
+	openChannel()?.postMessage({
+		role: full.role,
+		content: full.content,
+		createdAt: full.createdAt.toISOString(),
+		metadata: full.metadata
+	} satisfies RemoteTurn);
 
 	try {
 		await memoryStorage.saveConversationTurn(full);
@@ -134,6 +144,20 @@ export async function recordTurn(
 	} catch (e) {
 		console.debug('[Memory] Failed to persist conversation turn:', e);
 	}
+}
+
+/** Record a check-in turn like any other, with its proactive metadata so the
+ * other window renders the badge and the memory card. */
+export async function recordCheckinTurn(
+	greeting: string,
+	memoryId: number,
+	memoryContent: string
+): Promise<void> {
+	await recordTurn({
+		role: 'assistant',
+		content: greeting,
+		metadata: { proactive: true, memoryId, memoryContent }
+	});
 }
 
 // Get recent turns from working memory
